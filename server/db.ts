@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, tradingConfigs, TradingConfig, botLogs, trades } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -85,4 +85,99 @@ export async function getUser(id: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+/**
+ * Trading Config operations
+ */
+export async function getTradingConfig(userId: string): Promise<TradingConfig | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(tradingConfigs)
+    .where(eq(tradingConfigs.userId, userId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createTradingConfig(config: typeof tradingConfigs.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(tradingConfigs).values(config);
+}
+
+export async function updateTradingConfig(configId: string, updates: Partial<typeof tradingConfigs.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(tradingConfigs).set(updates).where(eq(tradingConfigs.id, configId));
+}
+
+/**
+ * Bot logs operations
+ */
+export async function getBotLogs(configId: string, limit: number = 100) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const result = await db
+    .select()
+    .from(botLogs)
+    .where(eq(botLogs.configId, configId))
+    .orderBy((t) => t.createdAt)
+    .limit(limit);
+
+  return result;
+}
+
+/**
+ * Trade history operations
+ */
+export async function getTradeHistory(userId: string, limit: number = 50) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const result = await db
+    .select()
+    .from(trades)
+    .where(eq(trades.userId, userId))
+    .orderBy((t) => t.createdAt)
+    .limit(limit);
+
+  return result;
+}
+
+export async function getTradeStats(userId: string) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const tradeHistory = await getTradeHistory(userId, 1000);
+
+  if (tradeHistory.length === 0) {
+    return {
+      totalTrades: 0,
+      buyTrades: 0,
+      sellTrades: 0,
+      successfulTrades: 0,
+      failedTrades: 0,
+      totalProfit: 0,
+    };
+  }
+
+  const buyTrades = tradeHistory.filter((t) => t.tradeType === "buy").length;
+  const sellTrades = tradeHistory.filter((t) => t.tradeType === "sell").length;
+  const successfulTrades = tradeHistory.filter((t) => t.status === "success").length;
+  const failedTrades = tradeHistory.filter((t) => t.status === "failed").length;
+
+  return {
+    totalTrades: tradeHistory.length,
+    buyTrades,
+    sellTrades,
+    successfulTrades,
+    failedTrades,
+    totalProfit: 0, // Would need more complex calculation
+  };
+}
+
