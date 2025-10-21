@@ -59,7 +59,7 @@ export class TradingBotEngine {
   private connection: Connection;
   private keypair: Keypair;
   private updateInterval: ReturnType<typeof setInterval> | null = null;
-  private minTimeBetweenTrades: number = 60000; // 1 minute minimum between trades
+  private minTimeBetweenTrades: number = 15000; // 15 seconds minimum between trades (reduced for more frequent trading)
 
   constructor(config: BotConfig) {
     this.config = config;
@@ -200,8 +200,14 @@ export class TradingBotEngine {
   ): Promise<void> {
     try {
       // Update balance
-      const balance = await getWalletBalance(this.connection, this.keypair.publicKey);
-      this.state.balance = balance;
+      let balance: number;
+      try {
+        balance = await getWalletBalance(this.connection, this.keypair.publicKey);
+        this.state.balance = balance;
+      } catch (error) {
+        await this.addLog(`⚠️ Failed to fetch balance, using cached: ${lamportsToSol(this.state.balance).toFixed(4)} SOL`, "warning");
+        balance = this.state.balance;
+      }
 
       // Calculate trade amount (50% of wallet)
       const tradeAmount = calculateTradeAmount(balance, this.config.tradeAmountPercent);
@@ -211,37 +217,53 @@ export class TradingBotEngine {
         return;
       }
 
+      if (balance < tradeAmount + 5000000) { // 0.005 SOL for fees
+        await this.addLog(`⚠️ Insufficient balance for trade. Need: ${lamportsToSol(tradeAmount + 5000000).toFixed(4)} SOL, Have: ${lamportsToSol(balance).toFixed(4)} SOL`, "warning");
+        return;
+      }
+
       let result: TradeResult;
 
       if (signal === "buy") {
-        // Buy SOL with USDC
-        // For now, simulate the trade
-        result = simulateTrade(
+        // Buy SOL with USDC - REAL ON-CHAIN EXECUTION
+        await this.addLog(`🔄 Executing BUY trade: ${lamportsToSol(tradeAmount).toFixed(4)} SOL worth of USDC`, "trade");
+        
+        result = await executeTrade(
+          this.connection,
+          this.keypair,
           {
             inputMint: "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T", // USDC
             outputMint: "So11111111111111111111111111111111111111112", // SOL
             amount: tradeAmount,
             slippageBps: Math.floor(this.config.slippageTolerance * 100),
-          },
-          price,
-          this.config.slippageTolerance
+          }
         );
 
-        await this.addLog(`✅ BUY signal executed: ${lamportsToSol(result.outputAmount).toFixed(4)} SOL`, "success");
+        if (result.status === "success") {
+          await this.addLog(`✅ BUY EXECUTED: ${lamportsToSol(result.outputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
+        } else {
+          await this.addLog(`❌ BUY FAILED: ${result.error}`, "error");
+        }
       } else {
-        // Sell SOL for USDC
-        result = simulateTrade(
+        // Sell SOL for USDC - REAL ON-CHAIN EXECUTION
+        await this.addLog(`🔄 Executing SELL trade: ${lamportsToSol(tradeAmount).toFixed(4)} SOL`, "trade");
+        
+        result = await executeTrade(
+          this.connection,
+          this.keypair,
           {
             inputMint: "So11111111111111111111111111111111111111112", // SOL
             outputMint: "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T", // USDC
             amount: tradeAmount,
             slippageBps: Math.floor(this.config.slippageTolerance * 100),
-          },
-          price,
-          this.config.slippageTolerance
+          }
         );
 
-        await this.addLog(`✅ SELL signal executed: ${lamportsToSol(result.inputAmount).toFixed(4)} SOL`, "success");
+        if (result.status === "success") {
+          await this.addLog(`✅ SELL EXECUTED: ${lamportsToSol(result.inputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
+        } else {
+          await this.addLog(`❌ SELL FAILED: ${result.error}`, "error");
+        }
       }
 
       // Store trade in database
