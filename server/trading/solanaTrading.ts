@@ -13,6 +13,7 @@ import {
   sendAndConfirmTransaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
+import { fetchWithRetry, getJupiterEndpoint } from "./networkResilience";
 
 export interface TradeParams {
   inputMint: string; // Token to sell (SOL or USDC)
@@ -101,10 +102,10 @@ export async function getTokenBalance(
 }
 
 /**
- * Execute a trade using Jupiter API
+ * Execute a trade using Jupiter API with retry logic
  * 
  * Jupiter is the leading DEX aggregator on Solana
- * This function gets a quote and executes the swap
+ * This function gets a quote and executes the swap with automatic retries
  */
 export async function executeTrade(
   connection: Connection,
@@ -112,14 +113,19 @@ export async function executeTrade(
   params: TradeParams
 ): Promise<TradeResult> {
   try {
-    // Step 1: Get quote from Jupiter
-    const quoteUrl = new URL("https://quote-api.jup.ag/v6/quote");
+    // Step 1: Get quote from Jupiter with retry logic
+    const jupiterEndpoint = await getJupiterEndpoint();
+    const quoteUrl = new URL(`${jupiterEndpoint}/quote`);
     quoteUrl.searchParams.append("inputMint", params.inputMint);
     quoteUrl.searchParams.append("outputMint", params.outputMint);
     quoteUrl.searchParams.append("amount", params.amount.toString());
     quoteUrl.searchParams.append("slippageBps", params.slippageBps.toString());
 
-    const quoteResponse = await fetch(quoteUrl.toString());
+    console.log(`[Trade] Getting quote from ${jupiterEndpoint}...`);
+    const quoteResponse = await fetchWithRetry(quoteUrl.toString(), {
+      maxRetries: 3,
+      timeoutMs: 15000,
+    });
     const quoteData = await quoteResponse.json();
 
     if (!quoteData.data) {
@@ -134,8 +140,9 @@ export async function executeTrade(
     console.log(`Quote received: ${inputAmount} -> ${outputAmount}`);
     console.log(`Price impact: ${priceImpact}%`);
 
-    // Step 2: Get swap transaction from Jupiter
-    const swapResponse = await fetch("https://quote-api.jup.ag/v6/swap", {
+    // Step 2: Get swap transaction from Jupiter with retry logic
+    console.log(`[Trade] Getting swap transaction from ${jupiterEndpoint}...`);
+    const swapResponse = await fetchWithRetry(`${jupiterEndpoint}/swap`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -145,6 +152,8 @@ export async function executeTrade(
         userPublicKey: keypair.publicKey.toString(),
         wrapAndUnwrapSol: true,
       }),
+      maxRetries: 3,
+      timeoutMs: 15000,
     });
 
     const swapData = await swapResponse.json();

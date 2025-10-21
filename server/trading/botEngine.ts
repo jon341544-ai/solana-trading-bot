@@ -263,6 +263,8 @@ export class TradingBotEngine {
           await this.addLog(`✅ BUY EXECUTED: ${lamportsToSol(result.outputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
         } else {
           await this.addLog(`❌ BUY FAILED: ${result.error}`, "error");
+          // Retry logic is handled in executeTrade, but log the failure
+          await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
         }
       } else {
         // Sell SOL for USDC - REAL ON-CHAIN EXECUTION
@@ -280,9 +282,11 @@ export class TradingBotEngine {
         );
 
         if (result.status === "success") {
-          await this.addLog(`✅ SELL EXECUTED: ${lamportsToSol(result.inputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
+          await this.addLog(`✅ SELL EXECUTED: ${lamportsToSol(result.inputAmount).toFixed(4)} SOL -> ${lamportsToSol(result.outputAmount).toFixed(4)} USDC | TX: ${result.txHash.slice(0, 20)}...`, "success");
         } else {
           await this.addLog(`❌ SELL FAILED: ${result.error}`, "error");
+          // Retry logic is handled in executeTrade, but log the failure
+          await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
         }
       }
 
