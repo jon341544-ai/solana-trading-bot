@@ -1,4 +1,3 @@
-import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
@@ -7,6 +6,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { restoreBotsFromDatabase, shutdownAllBots } from "../trading/botManager";
+import { startHealthMonitor, stopHealthMonitor } from "../trading/botHealthMonitor";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -60,6 +61,40 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });
+
+  // Restore bots from database on startup
+  console.log("[Server] Restoring bots from database...");
+  try {
+    await restoreBotsFromDatabase();
+    console.log("[Server] Bot restoration complete");
+  } catch (error) {
+    console.error("[Server] Failed to restore bots:", error);
+  }
+
+  // Start health monitor to keep bots running
+  startHealthMonitor(60000); // Check every 60 seconds
+
+  // Handle graceful shutdown
+  process.on("SIGTERM", async () => {
+    console.log("[Server] SIGTERM received, shutting down gracefully...");
+    stopHealthMonitor();
+    await shutdownAllBots();
+    server.close(() => {
+      console.log("[Server] Server closed");
+      process.exit(0);
+    });
+  });
+
+  process.on("SIGINT", async () => {
+    console.log("[Server] SIGINT received, shutting down gracefully...");
+    stopHealthMonitor();
+    await shutdownAllBots();
+    server.close(() => {
+      console.log("[Server] Server closed");
+      process.exit(0);
+    });
+  });
 }
 
 startServer().catch(console.error);
+

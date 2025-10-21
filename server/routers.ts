@@ -12,9 +12,7 @@ import {
   getTradeStats,
 } from "./db";
 import { TradingBotEngine, BotConfig } from "./trading/botEngine";
-
-// Store active bot instances per user
-const activeBots = new Map<string, TradingBotEngine>();
+import { startBotForUser, stopBotForUser, getBotStatus as getBotStatusFromManager, isBotRunning } from "./trading/botManager";
 
 export const appRouter = router({
   system: systemRouter,
@@ -108,11 +106,11 @@ export const appRouter = router({
       }
 
       // Check if bot is already running
-      if (activeBots.has(ctx.user.id)) {
+      if (isBotRunning(ctx.user.id)) {
         return { success: true, message: "Bot is already running" };
       }
 
-      // Create and start bot
+      // Create and start bot using the bot manager
       const botConfig: BotConfig = {
         userId: ctx.user.id,
         configId: config.id,
@@ -126,37 +124,26 @@ export const appRouter = router({
         autoTrade: config.autoTrade || false,
       };
 
-      const bot = new TradingBotEngine(botConfig);
-      await bot.start();
+      const success = await startBotForUser(ctx.user.id, botConfig);
 
-      activeBots.set(ctx.user.id, bot);
-
-      return { success: true, message: "Bot started successfully" };
+      return { success, message: success ? "Bot started successfully" : "Failed to start bot" };
     }),
 
     /**
      * Stop the trading bot
      */
     stopBot: protectedProcedure.mutation(async ({ ctx }) => {
-      const bot = activeBots.get(ctx.user.id);
-
-      if (!bot) {
-        return { success: true, message: "Bot is not running" };
-      }
-
-      await bot.stop();
-      activeBots.delete(ctx.user.id);
-
-      return { success: true, message: "Bot stopped successfully" };
+      const success = await stopBotForUser(ctx.user.id);
+      return { success, message: success ? "Bot stopped successfully" : "Failed to stop bot" };
     }),
 
     /**
      * Get bot status
      */
     getBotStatus: protectedProcedure.query(async ({ ctx }) => {
-      const bot = activeBots.get(ctx.user.id);
+      const botStatus = getBotStatusFromManager(ctx.user.id);
 
-      if (!bot) {
+      if (!botStatus || !botStatus.isRunning) {
         return {
           isRunning: false,
           balance: 0,
@@ -165,9 +152,7 @@ export const appRouter = router({
           lastTradeTime: null,
         };
       }
-
-      const status = bot.getStatus();
-      return status;
+      return botStatus as any;
     }),
 
     /**
