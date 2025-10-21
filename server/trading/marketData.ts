@@ -12,29 +12,89 @@ export interface PriceData {
   source: string;
 }
 
+// Cache for price data
+let priceCache: { data: PriceData; timestamp: number } | null = null;
+const PRICE_CACHE_TTL = 30000; // 30 seconds
+
 /**
- * Fetch current SOL/USD price from CoinGecko API
+ * Fetch current SOL/USD price from CoinGecko API with retry logic and fallback
  */
 export async function fetchSOLPrice(): Promise<PriceData> {
-  try {
-    const response = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_market_cap=true&include_24hr_vol=true"
-    );
-    const data = await response.json();
-
-    if (!data.solana || !data.solana.usd) {
-      throw new Error("Invalid response from CoinGecko");
-    }
-
-    return {
-      timestamp: Date.now(),
-      price: data.solana.usd,
-      source: "coingecko",
-    };
-  } catch (error) {
-    console.error("Failed to fetch SOL price:", error);
-    throw new Error(`Failed to fetch SOL price: ${error}`);
+  // Check cache first
+  if (priceCache && Date.now() - priceCache.timestamp < PRICE_CACHE_TTL) {
+    return priceCache.data;
   }
+
+  // Try multiple sources with retry logic
+  const sources = [
+    {
+      name: "coingecko",
+      url: "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+      parser: (data: any) => data.solana?.usd,
+    },
+    {
+      name: "coingecko-alt",
+      url: "https://api.coingecko.com/api/v3/coins/solana?localization=false",
+      parser: (data: any) => data.market_data?.current_price?.usd,
+    },
+  ];
+
+  for (const source of sources) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(source.url, {
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        const price = source.parser(data);
+
+        if (!price || typeof price !== "number") {
+          throw new Error("Invalid price data");
+        }
+
+        const priceData: PriceData = {
+          timestamp: Date.now(),
+          price,
+          source: source.name,
+        };
+
+        // Cache the result
+        priceCache = { data: priceData, timestamp: Date.now() };
+        console.log(`Successfully fetched SOL price: $${price} from ${source.name}`);
+        return priceData;
+      } catch (error) {
+        console.warn(
+          `Attempt ${attempt + 1} failed for ${source.name}:`,
+          error
+        );
+        if (attempt < 2) {
+          // Wait before retry with exponential backoff
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.pow(2, attempt) * 1000)
+          );
+        }
+      }
+    }
+  }
+
+  // If all sources failed, use cached price if available
+  if (priceCache) {
+    console.warn("All price sources failed, using cached price");
+    return priceCache.data;
+  }
+
+  // Last resort: throw error
+  throw new Error("Failed to fetch SOL price from all sources");
 }
 
 /**
@@ -76,7 +136,19 @@ export async function fetchHistoricalOHLCV(
         ? `https://api.coingecko.com/api/v3/coins/solana/ohlc?vs_currency=usd&days=${days}`
         : `https://api.coingecko.com/api/v3/coins/solana/ohlc?vs_currency=usd&days=${days}`;
 
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
     const data = await response.json();
 
     if (!Array.isArray(data)) {

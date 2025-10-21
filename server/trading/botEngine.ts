@@ -17,6 +17,7 @@ import {
   generateSimulatedOHLCV,
   solToLamports,
   lamportsToSol,
+  PriceData,
 } from "./marketData";
 import {
   createConnection,
@@ -132,8 +133,27 @@ export class TradingBotEngine {
    */
   private async update(): Promise<void> {
     try {
-      // Fetch current price
-      const priceData = await fetchSOLPrice();
+      // Fetch current price with retry logic
+      let priceData: PriceData | null = null;
+      let priceRetries = 0;
+      while (priceRetries < 3) {
+        try {
+          priceData = await fetchSOLPrice();
+          break;
+        } catch (error) {
+          priceRetries++;
+          if (priceRetries >= 3) {
+            await this.addLog(`Warning: Failed to fetch price after 3 attempts: ${error}`, "warning");
+            return; // Skip this update cycle
+          }
+          await this.addLog(`Retrying price fetch (attempt ${priceRetries}/3)...`, "info");
+          await new Promise((resolve) => setTimeout(resolve, 2000 * priceRetries));
+        }
+      }
+      if (!priceData) {
+        await this.addLog("Error: Could not fetch price data", "error");
+        return;
+      }
       this.state.lastPrice = priceData.price;
 
       // Fetch historical data for SuperTrend calculation
