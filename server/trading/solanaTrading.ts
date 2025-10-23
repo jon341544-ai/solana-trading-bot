@@ -179,7 +179,10 @@ export async function executeTrade(
     
     console.log(`[Trade] Quote URL: ${quoteUrl}`);
     
-    const quoteResponse = await fetch(quoteUrl);
+    const quoteResponse = await fetchWithRetry(quoteUrl, {
+      maxRetries: 3,
+      timeoutMs: 20000,
+    });
     if (!quoteResponse.ok) {
       throw new Error(`Failed to get Jupiter quote: ${quoteResponse.statusText}`);
     }
@@ -194,7 +197,7 @@ export async function executeTrade(
     // Step 2: Get swap transaction from Jupiter
     console.log(`[Trade] Building Jupiter swap transaction...`);
     
-    const swapResponse = await fetch('https://quote-api.jup.ag/v6/swap', {
+     const swapResponse = await fetchWithRetry('https://quote-api.jup.ag/v6/swap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -204,8 +207,9 @@ export async function executeTrade(
         dynamicComputeUnitLimit: true,
         prioritizationFeeLamports: 'auto',
       }),
+      maxRetries: 3,
+      timeoutMs: 20000,
     });
-    
     if (!swapResponse.ok) {
       throw new Error(`Failed to get swap transaction: ${swapResponse.statusText}`);
     }
