@@ -48,11 +48,14 @@ export interface BotConfig {
 export interface BotState {
   isRunning: boolean;
   lastSignal: SuperTrendResult | null;
-  lastTradeTime: number;
-  balance: number; // SOL balance in lamports
-  usdcBalance: number; // USDC balance in smallest units
   lastPrice: number;
+  solBalance: number;
+  usdcBalance: number;
+  lastTradeTime: number;
+  lastUpdate: Date;
 }
+
+const USDC_MINT = "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T";
 
 export class TradingBotEngine {
   private config: BotConfig;
@@ -60,62 +63,49 @@ export class TradingBotEngine {
   private connection: Connection;
   private keypair: Keypair;
   private updateInterval: ReturnType<typeof setInterval> | null = null;
-  private minTimeBetweenTrades: number = 15000; // 15 seconds minimum between trades (reduced for more frequent trading)
+  private minTimeBetweenTrades = 15000; // 15 seconds minimum between trades
 
   constructor(config: BotConfig) {
     this.config = config;
     this.connection = createConnection(config.rpcUrl);
     this.keypair = createKeypairFromBase58(config.privateKey);
+
     this.state = {
       isRunning: false,
       lastSignal: null,
-      lastTradeTime: 0,
-      balance: 0,
-      usdcBalance: 0,
       lastPrice: 0,
+      solBalance: 0,
+      usdcBalance: 0,
+      lastTradeTime: 0,
+      lastUpdate: new Date(),
     };
   }
 
   /**
-   * Start the bot
+   * Start the trading bot
    */
-  async start(): Promise<void> {
+  public async start(): Promise<void> {
     if (this.state.isRunning) {
-      await this.addLog("Bot is already running", "warning");
+      console.log("[Bot] Bot is already running");
       return;
     }
 
     this.state.isRunning = true;
-    await this.addLog("🤖 Bot started", "success");
+    await this.addLog("🤖 Bot started", "info");
 
-    try {
-      // Update balance
-      const balance = await getWalletBalance(this.connection, this.keypair.publicKey);
-      this.state.balance = balance;
-      await this.addLog(`💰 Wallet balance: ${lamportsToSol(balance).toFixed(4)} SOL`, "info");
+    // Run update immediately
+    await this.update();
 
-      // Start the trading loop
-      this.updateInterval = setInterval(() => {
-        this.update().catch((error) => {
-          console.error("Error in bot update:", error);
-        });
-      }, 30000); // Update every 30 seconds
-
-      // Run first update immediately
-      await this.update();
-    } catch (error) {
-      this.state.isRunning = false;
-      await this.addLog(`❌ Failed to start bot: ${error}`, "error");
-      throw error;
-    }
+    // Then set up interval for subsequent updates
+    this.updateInterval = setInterval(() => this.update(), 30000); // Update every 30 seconds
   }
 
   /**
-   * Stop the bot
+   * Stop the trading bot
    */
-  async stop(): Promise<void> {
+  public async stop(): Promise<void> {
     if (!this.state.isRunning) {
-      await this.addLog("Bot is not running", "warning");
+      console.log("[Bot] Bot is not running");
       return;
     }
 
@@ -126,7 +116,21 @@ export class TradingBotEngine {
       this.updateInterval = null;
     }
 
-    await this.addLog("🛑 Bot stopped", "error");
+    await this.addLog("🛑 Bot stopped", "info");
+  }
+
+  /**
+   * Get current bot status
+   */
+  public getStatus() {
+      return {
+        isRunning: this.state.isRunning,
+        lastPrice: this.state.lastPrice,
+        solBalance: this.state.solBalance,
+        usdcBalance: this.state.usdcBalance,
+        lastSignal: this.state.lastSignal || null,
+        lastUpdate: this.state.lastUpdate,
+      };
   }
 
   /**
@@ -134,36 +138,52 @@ export class TradingBotEngine {
    */
   private async update(): Promise<void> {
     try {
-      // Fetch current price with retry logic and fallback
+      // Fetch current price with retry logic
       let priceData: PriceData | null = null;
       let priceRetries = 0;
-      
-      while (priceRetries < 3) {
+
+      while (priceRetries < 3 && (!priceData || priceData.price === 0)) {
         try {
           priceData = await fetchSOLPrice();
           if (priceData && priceData.price > 0) {
             this.state.lastPrice = priceData.price;
+            await this.addLog(`✅ Price updated: $${this.state.lastPrice.toFixed(2)}`, "info");
             break;
           }
         } catch (error) {
           priceRetries++;
+          await this.addLog(`Price fetch attempt ${priceRetries}/3 failed, retrying...`, "warning");
           if (priceRetries < 3) {
-            await this.addLog(`Retrying price fetch (attempt ${priceRetries}/3)...`, "info");
-            await new Promise((resolve) => setTimeout(resolve, 2000 * priceRetries));
+            await new Promise((resolve) => setTimeout(resolve, 1000 * priceRetries));
           }
         }
       }
-      
+
       // If we still don't have price data, use a fallback
       if (!priceData || priceData.price === 0) {
-        await this.addLog(`Warning: Could not fetch live price, using cached price: $${this.state.lastPrice.toFixed(2)}`, "warning");
-        // Continue with cached price instead of returning
         if (this.state.lastPrice === 0) {
-          // Use a reasonable default if we have no price at all
           this.state.lastPrice = 190; // Default SOL price
+          await this.addLog(`⚠️ Using default price: $${this.state.lastPrice}`, "warning");
+        } else {
+          await this.addLog(`⚠️ Using cached price: $${this.state.lastPrice.toFixed(2)}`, "warning");
         }
-      } else {
-        await this.addLog(`✅ Price updated: $${this.state.lastPrice.toFixed(2)}`, "info");
+      }
+
+      // Fetch wallet balances
+      try {
+        const solBalance = await getWalletBalance(this.connection, this.keypair.publicKey);
+        this.state.solBalance = solBalance;
+        await this.addLog(`💰 SOL Balance: ${lamportsToSol(solBalance).toFixed(4)} SOL`, "info");
+      } catch (error) {
+        await this.addLog(`Failed to fetch SOL balance: ${error}`, "warning");
+      }
+
+      try {
+        const usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, USDC_MINT);
+        this.state.usdcBalance = usdcBalance;
+        await this.addLog(`💵 USDC Balance: ${(usdcBalance / 1e6).toFixed(2)} USDC`, "info");
+      } catch (error) {
+        await this.addLog(`Failed to fetch USDC balance: ${error}`, "warning");
       }
 
       // Fetch historical data for SuperTrend calculation
@@ -216,6 +236,7 @@ export class TradingBotEngine {
       }
 
       this.state.lastSignal = currentSignal;
+      this.state.lastUpdate = new Date();
     } catch (error) {
       await this.addLog(`❌ Update error: ${error}`, "error");
     }
@@ -225,193 +246,124 @@ export class TradingBotEngine {
    * Execute a trade
    */
   private async executeTrade(
-    signal: "buy" | "sell",
+    signal: string,
     price: number,
-    superTrendSignal: SuperTrendResult
+    superTrendResult: SuperTrendResult
   ): Promise<void> {
     try {
-      // Update SOL and USDC balances
-      let balance: number;
-      let usdcBalance: number;
-      try {
-        balance = await getWalletBalance(this.connection, this.keypair.publicKey);
-        usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T");
-        this.state.balance = balance;
-        this.state.usdcBalance = usdcBalance;
-      } catch (error) {
-        await this.addLog(`⚠️ Failed to fetch balances, using cached`, "warning");
-        balance = this.state.balance;
-        usdcBalance = this.state.usdcBalance;
-      }
-      
-      await this.addLog(`💰 Wallet: ${lamportsToSol(balance).toFixed(4)} SOL, ${(usdcBalance / 1e6).toFixed(2)} USDC`, "info");
+      await this.addLog(`🔄 Executing ${signal} trade: ${this.config.tradeAmountPercent}% of wallet`, "trade");
 
-      // Calculate trade amount (50% of wallet)
-      const tradeAmount = calculateTradeAmount(balance, this.config.tradeAmountPercent);
+      // Calculate trade amount
+      const tradeAmount = calculateTradeAmount(this.state.solBalance, this.config.tradeAmountPercent);
 
-      if (tradeAmount < 1000) {
-        await this.addLog(`⚠️ Trade amount too small: ${lamportsToSol(tradeAmount).toFixed(4)} SOL`, "warning");
+      if (tradeAmount <= 0) {
+        await this.addLog(`❌ Insufficient balance for trade`, "error");
         return;
       }
 
-      if (balance < tradeAmount + 5000000) { // 0.005 SOL for fees
-        await this.addLog(`⚠️ Insufficient balance for trade. Need: ${lamportsToSol(tradeAmount + 5000000).toFixed(4)} SOL, Have: ${lamportsToSol(balance).toFixed(4)} SOL`, "warning");
-        return;
-      }
+      const params: TradeParams = {
+        inputMint: signal === "buy" ? USDC_MINT : "So11111111111111111111111111111111111111112",
+        outputMint: signal === "buy" ? "So11111111111111111111111111111111111111112" : USDC_MINT,
+        amount: tradeAmount,
+        slippageBps: Math.floor(this.config.slippageTolerance * 100),
+      };
 
-      let result: TradeResult;
+      const result = await executeTrade(this.connection, this.keypair, params);
 
-      if (signal === "buy") {
-        // Buy SOL with USDC - REAL ON-CHAIN EXECUTION
-        await this.addLog(`🔄 Executing BUY trade: ${lamportsToSol(tradeAmount).toFixed(4)} SOL worth of USDC`, "trade");
-        
-        result = await executeTrade(
-          this.connection,
-          this.keypair,
-          {
-            inputMint: "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T", // USDC
-            outputMint: "So11111111111111111111111111111111111111112", // SOL
-            amount: tradeAmount,
-            slippageBps: Math.floor(this.config.slippageTolerance * 100),
-          }
+      if (result.status === "success") {
+        await this.addLog(
+          `✅ ${signal.toUpperCase()} EXECUTED: ${result.inputAmount} → ${result.outputAmount} (TX: ${result.txHash})`,
+          "trade"
         );
-
-        if (result.status === "success") {
-          await this.addLog(`✅ BUY EXECUTED: ${lamportsToSol(result.outputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
-        } else {
-          await this.addLog(`❌ BUY FAILED: ${result.error}`, "error");
-          // Retry logic is handled in executeTrade, but log the failure
-          await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
-        }
+        await this.storeTrade(signal, price, result);
       } else {
-        // Sell SOL for USDC - REAL ON-CHAIN EXECUTION
-        await this.addLog(`🔄 Executing SELL trade: ${lamportsToSol(tradeAmount).toFixed(4)} SOL`, "trade");
-        
-        result = await executeTrade(
-          this.connection,
-          this.keypair,
-          {
-            inputMint: "So11111111111111111111111111111111111111112", // SOL
-            outputMint: "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T", // USDC
-            amount: tradeAmount,
-            slippageBps: Math.floor(this.config.slippageTolerance * 100),
-          }
+        await this.addLog(
+          `❌ ${signal.toUpperCase()} FAILED: ${result.error}`,
+          "error"
         );
-
-        if (result.status === "success") {
-          await this.addLog(`✅ SELL EXECUTED: ${lamportsToSol(result.inputAmount).toFixed(4)} SOL -> ${lamportsToSol(result.outputAmount).toFixed(4)} USDC | TX: ${result.txHash.slice(0, 20)}...`, "success");
-        } else {
-          await this.addLog(`❌ SELL FAILED: ${result.error}`, "error");
-          // Retry logic is handled in executeTrade, but log the failure
-          await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
-        }
+        await this.storeTrade(signal, price, result);
       }
-
-      // Store trade in database
-      await this.storeTrade(signal, result, price, superTrendSignal);
     } catch (error) {
-      await this.addLog(`❌ Trade execution failed: ${error}`, "error");
+      await this.addLog(`❌ Trade execution error: ${error}`, "error");
     }
   }
 
   /**
-   * Store market data in database
+   * Store market data to database
    */
-  private async storeMarketData(price: number, signal: SuperTrendResult): Promise<void> {
+  private async storeMarketData(price: number, superTrendResult: SuperTrendResult): Promise<void> {
     try {
       const db = await getDb();
       if (!db) return;
 
       const data: InsertMarketData = {
-        id: `md_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-        timestamp: new Date(),
-        solPrice: price.toString(),
-        high: signal.upperBand.toString(),
-        low: signal.lowerBand.toString(),
+        id: `md_${Date.now()}_${Math.random()}`,
         close: price.toString(),
+        solPrice: price.toString(),
+        high: price.toString(),
+        low: price.toString(),
         volume: "0",
-        superTrendValue: signal.value.toString(),
-        trendDirection: signal.direction,
+        superTrendValue: price.toString(),
+        trendDirection: "up",
+        timestamp: new Date(),
       };
 
       await db.insert(marketData).values(data);
     } catch (error) {
-      console.error("Failed to store market data:", error);
+      console.error("[Bot] Failed to store market data:", error);
     }
   }
 
   /**
-   * Store trade in database
+   * Store trade to database
    */
-  private async storeTrade(
-    signal: "buy" | "sell",
-    result: TradeResult,
-    price: number,
-    superTrendSignal: SuperTrendResult
-  ): Promise<void> {
+  private async storeTrade(signal: string, price: number, result: TradeResult): Promise<void> {
     try {
       const db = await getDb();
       if (!db) return;
 
       const trade: InsertTrade = {
-        id: `trade_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        id: `trade_${Date.now()}_${Math.random()}`,
         userId: this.config.userId,
         configId: this.config.configId,
-        tradeType: signal,
-        tokenIn: signal === "buy" ? "USDC" : "SOL",
-        tokenOut: signal === "buy" ? "SOL" : "USDC",
+        tradeType: signal as "buy" | "sell",
+        tokenIn: signal === "buy" ? USDC_MINT : "So11111111111111111111111111111111111111112",
+        tokenOut: signal === "buy" ? "So11111111111111111111111111111111111111112" : USDC_MINT,
         amountIn: result.inputAmount.toString(),
         amountOut: result.outputAmount.toString(),
         priceAtExecution: price.toString(),
-        superTrendSignal: signal,
-        superTrendValue: superTrendSignal.value.toString(),
+        superTrendSignal: signal as "buy" | "sell",
         txHash: result.txHash,
-        status: result.status === "success" ? "success" : "failed",
+        status: result.status,
       };
 
       await db.insert(trades).values(trade);
     } catch (error) {
-      console.error("Failed to store trade:", error);
+      console.error("[Bot] Failed to store trade:", error);
     }
   }
 
   /**
    * Add log entry
    */
-  private async addLog(message: string, type: "info" | "success" | "error" | "warning" | "trade"): Promise<void> {
+  private async addLog(message: string, type: string = "info"): Promise<void> {
     try {
+      console.log(`[Bot] ${message}`);
       const db = await getDb();
-      if (!db) {
-        console.log(`[${type}] ${message}`);
-        return;
-      }
+      if (!db) return;
 
       const log: InsertBotLog = {
-        id: `log_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        id: `log_${Date.now()}_${Math.random()}`,
         userId: this.config.userId,
         configId: this.config.configId,
-        logType: type,
         message,
+        logType: type as "error" | "success" | "info" | "warning" | "trade",
       };
 
       await db.insert(botLogs).values(log);
     } catch (error) {
-      console.error("Failed to store log:", error);
+      console.error("[Bot] Failed to add log:", error);
     }
-  }
-
-  /**
-   * Get bot status
-   */
-  getStatus() {
-    return {
-      isRunning: this.state.isRunning,
-      balance: lamportsToSol(this.state.balance),
-      usdcBalance: this.state.usdcBalance / 1e6, // Convert to USDC (6 decimals)
-      lastPrice: this.state.lastPrice,
-      lastSignal: this.state.lastSignal,
-      lastTradeTime: new Date(this.state.lastTradeTime),
-    };
   }
 }
 
