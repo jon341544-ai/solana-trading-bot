@@ -30,6 +30,7 @@ export default function Home() {
   const updateConfigMutation = trpc.trading.updateConfig.useMutation();
   const startBotMutation = trpc.trading.startBot.useMutation();
   const stopBotMutation = trpc.trading.stopBot.useMutation();
+  const testTransactionMutation = trpc.trading.testTransaction.useMutation();
   const botStatusQuery = trpc.trading.getBotStatus.useQuery(undefined, {
     enabled: isAuthenticated,
     refetchInterval: 5000, // Refresh every 5 seconds
@@ -106,6 +107,28 @@ export default function Home() {
     }
   };
 
+  const handleTestTransaction = async (type: "buy" | "sell") => {
+    setIsLoading(true);
+    try {
+      const result = await testTransactionMutation.mutateAsync({
+        transactionType: type,
+        amount: 0.01,
+      });
+
+      if (result.success) {
+        alert(`Test ${type.toUpperCase()} transaction successful!\nTX Hash: ${result.txHash}`);
+        logsQuery.refetch();
+        tradeHistoryQuery.refetch();
+      } else {
+        alert(`Test ${type.toUpperCase()} transaction failed: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Error executing test transaction: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-purple-900">
@@ -158,19 +181,19 @@ export default function Home() {
               <div>
                 <Label className="text-gray-400">Balance</Label>
                 <p className="text-lg font-bold text-white">
-                  {botStatusQuery.data?.balance?.toFixed(4) || "0.0000"} SOL
+                  {botStatusQuery.data && "balance" in botStatusQuery.data ? (botStatusQuery.data.balance?.toFixed(4) || "0.0000") : "0.0000"} SOL
                 </p>
               </div>
               <div>
                 <Label className="text-gray-400">Current Price</Label>
                 <p className="text-lg font-bold text-white">
-                  ${botStatusQuery.data?.lastPrice?.toFixed(2) || "0.00"}
+                  ${botStatusQuery.data && "currentPrice" in botStatusQuery.data ? (botStatusQuery.data.currentPrice?.toFixed(2) || "0.00") : "0.00"}
                 </p>
               </div>
               <div>
                 <Label className="text-gray-400">Trend</Label>
-                <p className={`text-lg font-bold ${botStatusQuery.data?.lastSignal?.direction === "up" ? "text-green-400" : "text-red-400"}`}>
-                  {botStatusQuery.data?.lastSignal?.direction === "up" ? "📈 Up" : "📉 Down"}
+                <p className={`text-lg font-bold ${botStatusQuery.data && "trend" in botStatusQuery.data && botStatusQuery.data.trend === "up" ? "text-green-400" : "text-red-400"}`}>
+                  {botStatusQuery.data && "trend" in botStatusQuery.data && botStatusQuery.data.trend === "up" ? "📈 Up" : "📉 Down"}
                 </p>
               </div>
             </div>
@@ -338,6 +361,27 @@ export default function Home() {
                   >
                     ⏹️ Stop Bot
                   </Button>
+
+                <div className="mt-6 pt-6 border-t border-slate-700">
+                  <h3 className="text-purple-300 font-semibold mb-4">Test Transaction</h3>
+                  <p className="text-gray-400 text-sm mb-4">Use this to verify the bot can execute trades on the blockchain.</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button
+                      onClick={() => handleTestTransaction("buy")}
+                      disabled={isLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Test BUY
+                    </Button>
+                    <Button
+                      onClick={() => handleTestTransaction("sell")}
+                      disabled={isLoading}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      Test SELL
+                    </Button>
+                  </div>
+                </div>
                 </div>
               </CardContent>
             </Card>

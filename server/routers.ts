@@ -98,21 +98,15 @@ export const appRouter = router({
       const config = await getTradingConfig(ctx.user.id);
 
       if (!config) {
-        throw new Error("Trading configuration not found. Please set up your configuration first.");
+        throw new Error("No trading configuration found");
       }
 
       if (!config.solanaPrivateKey) {
         throw new Error("Private key not configured");
       }
 
-      // Check if bot is already running
-      if (isBotRunning(ctx.user.id)) {
-        return { success: true, message: "Bot is already running" };
-      }
-
-      // Create and start bot using the bot manager
       const botConfig: BotConfig = {
-        userId: ctx.user.id,
+        userId: config.userId,
         configId: config.id,
         privateKey: config.solanaPrivateKey,
         rpcUrl: config.rpcUrl || "https://api.mainnet-beta.solana.com",
@@ -125,8 +119,7 @@ export const appRouter = router({
       };
 
       const success = await startBotForUser(ctx.user.id, botConfig);
-
-      return { success, message: success ? "Bot started successfully" : "Failed to start bot" };
+      return { success };
     }),
 
     /**
@@ -134,25 +127,38 @@ export const appRouter = router({
      */
     stopBot: protectedProcedure.mutation(async ({ ctx }) => {
       const success = await stopBotForUser(ctx.user.id);
-      return { success, message: success ? "Bot stopped successfully" : "Failed to stop bot" };
+      return { success };
     }),
 
     /**
      * Get bot status
      */
     getBotStatus: protectedProcedure.query(async ({ ctx }) => {
-      const botStatus = getBotStatusFromManager(ctx.user.id);
-
-      if (!botStatus || !botStatus.isRunning) {
+      const config = await getTradingConfig(ctx.user.id);
+      if (!config) {
         return {
           isRunning: false,
+          currentPrice: 0,
           balance: 0,
-          lastPrice: 0,
+          trend: "neutral",
           lastSignal: null,
           lastTradeTime: null,
         };
       }
-      return botStatus as any;
+
+      const botStatus = getBotStatusFromManager(ctx.user.id);
+      if (botStatus) {
+        return botStatus;
+      }
+
+      return {
+        isRunning: false,
+        currentPrice: 0,
+        balance: 0,
+        trend: "neutral",
+        lastSignal: null,
+        lastTradeTime: null,
+      };
     }),
 
     /**
@@ -190,6 +196,60 @@ export const appRouter = router({
     getTradeStats: protectedProcedure.query(async ({ ctx }) => {
       return await getTradeStats(ctx.user.id);
     }),
+
+    /**
+     * Execute a manual test transaction
+     */
+    testTransaction: protectedProcedure
+      .input(
+        z.object({
+          transactionType: z.enum(["buy", "sell"]),
+          amount: z.number().min(0.001).max(1000),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const config = await getTradingConfig(ctx.user.id);
+        if (!config) {
+          throw new Error("No trading configuration found");
+        }
+
+        if (!config.solanaPrivateKey) {
+          throw new Error("Private key not configured");
+        }
+
+        const { createConnection, createKeypairFromBase58, executeTrade } = await import("./trading/solanaTrading");
+        const { solToLamports } = await import("./trading/marketData");
+
+        try {
+          const connection = createConnection(config.rpcUrl || "https://api.mainnet-beta.solana.com");
+          const keypair = createKeypairFromBase58(config.solanaPrivateKey);
+
+          const tradeAmount = solToLamports(input.amount);
+          const slippageBps = Math.floor((config.slippageTolerance ? parseFloat(config.slippageTolerance.toString()) : 1.5) * 100);
+
+          const result = await executeTrade(
+            connection,
+            keypair,
+            {
+              inputMint: input.transactionType === "buy" ? "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T" : "So11111111111111111111111111111111111111112",
+              outputMint: input.transactionType === "buy" ? "So11111111111111111111111111111111111111112" : "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T",
+              amount: tradeAmount,
+              slippageBps: slippageBps,
+            }
+          );
+
+          return {
+            success: result.status === "success",
+            txHash: result.txHash,
+            error: result.error,
+            inputAmount: result.inputAmount,
+            outputAmount: result.outputAmount,
+            priceImpact: result.priceImpact,
+          };
+        } catch (error) {
+          throw new Error(`Test transaction failed: ${error}`);
+        }
+      }),
   }),
 });
 
