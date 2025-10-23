@@ -166,6 +166,17 @@ export class TradingBotEngine {
         await this.addLog(`✅ Price updated: $${this.state.lastPrice.toFixed(2)}`, "info");
       }
 
+      // Fetch current balances (SOL and USDC) every update
+      try {
+        const solBalance = await getWalletBalance(this.connection, this.keypair.publicKey);
+        this.state.balance = solBalance;
+        
+        const usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T");
+        this.state.usdcBalance = usdcBalance;
+      } catch (error) {
+        // Silently fail - use cached balances
+      }
+
       // Fetch historical data for SuperTrend calculation
       let candles: OHLCV[];
       const currentPrice = this.state.lastPrice;

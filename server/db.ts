@@ -125,11 +125,12 @@ export async function getBotLogs(configId: string, limit: number = 100) {
   const db = await getDb();
   if (!db) return [];
 
+  const { desc } = await import('drizzle-orm');
   const result = await db
     .select()
     .from(botLogs)
     .where(eq(botLogs.configId, configId))
-    .orderBy((t) => t.createdAt)
+    .orderBy(desc(botLogs.createdAt))
     .limit(limit);
 
   return result;
