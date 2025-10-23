@@ -21,7 +21,7 @@ export interface TradeParams {
   inputMint: string;
   outputMint: string;
   amount: number;
-  slippageBps: number;
+  slippageBps?: number;
 }
 
 export interface TradeResult {
@@ -29,40 +29,25 @@ export interface TradeResult {
   inputAmount: number;
   outputAmount: number;
   priceImpact: number;
-  status: "success" | "failed";
-  error?: string;
+  status: "success" | "failed" | "pending";
 }
 
 const SOL_MINT = "So11111111111111111111111111111111111111112";
-const USDC_MINT = "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T";
+const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 
 /**
- * Initialize Solana connection
+ * Create a Solana connection
  */
 export function createConnection(rpcUrl: string): Connection {
-  return new Connection(rpcUrl, {
-    commitment: "confirmed",
-    fetch: ((url: any, options: any) => {
-      return fetch(url, {
-        ...options,
-        mode: "cors",
-        credentials: "omit",
-        cache: "no-cache",
-      });
-    }) as any,
-  });
+  return new Connection(rpcUrl, "confirmed");
 }
 
 /**
- * Create keypair from base58 private key
+ * Create a keypair from a base58 encoded private key
  */
-export function createKeypairFromBase58(privateKeyBase58: string): Keypair {
-  try {
-    const decoded = bs58.decode(privateKeyBase58);
-    return Keypair.fromSecretKey(decoded);
-  } catch (error) {
-    throw new Error(`Invalid private key format: ${error}`);
-  }
+export function createKeypairFromBase58(privateKeyStr: string): Keypair {
+  const decoded = Buffer.from((bs58 as any).decode(privateKeyStr));
+  return Keypair.fromSecretKey(decoded);
 }
 
 /**
@@ -149,31 +134,28 @@ export function lamportsToSol(lamports: number): number {
 /**
  * Calculate trade amount based on percentage
  */
-export function calculateTradeAmount(balance: number, percent: number): number {
-  return Math.floor((balance * percent) / 100);
+export function calculateTradeAmount(balance: number, percentage: number): number {
+  return Math.floor((balance * percentage) / 100);
 }
 
 /**
- * Get current SOL price
+ * Get SOL price from CoinGecko
  */
 async function getSolPrice(): Promise<number> {
   try {
-    const response = await fetchWithRetry(
-      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
-      { maxRetries: 2, timeoutMs: 5000 }
+    const response = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
     );
-    if (response.ok) {
-      const data = await response.json();
-      return data.solana?.usd || 190;
-    }
-  } catch (e) {
-    console.log(`[Trade] Failed to fetch SOL price, using default`);
+    const data = await response.json();
+    return data.solana.usd || 190;
+  } catch (error) {
+    console.error("Failed to fetch SOL price:", error);
   }
   return 190; // Default fallback price
 }
 
 /**
- * Execute a real trade on Solana using simple SOL transfers
+ * Execute a REAL trade on Solana using Jupiter DEX
  */
 export async function executeTrade(
   connection: Connection,
@@ -183,88 +165,66 @@ export async function executeTrade(
   const startTime = Date.now();
 
   try {
-    console.log(`[Trade] ===== STARTING TRADE EXECUTION =====`);
+    console.log(`[Trade] ===== STARTING REAL TRADE EXECUTION =====`);
     console.log(`[Trade] Wallet: ${keypair.publicKey.toBase58()}`);
-    console.log(`[Trade] Amount: ${params.amount} lamports (${lamportsToSol(params.amount)} SOL)`);
+    console.log(`[Trade] Input Mint: ${params.inputMint}`);
+    console.log(`[Trade] Output Mint: ${params.outputMint}`);
+    console.log(`[Trade] Amount: ${params.amount}`);
 
-    // Step 1: Check wallet balance
-    console.log(`[Trade] Checking wallet balance...`);
-    const walletBalance = await getWalletBalance(connection, keypair.publicKey);
-    const walletBalanceSOL = lamportsToSol(walletBalance);
-    console.log(`[Trade] Wallet balance: ${walletBalance} lamports (${walletBalanceSOL} SOL)`);
-
-    // Reserve 0.005 SOL for transaction fees
-    const minFeeReserve = solToLamports(0.005);
-    const availableBalance = walletBalance - minFeeReserve;
-
-    if (availableBalance < params.amount) {
-      throw new Error(
-        `Insufficient balance. Available: ${availableBalance} lamports (${lamportsToSol(availableBalance)} SOL), ` +
-        `Required: ${params.amount} lamports (${lamportsToSol(params.amount)} SOL)`
-      );
+    // Step 1: Get Jupiter quote
+    console.log(`[Trade] Fetching Jupiter swap quote...`);
+    
+    const slippageBps = params.slippageBps || 150; // 1.5% default slippage
+    const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=${params.inputMint}&outputMint=${params.outputMint}&amount=${params.amount}&slippageBps=${slippageBps}`;
+    
+    console.log(`[Trade] Quote URL: ${quoteUrl}`);
+    
+    const quoteResponse = await fetch(quoteUrl);
+    if (!quoteResponse.ok) {
+      throw new Error(`Failed to get Jupiter quote: ${quoteResponse.statusText}`);
+    }
+    
+    const quote = await quoteResponse.json();
+    console.log(`[Trade] Quote received. Out amount: ${quote.outAmount}`);
+    
+    if (!quote.outAmount) {
+      throw new Error(`Invalid quote response: no outAmount`);
     }
 
-    console.log(`[Trade] Balance check passed`);
-
-    // Step 2: Get current SOL price for output calculation
-    const solPrice = await getSolPrice();
-    console.log(`[Trade] Current SOL Price: $${solPrice}`);
-
-    // Step 3: Calculate output amount (simulated swap)
-    let outputAmount = 0;
-    const isSolToUsdc =
-      params.inputMint === SOL_MINT && params.outputMint === USDC_MINT;
-    const isUsdcToSol =
-      params.inputMint === USDC_MINT && params.outputMint === SOL_MINT;
-
-    if (isSolToUsdc) {
-      const solAmount = params.amount / 1e9;
-      outputAmount = Math.floor(solAmount * solPrice * 1e6);
-      console.log(`[Trade] SOL → USDC: ${solAmount} SOL = ${outputAmount / 1e6} USDC`);
-    } else if (isUsdcToSol) {
-      const usdcAmount = params.amount / 1e6;
-      outputAmount = Math.floor((usdcAmount / solPrice) * 1e9);
-      console.log(`[Trade] USDC → SOL: ${usdcAmount} USDC = ${outputAmount / 1e9} SOL`);
-    } else {
-      outputAmount = Math.floor(params.amount * 0.985);
-      console.log(`[Trade] Generic swap: ${params.amount} → ${outputAmount}`);
-    }
-
-    // Step 4: Create a simple SOL transfer transaction
-    console.log(`[Trade] Building SOL transfer transaction...`);
+    // Step 2: Get swap transaction from Jupiter
+    console.log(`[Trade] Building Jupiter swap transaction...`);
     
-    // For testing, send to the user's wallet address
-    // In production, this would be a proper swap transaction
-    const testRecipient = new PublicKey("Di1rAdSVvRZmF9J1B5nqDatgV5dPq25Y9zTiEK6yEFm8");
-    
-    const instructions = [
-      SystemProgram.transfer({
-        fromPubkey: keypair.publicKey,
-        toPubkey: testRecipient,
-        lamports: Math.min(params.amount, availableBalance),
+    const swapResponse = await fetch('https://quote-api.jup.ag/v6/swap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        quoteResponse: quote,
+        userPublicKey: keypair.publicKey.toBase58(),
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        prioritizationFeeLamports: 'auto',
       }),
-    ];
-
-    console.log(`[Trade] Transfer instruction created`);
-    console.log(`[Trade] From: ${keypair.publicKey.toBase58()}`);
-    console.log(`[Trade] Amount: ${Math.min(params.amount, availableBalance)} lamports`);
-
-    // Step 5: Create and sign transaction
-    console.log(`[Trade] Getting latest blockhash...`);
-    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-    console.log(`[Trade] Blockhash: ${blockhash}`);
-
-    const messageV0 = new TransactionMessage({
-      payerKey: keypair.publicKey,
-      recentBlockhash: blockhash,
-      instructions: instructions,
     });
+    
+    if (!swapResponse.ok) {
+      throw new Error(`Failed to get swap transaction: ${swapResponse.statusText}`);
+    }
+    
+    const swapData = await swapResponse.json();
+    if (!swapData.swapTransaction) {
+      throw new Error(`Invalid swap response: no swapTransaction`);
+    }
+    
+    console.log(`[Trade] Swap transaction received from Jupiter`);
 
-    const transaction = new VersionedTransaction(messageV0.compileToV0Message());
+    // Step 3: Deserialize and sign the transaction
+    const swapTransactionBuf = Buffer.from(swapData.swapTransaction, 'base64');
+    const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+    
     console.log(`[Trade] Signing transaction...`);
     transaction.sign([keypair]);
 
-    // Step 6: Send transaction
+    // Step 4: Send transaction
     console.log(`[Trade] Sending transaction to blockchain...`);
     const txHash = await connection.sendTransaction(transaction, {
       skipPreflight: false,
@@ -273,8 +233,10 @@ export async function executeTrade(
 
     console.log(`[Trade] ✅ Transaction sent: ${txHash}`);
 
-    // Step 7: Wait for confirmation
+    // Step 5: Wait for confirmation
     console.log(`[Trade] Waiting for confirmation...`);
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+    
     const confirmation = await connection.confirmTransaction(
       {
         signature: txHash,
@@ -296,8 +258,8 @@ export async function executeTrade(
     return {
       txHash,
       inputAmount: params.amount,
-      outputAmount,
-      priceImpact: 0.5,
+      outputAmount: parseInt(quote.outAmount),
+      priceImpact: quote.priceImpactPct || 0,
       status: "success",
     };
   } catch (error) {
@@ -313,7 +275,6 @@ export async function executeTrade(
       outputAmount: 0,
       priceImpact: 0,
       status: "failed",
-      error: errorMsg,
     };
   }
 }

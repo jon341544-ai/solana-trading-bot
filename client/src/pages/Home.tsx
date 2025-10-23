@@ -21,6 +21,7 @@ export default function Home() {
   const [tradeAmountPercent, setTradeAmountPercent] = useState(50);
   const [slippageTolerance, setSlippageTolerance] = useState(1.5);
   const [autoTrade, setAutoTrade] = useState(false);
+  const [testAmount, setTestAmount] = useState(5);
 
   // Queries and mutations
   const configQuery = trpc.trading.getConfig.useQuery(undefined, {
@@ -112,7 +113,7 @@ export default function Home() {
     try {
       const result = await testTransactionMutation.mutateAsync({
         transactionType: type,
-        amount: 0.01,
+        amount: testAmount,
       });
 
       if (result.success) {
@@ -371,6 +372,20 @@ export default function Home() {
                 <div className="mt-6 pt-6 border-t border-slate-700">
                   <h3 className="text-purple-300 font-semibold mb-4">Test Transaction</h3>
                   <p className="text-gray-400 text-sm mb-4">Use this to verify the bot can execute trades on the blockchain.</p>
+                  <div className="mb-4 w-full">
+                    <Label htmlFor="testAmount" className="text-gray-300 block mb-2">Amount (USD)</Label>
+                    <Input
+                      id="testAmount"
+                      type="number"
+                      min="0.01"
+                      max="1000"
+                      step="0.01"
+                      value={testAmount}
+                      onChange={(e) => setTestAmount(parseFloat(e.target.value) || 5)}
+                      className="w-full bg-slate-700 border border-slate-600 text-white px-3 py-2 rounded"
+                      placeholder="5"
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <Button
                       onClick={() => handleTestTransaction("buy")}

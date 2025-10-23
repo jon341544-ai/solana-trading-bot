@@ -218,21 +218,28 @@ export const appRouter = router({
         }
 
         const { createConnection, createKeypairFromBase58, executeTrade } = await import("./trading/solanaTrading");
-        const { solToLamports } = await import("./trading/marketData");
-
         try {
           const connection = createConnection(config.rpcUrl || "https://api.mainnet-beta.solana.com");
           const keypair = createKeypairFromBase58(config.solanaPrivateKey);
 
-          const tradeAmount = solToLamports(input.amount);
+          const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+          const SOL_MINT = "So11111111111111111111111111111111111111112";
+          
+          let tradeAmount: number;
+          if (input.transactionType === "buy") {
+            tradeAmount = Math.floor(input.amount * 1e6);
+          } else {
+            tradeAmount = Math.floor(input.amount * 1e9);
+          }
+          
           const slippageBps = Math.floor((config.slippageTolerance ? parseFloat(config.slippageTolerance.toString()) : 1.5) * 100);
 
           const result = await executeTrade(
             connection,
             keypair,
             {
-              inputMint: input.transactionType === "buy" ? "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T" : "So11111111111111111111111111111111111111112",
-              outputMint: input.transactionType === "buy" ? "So11111111111111111111111111111111111111112" : "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T",
+              inputMint: input.transactionType === "buy" ? USDC_MINT : SOL_MINT,
+              outputMint: input.transactionType === "buy" ? SOL_MINT : USDC_MINT,
               amount: tradeAmount,
               slippageBps: slippageBps,
             }
@@ -241,7 +248,7 @@ export const appRouter = router({
           return {
             success: result.status === "success",
             txHash: result.txHash,
-            error: result.error,
+            error: result.status === "failed" ? "Trade execution failed" : undefined,
             inputAmount: result.inputAmount,
             outputAmount: result.outputAmount,
             priceImpact: result.priceImpact,

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, tradingConfigs, TradingConfig, botLogs, trades } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -147,7 +147,7 @@ export async function getTradeHistory(userId: string, limit: number = 50) {
     .select()
     .from(trades)
     .where(eq(trades.userId, userId))
-    .orderBy((t) => t.createdAt)
+    .orderBy((t) => desc(t.createdAt))
     .limit(limit);
 
   return result;

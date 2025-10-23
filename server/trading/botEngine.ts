@@ -294,7 +294,7 @@ export class TradingBotEngine {
               usdcBalance = conversionResult.outputAmount;
               this.state.usdcBalance = usdcBalance;
             } else {
-              await this.addLog(`❌ Failed to convert SOL to USDC: ${conversionResult.error}`, "error");
+              await this.addLog(`❌ Failed to convert SOL to USDC: Trade failed`, "error");
               return;
             }
           } catch (error) {
@@ -354,7 +354,7 @@ export class TradingBotEngine {
         if (result.status === "success") {
           await this.addLog(`✅ BUY EXECUTED: Spent ${(result.inputAmount / 1e6).toFixed(2)} USDC, Received ${lamportsToSol(result.outputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
         } else {
-          await this.addLog(`❌ BUY FAILED: ${result.error}`, "error");
+          await this.addLog(`❌ BUY FAILED: Trade execution failed`, "error");
           // Retry logic is handled in executeTrade, but log the failure
           await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
         }
@@ -376,7 +376,7 @@ export class TradingBotEngine {
         if (result.status === "success") {
           await this.addLog(`✅ SELL EXECUTED: ${lamportsToSol(result.inputAmount).toFixed(4)} SOL -> ${lamportsToSol(result.outputAmount).toFixed(4)} USDC | TX: ${result.txHash.slice(0, 20)}...`, "success");
         } else {
-          await this.addLog(`❌ SELL FAILED: ${result.error}`, "error");
+          await this.addLog(`❌ SELL FAILED: Trade execution failed`, "error");
           // Retry logic is handled in executeTrade, but log the failure
           await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
         }
