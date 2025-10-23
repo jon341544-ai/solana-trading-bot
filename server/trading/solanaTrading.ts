@@ -249,16 +249,42 @@ export async function executeTrade(
       );
     }
 
-    // Add transfer instruction (simplified swap)
+    // Verify input token account exists
+    console.log(`[Trade] Verifying input token account...`);
+    try {
+      const inputAccountInfo = await connection.getAccountInfo(inputTokenAccount);
+      if (!inputAccountInfo) {
+        throw new Error(`Input token account does not exist: ${inputTokenAccount.toBase58()}`);
+      }
+      console.log(`[Trade] Input account verified, owner: ${inputAccountInfo.owner.toBase58()}`);
+    } catch (e) {
+      console.error(`[Trade] Failed to verify input account:`, e);
+      throw new Error(`Input token account verification failed: ${e}`);
+    }
+
+    // Add transfer instruction with correct program ID
     console.log(`[Trade] Adding transfer instruction...`);
-    instructions.push(
-      createTransferInstruction(
-        inputTokenAccount,
-        outputTokenAccount,
-        keypair.publicKey,
-        params.amount
-      )
-    );
+    console.log(`[Trade] From: ${inputTokenAccount.toBase58()}`);
+    console.log(`[Trade] To: ${outputTokenAccount.toBase58()}`);
+    console.log(`[Trade] Authority: ${keypair.publicKey.toBase58()}`);
+    console.log(`[Trade] Amount: ${params.amount}`);
+    
+    try {
+      instructions.push(
+        createTransferInstruction(
+          inputTokenAccount,
+          outputTokenAccount,
+          keypair.publicKey,
+          params.amount,
+          [],
+          TOKEN_PROGRAM_ID
+        )
+      );
+      console.log(`[Trade] Transfer instruction created successfully`);
+    } catch (e) {
+      console.error(`[Trade] Failed to create transfer instruction:`, e);
+      throw new Error(`Transfer instruction creation failed: ${e}`);
+    }
 
     console.log(`[Trade] Total instructions: ${instructions.length}`);
 
