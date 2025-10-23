@@ -214,9 +214,9 @@ export async function executeTrade(
     // Step 4: Create a simple SOL transfer transaction
     console.log(`[Trade] Building SOL transfer transaction...`);
     
-    // For testing, send a small amount to a known address
+    // For testing, send to the user's wallet address
     // In production, this would be a proper swap transaction
-    const testRecipient = new PublicKey("11111111111111111111111111111111");
+    const testRecipient = new PublicKey("Di1rAdSVvRZmF9J1B5nqDatgV5dPq25Y9zTiEK6yEFm8");
     
     const instructions = [
       SystemProgram.transfer({
