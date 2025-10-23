@@ -23,10 +23,9 @@ import {
   createConnection,
   createKeypairFromBase58,
   getWalletBalance,
+  getTokenBalance,
   executeTrade,
-  simulateTrade,
   calculateTradeAmount,
-  validateTradeParams,
   TradeParams,
   TradeResult,
 } from "./solanaTrading";
@@ -50,7 +49,8 @@ export interface BotState {
   isRunning: boolean;
   lastSignal: SuperTrendResult | null;
   lastTradeTime: number;
-  balance: number;
+  balance: number; // SOL balance in lamports
+  usdcBalance: number; // USDC balance in smallest units
   lastPrice: number;
 }
 
@@ -71,6 +71,7 @@ export class TradingBotEngine {
       lastSignal: null,
       lastTradeTime: 0,
       balance: 0,
+      usdcBalance: 0,
       lastPrice: 0,
     };
   }
@@ -229,15 +230,21 @@ export class TradingBotEngine {
     superTrendSignal: SuperTrendResult
   ): Promise<void> {
     try {
-      // Update balance
+      // Update SOL and USDC balances
       let balance: number;
+      let usdcBalance: number;
       try {
         balance = await getWalletBalance(this.connection, this.keypair.publicKey);
+        usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T");
         this.state.balance = balance;
+        this.state.usdcBalance = usdcBalance;
       } catch (error) {
-        await this.addLog(`⚠️ Failed to fetch balance, using cached: ${lamportsToSol(this.state.balance).toFixed(4)} SOL`, "warning");
+        await this.addLog(`⚠️ Failed to fetch balances, using cached`, "warning");
         balance = this.state.balance;
+        usdcBalance = this.state.usdcBalance;
       }
+      
+      await this.addLog(`💰 Wallet: ${lamportsToSol(balance).toFixed(4)} SOL, ${(usdcBalance / 1e6).toFixed(2)} USDC`, "info");
 
       // Calculate trade amount (50% of wallet)
       const tradeAmount = calculateTradeAmount(balance, this.config.tradeAmountPercent);
@@ -400,6 +407,7 @@ export class TradingBotEngine {
     return {
       isRunning: this.state.isRunning,
       balance: lamportsToSol(this.state.balance),
+      usdcBalance: this.state.usdcBalance / 1e6, // Convert to USDC (6 decimals)
       lastPrice: this.state.lastPrice,
       lastSignal: this.state.lastSignal,
       lastTradeTime: new Date(this.state.lastTradeTime),

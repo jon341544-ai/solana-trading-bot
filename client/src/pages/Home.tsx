@@ -179,9 +179,15 @@ export default function Home() {
                 </p>
               </div>
               <div>
-                <Label className="text-gray-400">Balance</Label>
+                <Label className="text-gray-400">SOL Balance</Label>
                 <p className="text-lg font-bold text-white">
                   {botStatusQuery.data && "balance" in botStatusQuery.data ? (botStatusQuery.data.balance?.toFixed(4) || "0.0000") : "0.0000"} SOL
+                </p>
+              </div>
+              <div>
+                <Label className="text-gray-400">USDC Balance</Label>
+                <p className="text-lg font-bold text-white">
+                  {botStatusQuery.data && "usdcBalance" in botStatusQuery.data ? ((botStatusQuery.data as any).usdcBalance?.toFixed(2) || "0.00") : "0.00"} USDC
                 </p>
               </div>
               <div>
