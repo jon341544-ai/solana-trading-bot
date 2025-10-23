@@ -41,6 +41,8 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/spl-token-swap": "^0.4.4",
     "@solana/web3.js": "^1.98.4",
     "@tanstack/react-query": "^5.90.2",
     "@trpc/client": "^11.6.0",
