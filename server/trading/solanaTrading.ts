@@ -13,6 +13,7 @@ import {
   TransactionMessage,
   SystemProgram,
 } from "@solana/web3.js";
+import { AccountLayout } from "@solana/spl-token";
 import bs58 from "bs58";
 import { fetchWithRetry } from "./networkResilience";
 
@@ -88,25 +89,38 @@ export async function getTokenBalance(
   publicKey: PublicKey,
   mint: string
 ): Promise<number> {
+  console.log(`[getTokenBalance] Called for mint: ${mint}, pubkey: ${publicKey.toBase58()}`);
   try {
-    const accounts = await connection.getTokenAccountsByOwner(publicKey, {
+    // Use getParsedTokenAccountsByOwner for better parsing
+    const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
       mint: new PublicKey(mint),
     });
+    console.log(`[getTokenBalance] Got accounts:`, accounts.value.length);
 
     if (accounts.value.length === 0) {
       return 0;
     }
 
-    const balance = accounts.value.reduce((sum, account) => {
+    // Sum up all token account balances
+    let totalBalance = 0;
+    console.log(`[Token] Found ${accounts.value.length} accounts for mint ${mint}`);
+    for (const account of accounts.value) {
       try {
-        const parsed = JSON.parse(account.account.data.toString());
-        return sum + BigInt(parsed.info?.tokenAmount?.amount || 0);
-      } catch {
-        return sum;
+        const parsed = account.account.data.parsed;
+        console.log(`[Token] Parsed data type: ${parsed?.type}`);
+        const parsedInfo = parsed?.info;
+        if (parsedInfo && parsedInfo.tokenAmount) {
+          const amount = parsedInfo.tokenAmount.amount;
+          console.log(`[Token] Balance: ${amount}`);
+          totalBalance += amount;
+        }
+      } catch (error) {
+        console.error("Failed to parse token account:", error);
       }
-    }, BigInt(0));
+    }
+    console.log(`[Token] Total: ${totalBalance}`);
 
-    return Number(balance);
+    return Number(totalBalance);
   } catch (error: any) {
     // Handle specific error cases silently
     if (error?.message?.includes("could not find mint") || error?.message?.includes("Invalid param")) {

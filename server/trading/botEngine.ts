@@ -101,8 +101,10 @@ export class TradingBotEngine {
         });
       }, 30000); // Update every 30 seconds
 
-      // Run first update immediately
-      await this.update();
+      // Run first update immediately (non-blocking)
+      this.update().catch((error) => {
+        console.error("Error in first bot update:", error);
+      });
     } catch (error) {
       this.state.isRunning = false;
       await this.addLog(`❌ Failed to start bot: ${error}`, "error");
@@ -170,11 +172,16 @@ export class TradingBotEngine {
       try {
         const solBalance = await getWalletBalance(this.connection, this.keypair.publicKey);
         this.state.balance = solBalance;
-        
+      } catch (error) {
+        console.error("Failed to fetch SOL balance:", error);
+      }
+      
+      try {
         const usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T");
         this.state.usdcBalance = usdcBalance;
       } catch (error) {
-        // Silently fail - use cached balances
+        console.error("Failed to fetch USDC balance:", error);
+        // Use cached balance
       }
 
       // Fetch historical data for SuperTrend calculation
