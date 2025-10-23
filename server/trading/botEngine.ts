@@ -408,9 +408,10 @@ export class TradingBotEngine {
       isRunning: this.state.isRunning,
       balance: lamportsToSol(this.state.balance),
       usdcBalance: this.state.usdcBalance / 1e6, // Convert to USDC (6 decimals)
-      lastPrice: this.state.lastPrice,
+      currentPrice: this.state.lastPrice,
       lastSignal: this.state.lastSignal,
       lastTradeTime: new Date(this.state.lastTradeTime),
+      trend: this.state.lastSignal?.direction === "up" ? "up" : "down",
     };
   }
 }

@@ -107,7 +107,12 @@ export async function getTokenBalance(
     }, BigInt(0));
 
     return Number(balance);
-  } catch (error) {
+  } catch (error: any) {
+    // Handle specific error cases silently
+    if (error?.message?.includes("could not find mint") || error?.message?.includes("Invalid param")) {
+      // Token account doesn't exist yet - return 0 silently
+      return 0;
+    }
     console.error("Failed to get token balance:", error);
     return 0;
   }
