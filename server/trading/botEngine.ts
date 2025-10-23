@@ -257,16 +257,72 @@ export class TradingBotEngine {
       
       await this.addLog(`💰 Wallet: ${lamportsToSol(balance).toFixed(4)} SOL, ${(usdcBalance / 1e6).toFixed(2)} USDC`, "info");
 
-      // Calculate trade amount (50% of wallet)
-      const tradeAmount = calculateTradeAmount(balance, this.config.tradeAmountPercent);
+      // Calculate trade amount based on signal type
+      let tradeAmount: number;
+      let insufficientBalance = false;
+      let balanceErrorMsg = "";
 
-      if (tradeAmount < 1000) {
-        await this.addLog(`⚠️ Trade amount too small: ${lamportsToSol(tradeAmount).toFixed(4)} SOL`, "warning");
-        return;
+      if (signal === "buy") {
+        // For BUY: use 50% of USDC balance
+        // If no USDC, convert 50% of SOL to USDC first
+        if (usdcBalance === 0 && balance > solToLamports(0.01)) {
+          await this.addLog(`🔄 No USDC found. Converting 50% of SOL to USDC...`, "info");
+          const solToConvert = calculateTradeAmount(balance, this.config.tradeAmountPercent);
+          
+          try {
+            const conversionResult = await executeTrade(
+              this.connection,
+              this.keypair,
+              {
+                inputMint: "So11111111111111111111111111111111111111112",
+                outputMint: "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T",
+                amount: solToConvert,
+                slippageBps: Math.floor(this.config.slippageTolerance * 100),
+              }
+            );
+            
+            if (conversionResult.status === "success") {
+              await this.addLog(`✅ Converted ${lamportsToSol(solToConvert).toFixed(4)} SOL to ${(conversionResult.outputAmount / 1e6).toFixed(2)} USDC`, "success");
+              usdcBalance = conversionResult.outputAmount;
+              this.state.usdcBalance = usdcBalance;
+            } else {
+              await this.addLog(`❌ Failed to convert SOL to USDC: ${conversionResult.error}`, "error");
+              return;
+            }
+          } catch (error) {
+            await this.addLog(`❌ Conversion error: ${error}`, "error");
+            return;
+          }
+        }
+        
+        tradeAmount = Math.floor((usdcBalance * this.config.tradeAmountPercent) / 100);
+        
+        if (tradeAmount < 1000) {
+          await this.addLog(`⚠️ USDC balance too small to trade: ${(usdcBalance / 1e6).toFixed(2)} USDC`, "warning");
+          return;
+        }
+        
+        if (usdcBalance < tradeAmount) {
+          insufficientBalance = true;
+          balanceErrorMsg = `Insufficient USDC balance. Need: ${(tradeAmount / 1e6).toFixed(2)} USDC, Have: ${(usdcBalance / 1e6).toFixed(2)} USDC`;
+        }
+      } else {
+        // For SELL: use 50% of SOL balance
+        tradeAmount = calculateTradeAmount(balance, this.config.tradeAmountPercent);
+        
+        if (tradeAmount < 1000) {
+          await this.addLog(`⚠️ SOL balance too small to trade: ${lamportsToSol(tradeAmount).toFixed(4)} SOL`, "warning");
+          return;
+        }
+        
+        if (balance < tradeAmount + 5000000) { // 0.005 SOL for fees
+          insufficientBalance = true;
+          balanceErrorMsg = `Insufficient SOL balance. Need: ${lamportsToSol(tradeAmount + 5000000).toFixed(4)} SOL, Have: ${lamportsToSol(balance).toFixed(4)} SOL`;
+        }
       }
 
-      if (balance < tradeAmount + 5000000) { // 0.005 SOL for fees
-        await this.addLog(`⚠️ Insufficient balance for trade. Need: ${lamportsToSol(tradeAmount + 5000000).toFixed(4)} SOL, Have: ${lamportsToSol(balance).toFixed(4)} SOL`, "warning");
+      if (insufficientBalance) {
+        await this.addLog(`⚠️ ${balanceErrorMsg}`, "warning");
         return;
       }
 
@@ -274,7 +330,7 @@ export class TradingBotEngine {
 
       if (signal === "buy") {
         // Buy SOL with USDC - REAL ON-CHAIN EXECUTION
-        await this.addLog(`🔄 Executing BUY trade: ${lamportsToSol(tradeAmount).toFixed(4)} SOL worth of USDC`, "trade");
+        await this.addLog(`🔄 Executing BUY trade: Spending ${(tradeAmount / 1e6).toFixed(2)} USDC to buy SOL`, "trade");
         
         result = await executeTrade(
           this.connection,
@@ -288,7 +344,7 @@ export class TradingBotEngine {
         );
 
         if (result.status === "success") {
-          await this.addLog(`✅ BUY EXECUTED: ${lamportsToSol(result.outputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
+          await this.addLog(`✅ BUY EXECUTED: Spent ${(result.inputAmount / 1e6).toFixed(2)} USDC, Received ${lamportsToSol(result.outputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
         } else {
           await this.addLog(`❌ BUY FAILED: ${result.error}`, "error");
           // Retry logic is handled in executeTrade, but log the failure
