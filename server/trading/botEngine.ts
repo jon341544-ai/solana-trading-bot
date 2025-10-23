@@ -177,7 +177,8 @@ export class TradingBotEngine {
       }
       
       try {
-        const usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T");
+        // Use the correct USDC mint address for your wallet
+        const usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
         this.state.usdcBalance = usdcBalance;
       } catch (error) {
         console.error("Failed to fetch USDC balance:", error);
