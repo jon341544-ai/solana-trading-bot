@@ -133,37 +133,47 @@ export class TradingBotEngine {
    */
   private async update(): Promise<void> {
     try {
-      // Fetch current price with retry logic
+      // Fetch current price with retry logic and fallback
       let priceData: PriceData | null = null;
       let priceRetries = 0;
+      
       while (priceRetries < 3) {
         try {
           priceData = await fetchSOLPrice();
-          break;
+          if (priceData && priceData.price > 0) {
+            this.state.lastPrice = priceData.price;
+            break;
+          }
         } catch (error) {
           priceRetries++;
-          if (priceRetries >= 3) {
-            await this.addLog(`Warning: Failed to fetch price after 3 attempts: ${error}`, "warning");
-            return; // Skip this update cycle
+          if (priceRetries < 3) {
+            await this.addLog(`Retrying price fetch (attempt ${priceRetries}/3)...`, "info");
+            await new Promise((resolve) => setTimeout(resolve, 2000 * priceRetries));
           }
-          await this.addLog(`Retrying price fetch (attempt ${priceRetries}/3)...`, "info");
-          await new Promise((resolve) => setTimeout(resolve, 2000 * priceRetries));
         }
       }
-      if (!priceData) {
-        await this.addLog("Error: Could not fetch price data", "error");
-        return;
+      
+      // If we still don't have price data, use a fallback
+      if (!priceData || priceData.price === 0) {
+        await this.addLog(`Warning: Could not fetch live price, using cached price: $${this.state.lastPrice.toFixed(2)}`, "warning");
+        // Continue with cached price instead of returning
+        if (this.state.lastPrice === 0) {
+          // Use a reasonable default if we have no price at all
+          this.state.lastPrice = 190; // Default SOL price
+        }
+      } else {
+        await this.addLog(`✅ Price updated: $${this.state.lastPrice.toFixed(2)}`, "info");
       }
-      this.state.lastPrice = priceData.price;
 
       // Fetch historical data for SuperTrend calculation
       let candles: OHLCV[];
+      const currentPrice = this.state.lastPrice;
       try {
         candles = await fetchHistoricalOHLCV(30, "daily");
       } catch (error) {
         // Fallback to simulated data if API fails
         await this.addLog("⚠️ Using simulated market data", "warning");
-        candles = generateSimulatedOHLCV(priceData.price, 50);
+        candles = generateSimulatedOHLCV(currentPrice, 50);
       }
 
       // Calculate SuperTrend
@@ -177,14 +187,14 @@ export class TradingBotEngine {
       const previousSignal = superTrendResults.length > 1 ? superTrendResults[superTrendResults.length - 2] : null;
 
       // Store market data
-      await this.storeMarketData(priceData.price, currentSignal);
+      await this.storeMarketData(currentPrice, currentSignal);
 
       // Detect trend change
       const signal = detectTrendChange(this.state.lastSignal, currentSignal);
 
       if (signal) {
         await this.addLog(
-          `📊 SuperTrend Signal: ${signal.toUpperCase()} at $${priceData.price.toFixed(2)}`,
+          `📊 SuperTrend Signal: ${signal.toUpperCase()} at $${currentPrice.toFixed(2)}`,
           "trade"
         );
 
@@ -197,7 +207,7 @@ export class TradingBotEngine {
           );
         } else if (this.config.autoTrade) {
           // Execute trade
-          await this.executeTrade(signal, priceData.price, currentSignal);
+          await this.executeTrade(signal, currentPrice, currentSignal);
           this.state.lastTradeTime = Date.now();
         } else {
           await this.addLog(`🔔 Trade signal detected but auto-trade is disabled`, "info");
