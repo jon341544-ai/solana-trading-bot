@@ -491,3 +491,4 @@ export class TradingBotEngine {
   }
 }
 
+// Force rebuild - Thu Oct 23 20:35:33 EDT 2025
