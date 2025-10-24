@@ -16,6 +16,7 @@ import {
 import { AccountLayout } from "@solana/spl-token";
 import bs58 from "bs58";
 import { fetchWithRetry } from "./networkResilience";
+import { executeRaydiumSwap } from "./raydiumTrading";
 
 export interface TradeParams {
   inputMint: string;
@@ -266,12 +267,27 @@ export async function executeTrade(
       priceImpact: quote.priceImpactPct || 0,
       status: "success",
     };
-  } catch (error) {
-    const errorMsg = String(error);
-    console.error(`[Trade] ❌ TRADE FAILED:`, error);
-    console.error(`[Trade] Error message: ${errorMsg}`);
-    console.error(`[Trade] Execution time: ${Date.now() - startTime}ms`);
-    console.error(`[Trade] ===== TRADE FAILED =====`);
+  } catch (jupiterError) {
+    console.warn(`[Trade] Jupiter swap failed, trying Raydium...`);
+    try {
+      const raydiumResult = await executeRaydiumSwap(connection, keypair, params);
+      if (raydiumResult.status === "success") {
+        return {
+          txHash: raydiumResult.txHash,
+          inputAmount: raydiumResult.inputAmount,
+          outputAmount: raydiumResult.outputAmount,
+          priceImpact: 0,
+          status: "success",
+        };
+      }
+    } catch (raydiumError) {
+      console.error(`[Trade] Raydium fallback failed:`, raydiumError);
+    }
+
+    const errorMsg = String(jupiterError);
+    console.error(`[Trade] TRADE FAILED:`, jupiterError);
+    console.error(`[Trade] Error: ${errorMsg}`);
+    console.error(`[Trade] Time: ${Date.now() - startTime}ms`);
 
     return {
       txHash: "",
