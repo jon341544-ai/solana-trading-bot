@@ -367,7 +367,7 @@ export class TradingBotEngine {
           this.keypair,
           {
             inputMint: "So11111111111111111111111111111111111111112", // SOL
-            outputMint: "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T", // USDC
+            outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // User's USDC
             amount: tradeAmount,
             slippageBps: Math.floor(this.config.slippageTolerance * 100),
           }
