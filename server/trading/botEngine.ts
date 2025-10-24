@@ -254,7 +254,7 @@ export class TradingBotEngine {
       let usdcBalance: number;
       try {
         balance = await getWalletBalance(this.connection, this.keypair.publicKey);
-        usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T");
+        usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
         this.state.balance = balance;
         this.state.usdcBalance = usdcBalance;
       } catch (error) {
@@ -283,7 +283,7 @@ export class TradingBotEngine {
               this.keypair,
               {
                 inputMint: "So11111111111111111111111111111111111111112",
-                outputMint: "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T",
+                outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
                 amount: solToConvert,
                 slippageBps: Math.floor(this.config.slippageTolerance * 100),
               }
