@@ -17,6 +17,7 @@ import { AccountLayout } from "@solana/spl-token";
 import bs58 from "bs58";
 import { fetchWithRetry } from "./networkResilience";
 import { executeRaydiumSwap } from "./raydiumTrading";
+import { executeSimpleSwap } from "./simpleSwap";
 
 export interface TradeParams {
   inputMint: string;
@@ -282,11 +283,35 @@ export async function executeTrade(
       }
     } catch (raydiumError) {
       console.error(`[Trade] Raydium fallback failed:`, raydiumError);
+      
+      // Last resort: Try simple swap with current price
+      try {
+        console.log(`[Trade] Trying simple swap fallback...`);
+        // Get current SOL price from a simple source
+        const priceResponse = await fetchWithRetry('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
+          maxRetries: 2,
+          timeoutMs: 5000,
+        });
+        
+        if (priceResponse.ok) {
+          const priceData = await priceResponse.json();
+          const currentPrice = priceData.solana?.usd || 190;
+          console.log(`[Trade] Using current price: $${currentPrice}`);
+          
+          const simpleResult = await executeSimpleSwap(connection, keypair, params, currentPrice);
+          if (simpleResult.status === "success") {
+            console.log(`[Trade] Simple swap succeeded!`);
+            return simpleResult;
+          }
+        }
+      } catch (simpleError) {
+        console.error(`[Trade] Simple swap fallback failed:`, simpleError);
+      }
     }
 
     const errorMsg = String(jupiterError);
-    console.error(`[Trade] TRADE FAILED:`, jupiterError);
-    console.error(`[Trade] Error: ${errorMsg}`);
+    console.error(`[Trade] ALL SWAP METHODS FAILED`);
+    console.error(`[Trade] Jupiter Error: ${errorMsg}`);
     console.error(`[Trade] Time: ${Date.now() - startTime}ms`);
 
     return {
