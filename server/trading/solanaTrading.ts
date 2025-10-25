@@ -18,6 +18,7 @@ import bs58 from "bs58";
 import { fetchWithRetry } from "./networkResilience";
 import { executeRaydiumSwap } from "./raydiumTrading";
 import { executeSimpleSwap } from "./simpleSwap";
+import { executeOrcaSwap } from "./orcaTrading";
 
 export interface TradeParams {
   inputMint: string;
@@ -269,43 +270,60 @@ export async function executeTrade(
       status: "success",
     };
   } catch (jupiterError) {
-    console.warn(`[Trade] Jupiter swap failed, trying Raydium...`);
+    console.warn(`[Trade] Jupiter swap failed, trying Orca...`);
     try {
-      const raydiumResult = await executeRaydiumSwap(connection, keypair, params);
-      if (raydiumResult.status === "success") {
+      const orcaResult = await executeOrcaSwap(connection, keypair, params);
+      if (orcaResult.status === "success") {
         return {
-          txHash: raydiumResult.txHash,
-          inputAmount: raydiumResult.inputAmount,
-          outputAmount: raydiumResult.outputAmount,
+          txHash: orcaResult.txHash,
+          inputAmount: orcaResult.inputAmount,
+          outputAmount: orcaResult.outputAmount,
           priceImpact: 0,
           status: "success",
         };
       }
-    } catch (raydiumError) {
-      console.error(`[Trade] Raydium fallback failed:`, raydiumError);
+    } catch (orcaError) {
+      console.error(`[Trade] Orca fallback failed:`, orcaError);
       
-      // Last resort: Try simple swap with current price
+      // Try Raydium as secondary fallback
       try {
-        console.log(`[Trade] Trying simple swap fallback...`);
-        // Get current SOL price from a simple source
-        const priceResponse = await fetchWithRetry('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
-          maxRetries: 2,
-          timeoutMs: 5000,
-        });
-        
-        if (priceResponse.ok) {
-          const priceData = await priceResponse.json();
-          const currentPrice = priceData.solana?.usd || 190;
-          console.log(`[Trade] Using current price: $${currentPrice}`);
-          
-          const simpleResult = await executeSimpleSwap(connection, keypair, params, currentPrice);
-          if (simpleResult.status === "success") {
-            console.log(`[Trade] Simple swap succeeded!`);
-            return simpleResult;
-          }
+        console.log(`[Trade] Trying Raydium...`);
+        const raydiumResult = await executeRaydiumSwap(connection, keypair, params);
+        if (raydiumResult.status === "success") {
+          return {
+            txHash: raydiumResult.txHash,
+            inputAmount: raydiumResult.inputAmount,
+            outputAmount: raydiumResult.outputAmount,
+            priceImpact: 0,
+            status: "success",
+          };
         }
-      } catch (simpleError) {
-        console.error(`[Trade] Simple swap fallback failed:`, simpleError);
+      } catch (raydiumError) {
+        console.error(`[Trade] Raydium fallback failed:`, raydiumError);
+        
+        // Last resort: Try simple swap with current price
+        try {
+          console.log(`[Trade] Trying simple swap fallback...`);
+          // Get current SOL price from a simple source
+          const priceResponse = await fetchWithRetry('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
+            maxRetries: 2,
+            timeoutMs: 5000,
+          });
+          
+          if (priceResponse.ok) {
+            const priceData = await priceResponse.json();
+            const currentPrice = priceData.solana?.usd || 190;
+            console.log(`[Trade] Using current price: $${currentPrice}`);
+            
+            const simpleResult = await executeSimpleSwap(connection, keypair, params, currentPrice);
+            if (simpleResult.status === "success") {
+              console.log(`[Trade] Simple swap succeeded!`);
+              return simpleResult;
+            }
+          }
+        } catch (simpleError) {
+          console.error(`[Trade] Simple swap fallback failed:`, simpleError);
+        }
       }
     }
 
