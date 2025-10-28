@@ -10,7 +10,8 @@
  */
 
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
-import { calculateSuperTrend, detectTrendChange, getLatestSuperTrendSignal, SuperTrendResult, OHLCV } from "./supertrend";
+import { calculateSuperTrend, SuperTrendResult, OHLCV } from "./supertrend";
+import { getMultiIndicatorSignal, MultiIndicatorSignal } from "./multiIndicatorSignal";
 import {
   fetchSOLPrice,
   fetchHistoricalOHLCV,
@@ -48,6 +49,7 @@ export interface BotConfig {
 export interface BotState {
   isRunning: boolean;
   lastSignal: SuperTrendResult | null;
+  lastMultiIndicatorSignal: MultiIndicatorSignal | null;
   lastTradeTime: number;
   balance: number; // SOL balance in lamports
   usdcBalance: number; // USDC balance in smallest units
@@ -69,6 +71,7 @@ export class TradingBotEngine {
     this.state = {
       isRunning: false,
       lastSignal: null,
+      lastMultiIndicatorSignal: null,
       lastTradeTime: 0,
       balance: 0,
       usdcBalance: 0,
@@ -209,13 +212,30 @@ export class TradingBotEngine {
       // Store market data
       await this.storeMarketData(currentPrice, currentSignal);
 
-      // Detect trend change
-      const signal = detectTrendChange(this.state.lastSignal, currentSignal);
+      // Calculate Multi-Indicator Signal (SuperTrend + MACD + FVMA)
+      const multiIndicatorSignal = getMultiIndicatorSignal(candles);
 
-      if (signal) {
+      // Detect trend change using multi-indicator signal
+      let signal: "buy" | "sell" | "hold" = "hold";
+      
+      if (this.state.lastMultiIndicatorSignal) {
+        // Only trade if signal changed
+        if (this.state.lastMultiIndicatorSignal.combinedSignal !== multiIndicatorSignal.combinedSignal) {
+          signal = multiIndicatorSignal.combinedSignal;
+        }
+      } else {
+        // First signal - use it if not hold
+        signal = multiIndicatorSignal.combinedSignal;
+      }
+
+      if (signal !== "hold") {
         await this.addLog(
-          `📊 SuperTrend Signal: ${signal.toUpperCase()} at $${currentPrice.toFixed(2)}`,
+          `📊 Multi-Indicator Signal: ${signal.toUpperCase()} (${multiIndicatorSignal.confidence.toFixed(0)}% confidence) at $${currentPrice.toFixed(2)}`,
           "trade"
+        );
+        await this.addLog(
+          `   SuperTrend: ${multiIndicatorSignal.superTrendSignal}, MACD: ${multiIndicatorSignal.macdSignal}, FVMA: ${multiIndicatorSignal.fvmaSignal}`,
+          "info"
         );
 
         // Check if enough time has passed since last trade
@@ -235,6 +255,7 @@ export class TradingBotEngine {
       }
 
       this.state.lastSignal = currentSignal;
+      this.state.lastMultiIndicatorSignal = multiIndicatorSignal;
     } catch (error) {
       await this.addLog(`❌ Update error: ${error}`, "error");
     }
