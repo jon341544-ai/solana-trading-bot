@@ -12,6 +12,7 @@
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { calculateSuperTrend, SuperTrendResult, OHLCV } from "./supertrend";
 import { getMultiIndicatorSignal, MultiIndicatorSignal } from "./multiIndicatorSignal";
+import { executeHyperliquidSpotTrade, getSolUsdcPrice } from "./hyperliquidSpot";
 import {
   fetchSOLPrice,
   fetchHistoricalOHLCV,
@@ -39,11 +40,14 @@ export interface BotConfig {
   privateKey: string;
   rpcUrl: string;
   walletAddress: string;
+  hyperliquidPrivateKey?: string; // Hyperliquid private key
+  hyperliquidWalletAddress?: string; // Hyperliquid wallet address
   period: number;
   multiplier: number;
   tradeAmountPercent: number;
   slippageTolerance: number;
   autoTrade: boolean;
+  useHyperliquid?: boolean; // Use Hyperliquid instead of Solana DEX
 }
 
 export interface BotState {
@@ -361,45 +365,118 @@ export class TradingBotEngine {
         // Buy SOL with USDC - REAL ON-CHAIN EXECUTION
         await this.addLog(`🔄 Executing BUY trade: Spending ${(tradeAmount / 1e6).toFixed(2)} USDC to buy SOL`, "trade");
         
-        result = await executeTrade(
-          this.connection,
-          this.keypair,
-          {
-            inputMint: "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T", // USDC
-            outputMint: "So11111111111111111111111111111111111111112", // SOL
-            amount: tradeAmount,
-            slippageBps: Math.floor(this.config.slippageTolerance * 100),
-          }
-        );
+        // Use Hyperliquid if configured
+        if (this.config.useHyperliquid && this.config.hyperliquidPrivateKey && this.config.hyperliquidWalletAddress) {
+          const solAmount = (tradeAmount / 1e6) / price; // Calculate SOL amount
+          const hyperliquidResult = await executeHyperliquidSpotTrade(
+            this.config.hyperliquidPrivateKey,
+            this.config.hyperliquidWalletAddress,
+            {
+              asset: 10000, // SOL
+              isBuy: true,
+              price: price.toFixed(2),
+              size: solAmount.toFixed(4),
+            }
+          );
 
-        if (result.status === "success") {
-          await this.addLog(`✅ BUY EXECUTED: Spent ${(result.inputAmount / 1e6).toFixed(2)} USDC, Received ${lamportsToSol(result.outputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
+          if (hyperliquidResult.status === "success") {
+            await this.addLog(`✅ BUY EXECUTED on Hyperliquid: Spent ${(tradeAmount / 1e6).toFixed(2)} USDC, Received ~${solAmount.toFixed(4)} SOL | TX: ${hyperliquidResult.txHash.slice(0, 20)}...`, "success");
+            result = {
+              status: "success",
+              txHash: hyperliquidResult.txHash,
+              inputAmount: tradeAmount,
+              outputAmount: Math.floor(solAmount * 1e9),
+              priceImpact: 0,
+            };
+          } else {
+            await this.addLog(`❌ BUY FAILED on Hyperliquid: ${hyperliquidResult.message}`, "error");
+            result = {
+              status: "failed",
+              txHash: "",
+              inputAmount: 0,
+              outputAmount: 0,
+              priceImpact: 0,
+            };
+          }
         } else {
-          await this.addLog(`❌ BUY FAILED: Trade execution failed`, "error");
-          // Retry logic is handled in executeTrade, but log the failure
-          await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
+          // Fallback to Solana DEX
+          result = await executeTrade(
+            this.connection,
+            this.keypair,
+            {
+              inputMint: "EPjFWaJY3xt5G7j5whEbCVn4wyWEZ1ZLLpmJ5SnCr7T", // USDC
+              outputMint: "So11111111111111111111111111111111111111112", // SOL
+              amount: tradeAmount,
+              slippageBps: Math.floor(this.config.slippageTolerance * 100),
+            }
+          );
+
+          if (result.status === "success") {
+            await this.addLog(`✅ BUY EXECUTED: Spent ${(result.inputAmount / 1e6).toFixed(2)} USDC, Received ${lamportsToSol(result.outputAmount).toFixed(4)} SOL | TX: ${result.txHash.slice(0, 20)}...`, "success");
+          } else {
+            await this.addLog(`❌ BUY FAILED: Trade execution failed`, "error");
+            // Retry logic is handled in executeTrade, but log the failure
+            await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
+          }
         }
       } else {
         // Sell SOL for USDC - REAL ON-CHAIN EXECUTION
         await this.addLog(`🔄 Executing SELL trade: ${lamportsToSol(tradeAmount).toFixed(4)} SOL`, "trade");
         
-        result = await executeTrade(
-          this.connection,
-          this.keypair,
-          {
-            inputMint: "So11111111111111111111111111111111111111112", // SOL
-            outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // User's USDC
-            amount: tradeAmount,
-            slippageBps: Math.floor(this.config.slippageTolerance * 100),
-          }
-        );
+        // Use Hyperliquid if configured
+        if (this.config.useHyperliquid && this.config.hyperliquidPrivateKey && this.config.hyperliquidWalletAddress) {
+          const solAmount = lamportsToSol(tradeAmount);
+          const hyperliquidResult = await executeHyperliquidSpotTrade(
+            this.config.hyperliquidPrivateKey,
+            this.config.hyperliquidWalletAddress,
+            {
+              asset: 10000, // SOL
+              isBuy: false,
+              price: price.toFixed(2),
+              size: solAmount.toFixed(4),
+            }
+          );
 
-        if (result.status === "success") {
-          await this.addLog(`✅ SELL EXECUTED: ${lamportsToSol(result.inputAmount).toFixed(4)} SOL -> ${lamportsToSol(result.outputAmount).toFixed(4)} USDC | TX: ${result.txHash.slice(0, 20)}...`, "success");
+          if (hyperliquidResult.status === "success") {
+            const usdcAmount = solAmount * price;
+            await this.addLog(`✅ SELL EXECUTED on Hyperliquid: ${solAmount.toFixed(4)} SOL -> ~${usdcAmount.toFixed(2)} USDC | TX: ${hyperliquidResult.txHash.slice(0, 20)}...`, "success");
+            result = {
+              status: "success",
+              txHash: hyperliquidResult.txHash,
+              inputAmount: tradeAmount,
+              outputAmount: Math.floor(usdcAmount * 1e6),
+              priceImpact: 0,
+            };
+          } else {
+            await this.addLog(`❌ SELL FAILED on Hyperliquid: ${hyperliquidResult.message}`, "error");
+            result = {
+              status: "failed",
+              txHash: "",
+              inputAmount: 0,
+              outputAmount: 0,
+              priceImpact: 0,
+            };
+          }
         } else {
-          await this.addLog(`❌ SELL FAILED: Trade execution failed`, "error");
-          // Retry logic is handled in executeTrade, but log the failure
-          await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
+          // Fallback to Solana DEX
+          result = await executeTrade(
+            this.connection,
+            this.keypair,
+            {
+              inputMint: "So11111111111111111111111111111111111111112", // SOL
+              outputMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // User's USDC
+              amount: tradeAmount,
+              slippageBps: Math.floor(this.config.slippageTolerance * 100),
+            }
+          );
+
+          if (result.status === "success") {
+            await this.addLog(`✅ SELL EXECUTED: ${lamportsToSol(result.inputAmount).toFixed(4)} SOL -> ${lamportsToSol(result.outputAmount).toFixed(4)} USDC | TX: ${result.txHash.slice(0, 20)}...`, "success");
+          } else {
+            await this.addLog(`❌ SELL FAILED: Trade execution failed`, "error");
+            // Retry logic is handled in executeTrade, but log the failure
+            await this.addLog(`💡 Tip: Check network connectivity. Bot will retry on next signal.`, "info");
+          }
         }
       }
 
