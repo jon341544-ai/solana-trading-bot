@@ -13,6 +13,7 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { calculateSuperTrend, SuperTrendResult, OHLCV } from "./supertrend";
 import { getMultiIndicatorSignal, MultiIndicatorSignal } from "./multiIndicatorSignal";
 import { executeHyperliquidSpotTrade, getSolUsdcPrice } from "./hyperliquidSpot";
+import axios from "axios";
 import {
   fetchSOLPrice,
   fetchHistoricalOHLCV,
@@ -278,8 +279,30 @@ export class TradingBotEngine {
       let balance: number;
       let usdcBalance: number;
       try {
-        balance = await getWalletBalance(this.connection, this.keypair.publicKey);
-        usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+        // If using Hyperliquid, fetch balances from Hyperliquid API
+        if (this.config.useHyperliquid && this.config.hyperliquidWalletAddress) {
+          try {
+            const response = await axios.post('https://api.hyperliquid.xyz/info', {
+              type: 'clearinghouseState',
+              user: this.config.hyperliquidWalletAddress,
+            });
+            
+            const balances = response.data?.balances || [];
+            const solBalance = balances.find((b: any) => b.coin === 'SOL');
+            const usdcBalanceObj = balances.find((b: any) => b.coin === 'USDC');
+            
+            balance = solBalance ? Math.floor(parseFloat(solBalance.total) * 1e9) : 0; // Convert to lamports
+            usdcBalance = usdcBalanceObj ? Math.floor(parseFloat(usdcBalanceObj.total) * 1e6) : 0; // Convert to microunits
+          } catch (hyperliquidError) {
+            await this.addLog(`⚠️ Failed to fetch Hyperliquid balances, using cached`, "warning");
+            balance = this.state.balance;
+            usdcBalance = this.state.usdcBalance;
+          }
+        } else {
+          // Fallback to Solana RPC
+          balance = await getWalletBalance(this.connection, this.keypair.publicKey);
+          usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+        }
         this.state.balance = balance;
         this.state.usdcBalance = usdcBalance;
       } catch (error) {
