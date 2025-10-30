@@ -76,61 +76,75 @@ async function startServer() {
   const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
   
   if (hyperliquidPrivateKey && hyperliquidWalletAddress) {
-    console.log("[Server] Hyperliquid credentials found in environment, initializing bot...");
-    try {
-      const { getTradingConfig, createTradingConfig } = await import("../db");
-      const { startBotForUser } = await import("../trading/botManager");
-      const { TradingBotEngine } = await import("../trading/botEngine");
-      type BotConfig = ConstructorParameters<typeof TradingBotEngine>[0];
-      
-      const userId = "default_user";
-      let config = await getTradingConfig(userId);
-      
-      if (!config) {
-        // Create default config with Hyperliquid credentials
-        const configId = `config_${userId}_${Date.now()}`;
-        const newConfig = {
-          id: configId,
-          userId: userId,
-          solanaPrivateKey: "", // Not needed for Hyperliquid
-          rpcUrl: "https://api.mainnet-beta.solana.com",
-          walletAddress: hyperliquidWalletAddress,
-          period: 10,
-          multiplier: "3.0",
-          tradeAmountPercent: 50,
-          slippageTolerance: "1.5",
-          isActive: true,
-          autoTrade: true,
-        };
+    console.log("[Server] Hyperliquid credentials found in environment");
+    
+    // Delay initialization to ensure database is ready
+    setTimeout(async () => {
+      console.log("[Server] Initializing Hyperliquid bot...");
+      try {
+        const { getTradingConfig, createTradingConfig } = await import("../db");
+        const { startBotForUser } = await import("../trading/botManager");
         
-        await createTradingConfig(newConfig);
-        config = newConfig as any;
-      }
-      
-      // Start bot with Hyperliquid credentials
-      if (config) {
-        const botConfig = {
-          userId: config.userId,
-          configId: config.id,
-          privateKey: "",
-          rpcUrl: config.rpcUrl || "https://api.mainnet-beta.solana.com",
-          walletAddress: hyperliquidWalletAddress,
-          hyperliquidPrivateKey: hyperliquidPrivateKey,
-          hyperliquidWalletAddress: hyperliquidWalletAddress,
-          period: config.period || 10,
-          multiplier: parseFloat((config.multiplier || "3.0").toString()),
-          tradeAmountPercent: config.tradeAmountPercent || 50,
-          slippageTolerance: parseFloat((config.slippageTolerance || "1.5").toString()),
-          autoTrade: true,
-          useHyperliquid: true,
-        };
+        const userId = "default_user";
+        let config = await getTradingConfig(userId);
         
-        await startBotForUser(userId, botConfig);
-        console.log("[Server] Hyperliquid bot initialized and started");
+        if (!config) {
+          console.log("[Server] Creating default trading configuration...");
+          // Create default config with Hyperliquid credentials
+          const configId = `config_${userId}_${Date.now()}`;
+          const newConfig = {
+            id: configId,
+            userId: userId,
+            solanaPrivateKey: "", // Not needed for Hyperliquid
+            rpcUrl: "https://api.mainnet-beta.solana.com",
+            walletAddress: hyperliquidWalletAddress,
+            period: 10,
+            multiplier: "3.0",
+            tradeAmountPercent: 50,
+            slippageTolerance: "1.5",
+            isActive: true,
+            autoTrade: true,
+          };
+          
+          try {
+            await createTradingConfig(newConfig);
+            config = newConfig as any;
+            console.log("[Server] Trading configuration created successfully");
+          } catch (dbError) {
+            console.error("[Server] Failed to create trading configuration:", dbError);
+            return;
+          }
+        }
+        
+        // Start bot with Hyperliquid credentials
+        if (config) {
+          const botConfig = {
+            userId: config.userId,
+            configId: config.id,
+            privateKey: "",
+            rpcUrl: config.rpcUrl || "https://api.mainnet-beta.solana.com",
+            walletAddress: hyperliquidWalletAddress,
+            hyperliquidPrivateKey: hyperliquidPrivateKey,
+            hyperliquidWalletAddress: hyperliquidWalletAddress,
+            period: config.period || 10,
+            multiplier: parseFloat((config.multiplier || "3.0").toString()),
+            tradeAmountPercent: config.tradeAmountPercent || 50,
+            slippageTolerance: parseFloat((config.slippageTolerance || "1.5").toString()),
+            autoTrade: true,
+            useHyperliquid: true,
+          };
+          
+          const success = await startBotForUser(userId, botConfig);
+          if (success) {
+            console.log("[Server] ✅ Hyperliquid bot initialized and started");
+          } else {
+            console.error("[Server] Failed to start Hyperliquid bot");
+          }
+        }
+      } catch (error) {
+        console.error("[Server] Failed to initialize Hyperliquid bot:", error);
       }
-    } catch (error) {
-      console.error("[Server] Failed to initialize Hyperliquid bot:", error);
-    }
+    }, 3000); // Wait 3 seconds for database to be ready
   } else {
     console.log("[Server] Hyperliquid credentials not found in environment");
   }
