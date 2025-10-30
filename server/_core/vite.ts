@@ -50,7 +50,7 @@ export async function setupVite(app: Express, server: Server) {
 export function serveStatic(app: Express) {
   const distPath =
     process.env.NODE_ENV === "development"
-      ? path.resolve(import.meta.dirname, "../..", "dist", "public")
+      ? path.resolve(import.meta.dirname, "../\..", "dist", "public")
       : path.resolve(import.meta.dirname, "public");
   if (!fs.existsSync(distPath)) {
     console.error(
@@ -61,7 +61,21 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+  app.use("*", async (_req, res) => {
+    try {
+      const indexPath = path.resolve(distPath, "index.html");
+      let html = await fs.promises.readFile(indexPath, "utf-8");
+      
+      // Replace environment variable placeholders
+      html = html.replace(/%VITE_APP_TITLE%/g, process.env.VITE_APP_TITLE || "Solana Trading Bot");
+      html = html.replace(/%VITE_APP_LOGO%/g, process.env.VITE_APP_LOGO || "");
+      html = html.replace(/%VITE_ANALYTICS_ENDPOINT%/g, process.env.VITE_ANALYTICS_ENDPOINT || "");
+      html = html.replace(/%VITE_ANALYTICS_WEBSITE_ID%/g, process.env.VITE_ANALYTICS_WEBSITE_ID || "");
+      
+      res.set({ "Content-Type": "text/html" }).send(html);
+    } catch (error) {
+      console.error("Error serving index.html:", error);
+      res.status(500).send("Internal Server Error");
+    }
   });
 }
