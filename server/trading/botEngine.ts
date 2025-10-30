@@ -98,7 +98,26 @@ export class TradingBotEngine {
 
     try {
       // Update balance
-      const balance = await getWalletBalance(this.connection, this.keypair.publicKey);
+      let balance = 0;
+      if (this.config.useHyperliquid && this.config.hyperliquidPrivateKey) {
+        // Fetch from Hyperliquid
+        try {
+          const response = await axios.post('https://api.hyperliquid.xyz/info', {
+            type: 'spotClearinghouseState',
+            user: this.config.hyperliquidWalletAddress
+          });
+          if (response.data && response.data.balances) {
+            const solBalance = response.data.balances.find((b: any) => b.coin === 'SOL');
+            if (solBalance) {
+              balance = Math.floor(parseFloat(solBalance.total) * 1e9);
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch initial Hyperliquid balance:", error);
+        }
+      } else {
+        balance = await getWalletBalance(this.connection, this.keypair.publicKey);
+      }
       this.state.balance = balance;
       await this.addLog(`💰 Wallet balance: ${lamportsToSol(balance).toFixed(4)} SOL`, "info");
 
@@ -177,20 +196,47 @@ export class TradingBotEngine {
       }
 
       // Fetch current balances (SOL and USDC) every update
-      try {
-        const solBalance = await getWalletBalance(this.connection, this.keypair.publicKey);
-        this.state.balance = solBalance;
-      } catch (error) {
-        console.error("Failed to fetch SOL balance:", error);
-      }
-      
-      try {
-        // Use the correct USDC mint address for your wallet
-        const usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-        this.state.usdcBalance = usdcBalance;
-      } catch (error) {
-        console.error("Failed to fetch USDC balance:", error);
-        // Use cached balance
+      if (this.config.useHyperliquid && this.config.hyperliquidPrivateKey) {
+        // If using Hyperliquid, fetch balances from Hyperliquid API
+        try {
+          const response = await axios.post('https://api.hyperliquid.xyz/info', {
+            type: 'spotClearinghouseState',
+            user: this.config.hyperliquidWalletAddress
+          });
+          
+          if (response.data && response.data.balances) {
+            const balances = response.data.balances;
+            // Find SOL and USDC balances
+            const solBalance = balances.find((b: any) => b.coin === 'SOL');
+            const usdcBalance = balances.find((b: any) => b.coin === 'USDC');
+            
+            if (solBalance) {
+              this.state.balance = Math.floor(parseFloat(solBalance.total) * 1e9); // Convert to lamports
+            }
+            if (usdcBalance) {
+              this.state.usdcBalance = Math.floor(parseFloat(usdcBalance.total) * 1e6); // Convert to smallest units
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch Hyperliquid balances, using cached", error);
+        }
+      } else {
+        // Use Solana RPC for balance fetching
+        try {
+          const solBalance = await getWalletBalance(this.connection, this.keypair.publicKey);
+          this.state.balance = solBalance;
+        } catch (error) {
+          console.error("Failed to fetch SOL balance:", error);
+        }
+        
+        try {
+          // Use the correct USDC mint address for your wallet
+          const usdcBalance = await getTokenBalance(this.connection, this.keypair.publicKey, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+          this.state.usdcBalance = usdcBalance;
+        } catch (error) {
+          console.error("Failed to fetch USDC balance:", error);
+          // Use cached balance
+        }
       }
 
       // Fetch historical data for SuperTrend calculation
