@@ -1,16 +1,14 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { APP_LOGO, APP_TITLE, getLoginUrl } from "@/const";
+import { APP_TITLE } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { useState, useEffect } from "react";
 
 export default function Home() {
-  const { user, isAuthenticated, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState("config");
+  const [activeTab, setActiveTab] = useState("control");
   const [isLoading, setIsLoading] = useState(false);
 
   // Trading config state
@@ -24,28 +22,22 @@ export default function Home() {
   const [testAmount, setTestAmount] = useState(5);
 
   // Queries and mutations
-  const configQuery = trpc.trading.getConfig.useQuery(undefined, {
-    enabled: isAuthenticated,
-  });
+  const configQuery = trpc.trading.getConfig.useQuery();
 
   const updateConfigMutation = trpc.trading.updateConfig.useMutation();
   const startBotMutation = trpc.trading.startBot.useMutation();
   const stopBotMutation = trpc.trading.stopBot.useMutation();
   const testTransactionMutation = trpc.trading.testTransaction.useMutation();
   const botStatusQuery = trpc.trading.getBotStatus.useQuery(undefined, {
-    enabled: isAuthenticated,
     refetchInterval: 5000, // Refresh every 5 seconds
   });
   const logsQuery = trpc.trading.getLogs.useQuery({ limit: 50 }, {
-    enabled: isAuthenticated,
     refetchInterval: 3000, // Refresh every 3 seconds
   });
   const tradeHistoryQuery = trpc.trading.getTradeHistory.useQuery({ limit: 20 }, {
-    enabled: isAuthenticated,
     refetchInterval: 10000, // Refresh every 10 seconds
   });
   const tradeStatsQuery = trpc.trading.getTradeStats.useQuery(undefined, {
-    enabled: isAuthenticated,
     refetchInterval: 10000,
   });
 
@@ -130,28 +122,6 @@ export default function Home() {
     }
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-purple-900">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Solana SuperTrend Trading Bot</CardTitle>
-            <CardDescription>Automated trading based on SuperTrend indicators</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={() => window.location.href = getLoginUrl()}
-              className="w-full"
-              size="lg"
-            >
-              Sign In with Manus
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 p-8">
       <div className="max-w-6xl mx-auto">
@@ -161,9 +131,6 @@ export default function Home() {
             <h1 className="text-4xl font-bold text-white">🤖 Solana Trading Bot</h1>
             <p className="text-purple-200">SuperTrend Strategy - Automated Trading</p>
           </div>
-          <Button variant="outline" onClick={() => logout()}>
-            Sign Out
-          </Button>
         </div>
 
         {/* Bot Status */}
@@ -210,11 +177,78 @@ export default function Home() {
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4 bg-slate-800">
-            <TabsTrigger value="config">Configuration</TabsTrigger>
             <TabsTrigger value="control">Control</TabsTrigger>
+            <TabsTrigger value="config">Configuration</TabsTrigger>
             <TabsTrigger value="logs">Logs</TabsTrigger>
             <TabsTrigger value="trades">Trades</TabsTrigger>
           </TabsList>
+
+          {/* Control Tab */}
+          <TabsContent value="control">
+            <Card className="bg-slate-800 border-purple-500">
+              <CardHeader>
+                <CardTitle className="text-purple-300">Bot Control</CardTitle>
+                <CardDescription>Start/stop the trading bot and run test transactions</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex gap-4">
+                  <Button
+                    onClick={handleStartBot}
+                    disabled={isLoading || botStatusQuery.data?.isRunning}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    size="lg"
+                  >
+                    ▶️ Start Bot
+                  </Button>
+                  <Button
+                    onClick={handleStopBot}
+                    disabled={isLoading || !botStatusQuery.data?.isRunning}
+                    className="flex-1 bg-red-600 hover:bg-red-700"
+                    variant="destructive"
+                    size="lg"
+                  >
+                    ⏹️ Stop Bot
+                  </Button>
+                </div>
+
+                <div className="border-t border-slate-600 pt-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Test Transactions</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="testAmount" className="text-gray-300">
+                        Test Amount (SOL)
+                      </Label>
+                      <Input
+                        id="testAmount"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={testAmount}
+                        onChange={(e) => setTestAmount(parseFloat(e.target.value))}
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                    </div>
+                    <div className="flex gap-4">
+                      <Button
+                        onClick={() => handleTestTransaction("buy")}
+                        disabled={isLoading}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      >
+                        📈 Test BUY
+                      </Button>
+                      <Button
+                        onClick={() => handleTestTransaction("sell")}
+                        disabled={isLoading}
+                        className="flex-1 bg-orange-600 hover:bg-orange-700"
+                      >
+                        📉 Test SELL
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* Configuration Tab */}
           <TabsContent value="config">
@@ -261,7 +295,6 @@ export default function Home() {
                       id="period"
                       type="number"
                       min="1"
-                      max="100"
                       value={period}
                       onChange={(e) => setPeriod(parseInt(e.target.value))}
                       className="bg-slate-700 border-slate-600 text-white"
@@ -269,14 +302,12 @@ export default function Home() {
                   </div>
                   <div>
                     <Label htmlFor="multiplier" className="text-gray-300">
-                      Multiplier
+                      SuperTrend Multiplier
                     </Label>
                     <Input
                       id="multiplier"
                       type="number"
-                      min="0.5"
-                      max="10"
-                      step="0.5"
+                      step="0.1"
                       value={multiplier}
                       onChange={(e) => setMultiplier(parseFloat(e.target.value))}
                       className="bg-slate-700 border-slate-600 text-white"
@@ -286,11 +317,11 @@ export default function Home() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="tradeAmount" className="text-gray-300">
-                      Trade Amount (%)
+                    <Label htmlFor="tradeAmountPercent" className="text-gray-300">
+                      Trade Amount (% of balance)
                     </Label>
                     <Input
-                      id="tradeAmount"
+                      id="tradeAmountPercent"
                       type="number"
                       min="1"
                       max="100"
@@ -300,14 +331,12 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="slippage" className="text-gray-300">
+                    <Label htmlFor="slippageTolerance" className="text-gray-300">
                       Slippage Tolerance (%)
                     </Label>
                     <Input
-                      id="slippage"
+                      id="slippageTolerance"
                       type="number"
-                      min="0.1"
-                      max="5"
                       step="0.1"
                       value={slippageTolerance}
                       onChange={(e) => setSlippageTolerance(parseFloat(e.target.value))}
@@ -316,7 +345,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-3">
                   <input
                     id="autoTrade"
                     type="checkbox"
@@ -333,77 +362,10 @@ export default function Home() {
                   onClick={handleSaveConfig}
                   disabled={isLoading}
                   className="w-full bg-purple-600 hover:bg-purple-700"
+                  size="lg"
                 >
-                  {isLoading ? "Saving..." : "Save Configuration"}
+                  💾 Save Configuration
                 </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Control Tab */}
-          <TabsContent value="control">
-            <Card className="bg-slate-800 border-purple-500">
-              <CardHeader>
-                <CardTitle className="text-purple-300">Bot Control</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-red-900/20 border border-red-500 rounded p-4">
-                  <p className="text-red-200">
-                    ⚠️ <strong>Warning:</strong> This bot executes REAL trades with REAL money. Start with small amounts only. Only invest what you can afford to lose.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    onClick={handleStartBot}
-                    disabled={isLoading || botStatusQuery.data?.isRunning}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    ▶️ Start Bot
-                  </Button>
-                  <Button
-                    onClick={handleStopBot}
-                    disabled={isLoading || !botStatusQuery.data?.isRunning}
-                    className="bg-red-600 hover:bg-red-700"
-                  >
-                    ⏹️ Stop Bot
-                  </Button>
-
-                <div className="mt-6 pt-6 border-t border-slate-700">
-                  <h3 className="text-purple-300 font-semibold mb-4">Test Transaction</h3>
-                  <p className="text-gray-400 text-sm mb-4">Use this to verify the bot can execute trades on the blockchain.</p>
-                  <div className="mb-4 w-full">
-                    <Label htmlFor="testAmount" className="text-gray-300 block mb-2">Amount (USD)</Label>
-                    <Input
-                      id="testAmount"
-                      type="number"
-                      min="0.01"
-                      max="1000"
-                      step="0.01"
-                      value={testAmount}
-                      onChange={(e) => setTestAmount(parseFloat(e.target.value) || 5)}
-                      className="w-full bg-slate-700 border border-slate-600 text-white px-3 py-2 rounded"
-                      placeholder="5"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button
-                      onClick={() => handleTestTransaction("buy")}
-                      disabled={isLoading}
-                      className="bg-blue-600 hover:bg-blue-700"
-                    >
-                      Test BUY
-                    </Button>
-                    <Button
-                      onClick={() => handleTestTransaction("sell")}
-                      disabled={isLoading}
-                      className="bg-orange-600 hover:bg-orange-700"
-                    >
-                      Test SELL
-                    </Button>
-                  </div>
-                </div>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -412,29 +374,24 @@ export default function Home() {
           <TabsContent value="logs">
             <Card className="bg-slate-800 border-purple-500">
               <CardHeader>
-                <CardTitle className="text-purple-300">Activity Log</CardTitle>
+                <CardTitle className="text-purple-300">Activity Logs</CardTitle>
+                <CardDescription>Real-time bot activity and trading events</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="bg-slate-900 rounded p-4 h-96 overflow-y-auto font-mono text-sm space-y-1">
+                <div className="space-y-2 max-h-96 overflow-y-auto">
                   {logsQuery.data && logsQuery.data.length > 0 ? (
                     logsQuery.data.map((log, idx) => (
-                      <div
-                        key={idx}
-                        className={`${
-                          log.logType === "success"
-                            ? "text-green-400"
-                            : log.logType === "error"
-                            ? "text-red-400"
-                            : log.logType === "trade"
-                            ? "text-blue-400"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        <span className="text-gray-600">[{log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : "--:--:--"}]</span> {log.message}
+                      <div key={idx} className="p-3 bg-slate-700 rounded text-sm text-gray-300 border-l-2 border-purple-500">
+                        <div className="flex justify-between">
+                          <span className="font-mono">{log.message}</span>
+                          <span className="text-gray-500 text-xs">
+                            {log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : ""}
+                          </span>
+                        </div>
                       </div>
                     ))
                   ) : (
-                    <p className="text-gray-500">No logs yet...</p>
+                    <p className="text-gray-400 text-center py-8">No logs yet</p>
                   )}
                 </div>
               </CardContent>
@@ -446,40 +403,30 @@ export default function Home() {
             <Card className="bg-slate-800 border-purple-500">
               <CardHeader>
                 <CardTitle className="text-purple-300">Trade History</CardTitle>
+                <CardDescription>Recent trades executed by the bot</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-2 max-h-96 overflow-y-auto">
                   {tradeHistoryQuery.data && tradeHistoryQuery.data.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="border-b border-slate-600">
-                          <tr>
-                            <th className="text-left py-2 text-gray-400">Type</th>
-                            <th className="text-left py-2 text-gray-400">Amount</th>
-                            <th className="text-left py-2 text-gray-400">Price</th>
-                            <th className="text-left py-2 text-gray-400">Status</th>
-                            <th className="text-left py-2 text-gray-400">Time</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tradeHistoryQuery.data.map((trade, idx) => (
-                            <tr key={idx} className="border-b border-slate-700">
-                              <td className={`py-2 ${trade.tradeType === "buy" ? "text-green-400" : "text-red-400"}`}>
-                                {trade.tradeType === "buy" ? "🟢 BUY" : "🔴 SELL"}
-                              </td>
-                              <td className="py-2 text-white">{parseFloat(trade.amountIn.toString()).toFixed(4)}</td>
-                              <td className="py-2 text-white">${parseFloat(trade.priceAtExecution.toString()).toFixed(2)}</td>
-                              <td className={`py-2 ${trade.status === "success" ? "text-green-400" : "text-red-400"}`}>
-                                {trade.status}
-                              </td>
-                              <td className="py-2 text-gray-400">{trade.createdAt ? new Date(trade.createdAt).toLocaleString() : "--"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    tradeHistoryQuery.data.map((trade, idx) => (
+                      <div key={idx} className="p-4 bg-slate-700 rounded border-l-4 border-purple-500">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-semibold text-white">
+                              {trade.tradeType === "buy" ? "📈" : "📉"} {trade.tradeType.toUpperCase()} {parseFloat(trade.amountIn).toFixed(4)}
+                            </p>
+                            <p className="text-sm text-gray-400">
+                              Price: ${parseFloat(trade.priceAtExecution).toFixed(2)} | Out: {parseFloat(trade.amountOut).toFixed(4)}
+                            </p>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {trade.createdAt ? new Date(trade.createdAt).toLocaleString() : ""}
+                          </span>
+                        </div>
+                      </div>
+                    ))
                   ) : (
-                    <p className="text-gray-500">No trades yet...</p>
+                    <p className="text-gray-400 text-center py-8">No trades yet</p>
                   )}
                 </div>
               </CardContent>
