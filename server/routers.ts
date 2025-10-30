@@ -32,15 +32,16 @@ export const appRouter = router({
     /**
      * Get or create trading configuration
      */
-    getConfig: protectedProcedure.query(async ({ ctx }) => {
-      const config = await getTradingConfig(ctx.user.id);
+    getConfig: publicProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user?.id || "default_user";
+      const config = await getTradingConfig(userId);
       return config || null;
     }),
 
     /**
      * Update trading configuration
      */
-    updateConfig: protectedProcedure
+    updateConfig: publicProcedure
       .input(
         z.object({
           solanaPrivateKey: z.string().optional(),
@@ -53,14 +54,15 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        let config = await getTradingConfig(ctx.user.id);
+        const userId = ctx.user?.id || "default_user";
+        let config = await getTradingConfig(userId);
 
         if (!config) {
           // Create new config
-          const configId = `config_${ctx.user.id}_${Date.now()}`;
+          const configId = `config_${userId}_${Date.now()}`;
           const newConfig = {
             id: configId,
-            userId: ctx.user.id,
+            userId: userId,
             solanaPrivateKey: input.solanaPrivateKey || "",
             rpcUrl: input.rpcUrl || "https://api.mainnet-beta.solana.com",
             walletAddress: "", // Will be derived from private key
@@ -94,8 +96,9 @@ export const appRouter = router({
     /**
      * Start the trading bot
      */
-    startBot: protectedProcedure.mutation(async ({ ctx }) => {
-      const config = await getTradingConfig(ctx.user.id);
+    startBot: publicProcedure.mutation(async ({ ctx }) => {
+      const userId = ctx.user?.id || "default_user";
+      const config = await getTradingConfig(userId);
 
       if (!config) {
         throw new Error("No trading configuration found");
@@ -118,23 +121,25 @@ export const appRouter = router({
         autoTrade: config.autoTrade || false,
       };
 
-      const success = await startBotForUser(ctx.user.id, botConfig);
+      const success = await startBotForUser(userId, botConfig);
       return { success };
     }),
 
     /**
      * Stop the trading bot
      */
-    stopBot: protectedProcedure.mutation(async ({ ctx }) => {
-      const success = await stopBotForUser(ctx.user.id);
+    stopBot: publicProcedure.mutation(async ({ ctx }) => {
+      const userId = ctx.user?.id || "default_user";
+      const success = await stopBotForUser(userId);
       return { success };
     }),
 
     /**
      * Get bot status
      */
-    getBotStatus: protectedProcedure.query(async ({ ctx }) => {
-      const config = await getTradingConfig(ctx.user.id);
+    getBotStatus: publicProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user?.id || "default_user";
+      const config = await getTradingConfig(userId);
       if (!config) {
         return {
           isRunning: false,
@@ -146,7 +151,7 @@ export const appRouter = router({
         };
       }
 
-      const botStatus = getBotStatusFromManager(ctx.user.id);
+      const botStatus = getBotStatusFromManager(userId);
       if (botStatus) {
         return botStatus;
       }
@@ -164,14 +169,15 @@ export const appRouter = router({
     /**
      * Get bot logs
      */
-    getLogs: protectedProcedure
+    getLogs: publicProcedure
       .input(
         z.object({
           limit: z.number().min(1).max(500).default(100),
         })
       )
       .query(async ({ ctx, input }) => {
-        const config = await getTradingConfig(ctx.user.id);
+        const userId = ctx.user?.id || "default_user";
+        const config = await getTradingConfig(userId);
         if (!config) return [];
 
         return await getBotLogs(config.id, input.limit);
@@ -180,27 +186,29 @@ export const appRouter = router({
     /**
      * Get trade history
      */
-    getTradeHistory: protectedProcedure
+    getTradeHistory: publicProcedure
       .input(
         z.object({
           limit: z.number().min(1).max(500).default(50),
         })
       )
       .query(async ({ ctx, input }) => {
-        return await getTradeHistory(ctx.user.id, input.limit);
+        const userId = ctx.user?.id || "default_user";
+        return await getTradeHistory(userId, input.limit);
       }),
 
     /**
      * Get trade statistics
      */
-    getTradeStats: protectedProcedure.query(async ({ ctx }) => {
-      return await getTradeStats(ctx.user.id);
+    getTradeStats: publicProcedure.query(async ({ ctx }) => {
+      const userId = ctx.user?.id || "default_user";
+      return await getTradeStats(userId);
     }),
 
     /**
      * Execute a manual test transaction
      */
-    testTransaction: protectedProcedure
+    testTransaction: publicProcedure
       .input(
         z.object({
           transactionType: z.enum(["buy", "sell"]),
@@ -208,7 +216,8 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const config = await getTradingConfig(ctx.user.id);
+        const userId = ctx.user?.id || "default_user";
+        const config = await getTradingConfig(userId);
         if (!config) {
           throw new Error("No trading configuration found");
         }
@@ -254,6 +263,7 @@ export const appRouter = router({
             priceImpact: result.priceImpact,
           };
         } catch (error) {
+          console.error("Test transaction error:", error);
           throw new Error(`Test transaction failed: ${error}`);
         }
       }),
