@@ -12,7 +12,7 @@
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { calculateSuperTrend, SuperTrendResult, OHLCV } from "./supertrend";
 import { getMultiIndicatorSignal, MultiIndicatorSignal } from "./multiIndicatorSignal";
-import { executeHyperliquidSpotTrade, getSolUsdcPrice } from "./hyperliquidSpot";
+import { executeHyperliquidSpotTrade, getSolUsdcPrice, getSpotUserState } from "./hyperliquidSpot";
 import axios from "axios";
 import {
   fetchSOLPrice,
@@ -99,15 +99,12 @@ export class TradingBotEngine {
     try {
       // Update balance
       let balance = 0;
-      if (this.config.useHyperliquid && this.config.hyperliquidPrivateKey) {
+      if (this.config.useHyperliquid && this.config.hyperliquidWalletAddress) {
         // Fetch from Hyperliquid
         try {
-          const response = await axios.post('https://api.hyperliquid.xyz/info', {
-            type: 'spotClearinghouseState',
-            user: this.config.hyperliquidWalletAddress
-          });
-          if (response.data && response.data.balances) {
-            const solBalance = response.data.balances.find((b: any) => b.coin === 'SOL');
+          const userState = await getSpotUserState(this.config.hyperliquidWalletAddress);
+          if (userState && userState.balances) {
+            const solBalance = userState.balances.find((b: any) => b.coin === 'SOL');
             if (solBalance) {
               balance = Math.floor(parseFloat(solBalance.total) * 1e9);
             }
@@ -196,16 +193,13 @@ export class TradingBotEngine {
       }
 
       // Fetch current balances (SOL and USDC) every update
-      if (this.config.useHyperliquid && this.config.hyperliquidPrivateKey) {
+      if (this.config.useHyperliquid && this.config.hyperliquidWalletAddress) {
         // If using Hyperliquid, fetch balances from Hyperliquid API
         try {
-          const response = await axios.post('https://api.hyperliquid.xyz/info', {
-            type: 'spotClearinghouseState',
-            user: this.config.hyperliquidWalletAddress
-          });
+          const userState = await getSpotUserState(this.config.hyperliquidWalletAddress);
           
-          if (response.data && response.data.balances) {
-            const balances = response.data.balances;
+          if (userState && userState.balances) {
+            const balances = userState.balances;
             // Find SOL and USDC balances
             const solBalance = balances.find((b: any) => b.coin === 'SOL');
             const usdcBalance = balances.find((b: any) => b.coin === 'USDC');

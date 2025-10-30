@@ -130,6 +130,10 @@ export const appRouter = router({
       const hyperliquidPrivateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
       const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
 
+      if (!config) {
+        throw new Error("Trading configuration not found");
+      }
+
       const botConfig: BotConfig = {
         userId: config.userId,
         configId: config.id,
