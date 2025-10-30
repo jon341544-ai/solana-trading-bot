@@ -98,20 +98,42 @@ export const appRouter = router({
      */
     startBot: publicProcedure.mutation(async ({ ctx }) => {
       const userId = ctx.user?.id || "default_user";
-      const config = await getTradingConfig(userId);
+      let config = await getTradingConfig(userId);
 
       if (!config) {
-        throw new Error("No trading configuration found");
+        const hyperliquidPrivateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
+        const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
+
+        if (!hyperliquidPrivateKey || !hyperliquidWalletAddress) {
+          throw new Error("No trading configuration found and Hyperliquid credentials not available");
+        }
+
+        const configId = `config_${userId}_${Date.now()}`;
+        const newConfig = {
+          id: configId,
+          userId: userId,
+          solanaPrivateKey: "",
+          rpcUrl: "https://api.mainnet-beta.solana.com",
+          walletAddress: hyperliquidWalletAddress,
+          period: 10,
+          multiplier: "3.0",
+          tradeAmountPercent: 50,
+          slippageTolerance: "1.5",
+          isActive: true,
+          autoTrade: true,
+        };
+
+        await createTradingConfig(newConfig);
+        config = newConfig as any;
       }
 
-      if (!config.solanaPrivateKey) {
-        throw new Error("Private key not configured");
-      }
+      const hyperliquidPrivateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
+      const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
 
       const botConfig: BotConfig = {
         userId: config.userId,
         configId: config.id,
-        privateKey: config.solanaPrivateKey,
+        privateKey: config.solanaPrivateKey || "",
         rpcUrl: config.rpcUrl || "https://api.mainnet-beta.solana.com",
         walletAddress: config.walletAddress || "",
         period: config.period || 10,
@@ -119,6 +141,9 @@ export const appRouter = router({
         tradeAmountPercent: config.tradeAmountPercent || 50,
         slippageTolerance: parseFloat((config.slippageTolerance || "1.5").toString()),
         autoTrade: config.autoTrade || false,
+        hyperliquidPrivateKey: hyperliquidPrivateKey || undefined,
+        hyperliquidWalletAddress: hyperliquidWalletAddress || undefined,
+        useHyperliquid: !!(hyperliquidPrivateKey && hyperliquidWalletAddress),
       };
 
       const success = await startBotForUser(userId, botConfig);
