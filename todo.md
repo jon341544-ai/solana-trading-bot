@@ -9,15 +9,15 @@
 
 ## Bot Core Functionality
 - [x] Bot starts successfully
-- [ ] Bot status displays as "Running" in dashboard
-- [ ] Hyperliquid balances fetch and display correctly
-- [ ] Real-time price updates from Hyperliquid
-- [ ] Test transactions work with Hyperliquid
+- [x] Bot status displays as "Running" in dashboard (FIXED: getBotStatus now checks bot manager)
+- [ ] Hyperliquid balances fetch and display correctly (IN PROGRESS)
+- [x] Real-time price updates from Hyperliquid
+- [ ] Test transactions work with Hyperliquid (PENDING)
 - [ ] Bot executes live trades based on SuperTrend + MACD + Bixord FVMA signals
 
 ## Current Issues
-- [ ] Dashboard doesn't refresh bot status after start
-- [ ] Hyperliquid credentials not being saved in config
-- [ ] Balance fetching not working (shows 0.00)
-- [ ] Test transaction fails with "Private key not configured"
+- [x] Dashboard doesn't refresh bot status after start (FIXED: getBotStatus now checks bot manager first)
+- [x] Hyperliquid credentials not being saved in config (FIXED: startBot auto-creates config)
+- [ ] Balance fetching not working (shows 0.00) (IN PROGRESS: Added debug logging)
+- [ ] Test transaction fails with "Private key not configured" (PENDING)
 

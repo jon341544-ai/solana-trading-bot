@@ -97,6 +97,7 @@ export const appRouter = router({
      * Start the trading bot
      */
     startBot: publicProcedure.mutation(async ({ ctx }) => {
+      console.log("[Router] startBot called, userId:", ctx.user?.id || "default_user");
       const userId = ctx.user?.id || "default_user";
       let config = await getTradingConfig(userId);
 
@@ -167,28 +168,19 @@ export const appRouter = router({
      * Get bot status
      */
     getBotStatus: publicProcedure.query(async ({ ctx }) => {
+      console.log("[Router] getBotStatus called, userId:", ctx.user?.id || "default_user");
       const userId = ctx.user?.id || "default_user";
-      const config = await getTradingConfig(userId);
-      if (!config) {
-        return {
-          isRunning: false,
-          currentPrice: 0,
-          balance: 0,
-          trend: "neutral",
-          lastSignal: null,
-          lastTradeTime: null,
-        };
-      }
-
+      // Always check the bot manager first - this is the source of truth
       const botStatus = getBotStatusFromManager(userId);
-      if (botStatus) {
+      if (botStatus && botStatus.isRunning) {
         return botStatus;
       }
-
+      // If bot is not running, return default stopped status
       return {
         isRunning: false,
         currentPrice: 0,
         balance: 0,
+        usdcBalance: 0,
         trend: "neutral",
         lastSignal: null,
         lastTradeTime: null,
