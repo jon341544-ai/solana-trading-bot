@@ -271,18 +271,25 @@ export const appRouter = router({
           throw new Error("Hyperliquid wallet address not configured in environment");
         }
         
-        // Simply mark the bot as running
+        // Fetch initial balance and price BEFORE marking as running
+        console.log("[Router] Fetching initial balance and price...");
+        const { solBalance, usdcBalance } = await fetchHyperliquidBalance(walletAddress);
+        const currentPrice = await fetchCurrentPrice();
+        
+        console.log("[Router] Initial data - SOL:", solBalance, "USDC:", usdcBalance, "Price:", currentPrice);
+        
+        // Mark the bot as running with initial data
         activeBots.set(userId, {
           isRunning: true,
-          balance: 0,
-          usdcBalance: 0,
-          currentPrice: 0,
+          balance: solBalance,
+          usdcBalance: usdcBalance,
+          currentPrice: currentPrice,
           lastSignal: null,
           lastTradeTime: new Date(),
           trend: "down",
         });
         
-        // Start the update loop to fetch balances and prices
+        // Start the update loop to keep fetching balances and prices
         startBotUpdateLoop(userId, walletAddress);
         console.log("[Router] Bot update loop started for user:", userId, "with wallet:", walletAddress);
         
@@ -312,6 +319,32 @@ export const appRouter = router({
       
       console.log("[Router] Bot stopped for user:", userId);
       return { success: true };
+    }),
+
+    /**
+     * Manually refresh bot balance and price
+     */
+    refreshBalance: publicProcedure.mutation(async ({ ctx }) => {
+      const userId = ctx.user?.id || "default_user";
+      const walletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
+      
+      if (!walletAddress) {
+        throw new Error("Hyperliquid wallet address not configured");
+      }
+      
+      console.log("[Router] refreshBalance called for user:", userId);
+      
+      // Force immediate update
+      await updateBotStatus(userId, walletAddress);
+      
+      // Return the updated status
+      const botStatus = activeBots.get(userId);
+      if (botStatus) {
+        console.log("[Router] Returning refreshed balance:", botStatus);
+        return botStatus;
+      }
+      
+      return { isRunning: false, balance: 0, usdcBalance: 0, currentPrice: 0, lastSignal: null, lastTradeTime: new Date(), trend: "down" };
     }),
 
     /**
