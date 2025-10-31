@@ -54,16 +54,16 @@ export function stopHealthMonitor(): void {
 async function checkBotHealth(): Promise<void> {
   const activeBots = getActiveBots();
 
-  if (activeBots.size === 0) {
+  if (activeBots.length === 0) {
     // No bots running, check if any should be running
     await restartInactiveBots();
     return;
   }
 
   // Check each running bot
-  for (const [userId, bot] of Array.from(activeBots.entries())) {
+  for (const botInfo of activeBots) {
     try {
-      const status = bot.getStatus();
+      const { userId, status } = botInfo;
 
       if (!status.isRunning) {
         console.warn(`[HealthMonitor] Bot for user ${userId} is not running, restarting...`);
@@ -71,9 +71,7 @@ async function checkBotHealth(): Promise<void> {
         await restartBotForUser(userId);
       }
     } catch (error) {
-      console.error(`[HealthMonitor] Error checking bot health for user ${userId}:`, error);
-      // Try to restart the bot
-      await restartBotForUser(userId);
+      console.error(`[HealthMonitor] Error checking bot health:`, error);
     }
   }
 }
