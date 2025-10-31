@@ -100,6 +100,8 @@ export default function Home() {
     }
   };
 
+  const refreshBalanceMutation = trpc.trading.refreshBalance.useMutation();
+
   const handleTestTransaction = async (type: "buy" | "sell") => {
     setIsLoading(true);
     try {
@@ -117,6 +119,19 @@ export default function Home() {
       }
     } catch (error) {
       alert(`Error executing test transaction: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefreshBalance = async () => {
+    setIsLoading(true);
+    try {
+      await refreshBalanceMutation.mutateAsync();
+      botStatusQuery.refetch();
+      alert("Balance refreshed!");
+    } catch (error) {
+      alert(`Error refreshing balance: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -208,6 +223,14 @@ export default function Home() {
                     size="lg"
                   >
                     ⏹️ Stop Bot
+                  </Button>
+                  <Button
+                    onClick={handleRefreshBalance}
+                    disabled={isLoading}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    size="lg"
+                  >
+                    🔄 Refresh Balance
                   </Button>
                 </div>
 
