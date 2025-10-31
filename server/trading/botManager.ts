@@ -180,3 +180,10 @@ export async function shutdownAllBots(): Promise<void> {
     console.error("[BotManager] Error shutting down bots:", error);
   }
 }
+/**
+ * Get all bot user IDs (for debugging)
+ */
+export function getAllBotUserIds(): string[] {
+  return Array.from(activeBots.keys());
+}
+

@@ -12,7 +12,7 @@ import {
   getTradeStats,
 } from "./db";
 import { TradingBotEngine, BotConfig } from "./trading/botEngine";
-import { startBotForUser, stopBotForUser, getBotStatus as getBotStatusFromManager, isBotRunning } from "./trading/botManager";
+import { startBotForUser, stopBotForUser, getBotStatus as getBotStatusFromManager, isBotRunning, getAllBotUserIds } from "./trading/botManager";
 
 export const appRouter = router({
   system: systemRouter,
@@ -180,8 +180,9 @@ export const appRouter = router({
      * Get bot status
      */
     getBotStatus: publicProcedure.query(async ({ ctx }) => {
-      console.log("[Router] getBotStatus called, userId:", ctx.user?.id || "default_user");
       const userId = ctx.user?.id || "default_user";
+      console.log("[Router] getBotStatus called, userId:", userId);
+      console.log("[Router] All active bot userIds:", getAllBotUserIds());
       // Always check the bot manager first - this is the source of truth
       const botStatus = getBotStatusFromManager(userId);
       if (botStatus && botStatus.isRunning) {
