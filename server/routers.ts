@@ -384,22 +384,42 @@ export const appRouter = router({
       const userId = ctx.user?.id || "default_user";
       console.log("[Router] getBotStatus called, userId:", userId);
       
-      const dbStatus = await getDbBotStatus(userId);
-      if (dbStatus) {
-        console.log("[Router] Found bot status in DB for user:", userId, "balance:", dbStatus.balance);
+      // Try to get from database first
+      try {
+        const dbStatus = await getDbBotStatus(userId);
+        if (dbStatus) {
+          console.log("[Router] Found bot status in DB for user:", userId, "balance:", dbStatus.balance);
+          return {
+            isRunning: dbStatus.isRunning,
+            currentPrice: parseFloat(dbStatus.currentPrice?.toString() || "0"),
+            balance: parseFloat(dbStatus.balance?.toString() || "0"),
+            usdcBalance: parseFloat(dbStatus.usdcBalance?.toString() || "0"),
+            trend: dbStatus.trend || "neutral",
+            lastSignal: dbStatus.lastSignal,
+            lastTradeTime: dbStatus.lastTradeTime,
+          };
+        }
+      } catch (dbError) {
+        console.warn("[Router] Database query failed, falling back to in-memory state");
+      }
+      
+      // Fallback to in-memory state
+      const botState = activeBots.get(userId);
+      if (botState) {
+        console.log("[Router] Using in-memory bot state for user:", userId, "balance:", botState.balance);
         return {
-          isRunning: dbStatus.isRunning,
-          currentPrice: parseFloat(dbStatus.currentPrice?.toString() || "0"),
-          balance: parseFloat(dbStatus.balance?.toString() || "0"),
-          usdcBalance: parseFloat(dbStatus.usdcBalance?.toString() || "0"),
-          trend: dbStatus.trend || "neutral",
-          lastSignal: dbStatus.lastSignal,
-          lastTradeTime: dbStatus.lastTradeTime,
+          isRunning: botState.isRunning,
+          currentPrice: botState.currentPrice,
+          balance: botState.balance,
+          usdcBalance: botState.usdcBalance,
+          trend: botState.trend,
+          lastSignal: botState.lastSignal,
+          lastTradeTime: botState.lastTradeTime,
         };
       }
       
-      // If bot is not in DB, return default stopped status
-      console.log("[Router] No bot found in DB for user:", userId);
+      // If bot is not found anywhere, return default stopped status
+      console.log("[Router] No bot found for user:", userId);
       return {
         isRunning: false,
         currentPrice: 0,
