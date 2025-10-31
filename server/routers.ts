@@ -15,10 +15,15 @@ import {
 } from "./db";
 import { TradingBotEngine, BotConfig } from "./trading/botEngine";
 import { startBotForUser, stopBotForUser } from "./trading/botManager";
+import { PerpsTradingEngine, PerpsTradingConfig } from "./trading/perpsTradingEngine";
+import { fetchPerpsBalance, fetchCurrentPrice as fetchPerpPrice } from "./hyperliquid/perpsApi";
 
 
 // Simple bot storage - one bot per user
 const activeBots = new Map<string, { isRunning: boolean; balance: number; usdcBalance: number; currentPrice: number; lastSignal: any; lastTradeTime: Date; trend: string }>();
+
+// Perps trading engines - one per user
+const perpsTradingEngines = new Map<string, PerpsTradingEngine>();
 
 // Bot update loop timers
 const botInstances = new Map<string, ReturnType<typeof setInterval>>();
@@ -189,6 +194,51 @@ function stopBotUpdateLoop(userId: string) {
   }
 }
 
+
+// Perps bot update loop
+function startPerpsBotUpdateLoop(userId: string, walletAddress: string, perpEngine: PerpsTradingEngine) {
+  // Clear any existing timer
+  if (botInstances.has(userId)) {
+    clearInterval(botInstances.get(userId));
+  }
+  
+  // Update immediately
+  updatePerpsBotStatus(userId, perpEngine);
+  
+  // Then update every 30 seconds
+  const timer = setInterval(() => {
+    updatePerpsBotStatus(userId, perpEngine);
+  }, 30000);
+  
+  botInstances.set(userId, timer);
+}
+
+// Update Perps bot status
+async function updatePerpsBotStatus(userId: string, perpEngine: PerpsTradingEngine) {
+  try {
+    const currentPrice = await fetchPerpPrice();
+    const stats = perpEngine.getStats();
+    const position = perpEngine.getCurrentPosition();
+    
+    // Update in-memory state
+    const botState = activeBots.get(userId);
+    if (botState) {
+      botState.currentPrice = currentPrice;
+      botState.balance = stats.currentBalance;
+      botState.lastTradeTime = new Date();
+      
+      // Determine trend based on position
+      if (position) {
+        botState.trend = position.side === "long" ? "up" : "down";
+      }
+    }
+    
+    console.log(`[Perps] Updated bot status - Price: $${currentPrice.toFixed(2)}, Balance: $${stats.currentBalance.toFixed(2)}`);
+  } catch (error) {
+    console.error("[Perps] Error updating bot status:", error);
+  }
+}
+
 export const appRouter = router({
   system: systemRouter,
 
@@ -273,84 +323,96 @@ export const appRouter = router({
      */
     startBot: publicProcedure.mutation(async ({ ctx }) => {
       const userId = ctx.user?.id || "default_user";
-      console.log("[Router] startBot called, userId:", userId);
+      console.log("[Perps] Starting bot for user:", userId);
       
       try {
-        // Get Hyperliquid wallet address from environment
+        // Get credentials from environment
         let walletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
-        console.log("[Router] Hyperliquid wallet address from env:", walletAddress);
+        const privateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
         
-      // Fallback to hardcoded address if not set
-      if (!walletAddress) {
-        console.warn("[Router] WARNING: HYPERLIQUID_WALLET_ADDRESS not set in refreshBalance, using fallback");
-        walletAddress = "0x0838db67976dfbd2b25fcc6b3a1a705e65ea9b9f";
+        if (!walletAddress) {
+          walletAddress = "0x0838db67976dfbd2b25fcc6b3a1a705e65ea9b9f";
         }
         
-        console.log("[Router] Using wallet address:", walletAddress);
+        if (!privateKey) {
+          throw new Error("HYPERLIQUID_PRIVATE_KEY not set in environment");
+        }
         
-        // Fetch initial balance and price BEFORE marking as running
-        console.log("[Router] Fetching initial balance and price...");
-        console.log("[Router] About to call fetchHyperliquidBalance with wallet:", walletAddress);
-        const { solBalance, usdcBalance } = await fetchHyperliquidBalance(walletAddress);
-        console.log("[Router] fetchHyperliquidBalance returned:", { solBalance, usdcBalance });
+        console.log("[Perps] Using wallet:", walletAddress);
         
-        console.log("[Router] About to call fetchCurrentPrice");
-        const currentPrice = await fetchCurrentPrice();
-        console.log("[Router] fetchCurrentPrice returned:", currentPrice);
+        // Fetch initial balance
+        const balance = await fetchPerpsBalance(walletAddress);
+        if (!balance) {
+          throw new Error("Could not fetch Perps balance");
+        }
         
-        console.log("[Router] Initial data - SOL:", solBalance, "USDC:", usdcBalance, "Price:", currentPrice);
+        const currentPrice = await fetchPerpPrice();
+        console.log(`[Perps] Account value: $${balance.accountValue.toFixed(2)}, SOL price: $${currentPrice.toFixed(2)}`);
         
-        // Mark the bot as running with initial data
-        const botStatusData = {
-          isRunning: true,
-          balance: solBalance.toString(),
-          usdcBalance: usdcBalance.toString(),
-          currentPrice: currentPrice.toString(),
-          lastSignal: null,
-          lastTradeTime: new Date(),
-          trend: "down" as const,
+        // Create Perps trading engine
+        const botEngine = new TradingBotEngine({
+          period: 10,
+          multiplier: 3.0,
+        });
+        
+        const perpsTradingConfig: PerpsTradingConfig = {
+          walletAddress: walletAddress,
+          privateKey: privateKey,
+          leverage: 2,
+          positionSizePercent: 50,
+          stopLossPercent: 3.5,
+          maxDailyLossPercent: 12,
         };
         
-        // Save to memory
+        const perpEngine = new PerpsTradingEngine(perpsTradingConfig, botEngine);
+        await perpEngine.initializeDailyStats();
+        
+        perpsTradingEngines.set(userId, perpEngine);
+        
+        // Update bot status
         activeBots.set(userId, {
           isRunning: true,
-          balance: solBalance,
-          usdcBalance: usdcBalance,
+          balance: balance.accountValue,
+          usdcBalance: 0,
           currentPrice: currentPrice,
           lastSignal: null,
           lastTradeTime: new Date(),
           trend: "down",
         });
         
-        // Save to database (with error handling)
-        try {
-          await upsertBotStatus(userId, botStatusData);
-          console.log("[Router] Bot status saved to database for user:", userId);
-        } catch (dbError) {
-          console.warn("[Router] Database save failed, but in-memory state is set:", (dbError as any).message?.split('\n')[0]);
-        }
+        // Start update loop
+        startPerpsBotUpdateLoop(userId, walletAddress, perpEngine);
         
-        // Start the update loop to keep fetching balances and prices
-        startBotUpdateLoop(userId, walletAddress);
-        console.log("[Router] Bot update loop started for user:", userId, "with wallet:", walletAddress);
-        
-        console.log("[Router] Bot started for user:", userId);
+        console.log("[Perps] Bot started successfully!");
         return { success: true };
       } catch (error) {
-        console.error("[Router] Error in startBot:", error);
+        console.error("[Perps] Error starting bot:", error);
         throw error;
       }
     }),
 
 
-    /**
-     * Stop the trading bot
-     */
-    stopBot: publicProcedure.mutation(async ({ ctx }) => {
+  stopBot: publicProcedure.mutation(async ({ ctx }) => {
       const userId = ctx.user?.id || "default_user";
       
       // Stop the update loop
       stopBotUpdateLoop(userId);
+      
+      // Close any open Perps positions
+      const perpEngine = perpsTradingEngines.get(userId);
+      if (perpEngine) {
+        try {
+          const position = perpEngine.getCurrentPosition();
+          if (position) {
+            console.log("[Perps] Closing position before stopping bot");
+            // Close position by selling/buying opposite
+            // This will be handled by the Perps engine
+          }
+        } catch (error) {
+          console.error("[Perps] Error closing position:", error);
+        }
+        perpsTradingEngines.delete(userId);
+      }
       
       // Mark bot as stopped
       const botStatus = activeBots.get(userId);

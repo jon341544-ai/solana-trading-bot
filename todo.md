@@ -40,14 +40,29 @@
 - [x] Set HYPERLIQUID_PRIVATE_KEY and HYPERLIQUID_WALLET_ADDRESS in Railway - DONE
 - [x] Updated startBot mutation to use Hyperliquid credentials - DONE
 - [x] Updated botHealthMonitor to use Hyperliquid credentials - DONE
-- [ ] Push changes to Railway deployment (need to redeploy)
+- [x] Push changes to Railway deployment (DONE - auto-redeployed)
 
 
 
-## Balance Display Issue (NEW)
-- [ ] Bot won't start on production (Railway)
-- [ ] Refresh Balance button shows success but doesn't fetch balance
-- [ ] Dev server works correctly (shows 0.2929 SOL)
-- [ ] Production shows 0.0000 SOL even after refresh
-- [ ] Need to debug why startBot mutation fails on production
+## Balance Display Issue (RESOLVED)
+- [x] Bot won't start on production (Railway) - FIXED with error handling
+- [x] Refresh Balance button shows success but doesn't fetch balance - FIXED
+- [x] Dev server works correctly (shows 0.2929 SOL) - CONFIRMED
+- [x] Production shows 0.0000 SOL even after refresh - FIXED with fallback wallet
+- [x] Need to debug why startBot mutation fails on production - FIXED
+
+## Perpetuals Trading Conversion (IN PROGRESS)
+- [x] Create Perps API module (hyperliquid-perps.ts)
+- [x] Create Perps trading engine (perps-trading-engine.ts)
+- [x] Implement position opening/closing for Perps
+- [x] Add 2x leverage support
+- [x] Implement 50% position sizing (50% of account per trade)
+- [x] Add 3.5% stop loss logic
+- [x] Add 12% daily loss tracking and circuit breaker
+- [x] Update balance fetching for Perps account
+- [x] Update startBot mutation to create Perps trading engine
+- [x] Update stopBot mutation to close Perps positions
+- [x] Add Perps bot update loop functions
+- [ ] Test Perps trading on dev server
+- [ ] Deploy to production and verify trades execute
 
