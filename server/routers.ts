@@ -24,6 +24,11 @@ const botInstances = new Map<string, ReturnType<typeof setInterval>>();
 // Fetch Hyperliquid balance
 async function fetchHyperliquidBalance(walletAddress: string) {
   try {
+    if (!walletAddress) {
+      console.warn("[Bot] No wallet address provided for balance fetch");
+      return { solBalance: 0, usdcBalance: 0 };
+    }
+    
     const response = await fetch("https://api.hyperliquid.xyz/info", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -32,7 +37,14 @@ async function fetchHyperliquidBalance(walletAddress: string) {
         user: walletAddress,
       }),
     });
+    
+    if (!response.ok) {
+      console.error(`[Bot] Hyperliquid API error: ${response.status} ${response.statusText}`);
+      return { solBalance: 0, usdcBalance: 0 };
+    }
+    
     const data = await response.json();
+    console.log("[Bot] Hyperliquid balance response:", data);
     
     if (data && data.balances) {
       let solBalance = 0;
@@ -47,7 +59,10 @@ async function fetchHyperliquidBalance(walletAddress: string) {
         }
       }
       
+      console.log(`[Bot] Fetched balances - SOL: ${solBalance}, USDC: ${usdcBalance}`);
       return { solBalance, usdcBalance };
+    } else {
+      console.warn("[Bot] No balances in Hyperliquid response", data);
     }
   } catch (error) {
     console.error("[Bot] Error fetching Hyperliquid balance:", error);
@@ -71,10 +86,21 @@ async function fetchCurrentPrice() {
         },
       }),
     });
+    
+    if (!response.ok) {
+      console.error(`[Bot] Hyperliquid price API error: ${response.status} ${response.statusText}`);
+      return 0;
+    }
+    
     const data = await response.json();
+    console.log("[Bot] Hyperliquid price response:", data);
     
     if (data && data.length > 0) {
-      return parseFloat(data[data.length - 1].c);
+      const price = parseFloat(data[data.length - 1].c);
+      console.log(`[Bot] Fetched SOL price: $${price}`);
+      return price;
+    } else {
+      console.warn("[Bot] No price data in Hyperliquid response");
     }
   } catch (error) {
     console.error("[Bot] Error fetching price:", error);

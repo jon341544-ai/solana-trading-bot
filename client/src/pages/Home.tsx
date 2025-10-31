@@ -258,32 +258,8 @@ export default function Home() {
                 <CardDescription>Set up your bot parameters</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div>
-                  <Label htmlFor="privateKey" className="text-gray-300">
-                    Solana Private Key (Base58)
-                  </Label>
-                  <Input
-                    id="privateKey"
-                    type="password"
-                    placeholder="Enter your private key"
-                    value={privateKey}
-                    onChange={(e) => setPrivateKey(e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
-                  <p className="text-xs text-gray-400 mt-2">🔒 Your private key is stored securely and never shared</p>
-                </div>
-
-                <div>
-                  <Label htmlFor="rpcUrl" className="text-gray-300">
-                    RPC URL
-                  </Label>
-                  <Input
-                    id="rpcUrl"
-                    placeholder="https://api.mainnet-beta.solana.com"
-                    value={rpcUrl}
-                    onChange={(e) => setRpcUrl(e.target.value)}
-                    className="bg-slate-700 border-slate-600 text-white"
-                  />
+                <div className="bg-blue-900 border border-blue-700 rounded p-3 mb-4">
+                  <p className="text-sm text-blue-200">ℹ️ Hyperliquid credentials are configured via environment variables. No manual setup needed here.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
