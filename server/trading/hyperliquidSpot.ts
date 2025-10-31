@@ -99,7 +99,7 @@ export async function getSpotUserState(userAddress: string): Promise<any> {
     const response = await fetchWithRetry(`${HYPERLIQUID_API_URL}/info`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "spotUserState", user: userAddress }),
+      body: JSON.stringify({ type: "spotClearinghouseState", user: userAddress }),
       maxRetries: 3,
       timeoutMs: 10000,
     });
@@ -109,7 +109,7 @@ export async function getSpotUserState(userAddress: string): Promise<any> {
     }
 
     const userState = await response.json();
-    console.log("[HyperliquidSpot] Spot user state fetched successfully");
+    console.log("[HyperliquidSpot] Spot user state fetched successfully", JSON.stringify(userState).substring(0, 100));
     return userState;
   } catch (error) {
     console.error("[HyperliquidSpot] Error fetching spot user state:", error);
