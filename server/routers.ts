@@ -280,10 +280,10 @@ export const appRouter = router({
         let walletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
         console.log("[Router] Hyperliquid wallet address from env:", walletAddress);
         
-        // Fallback to hardcoded address if not set
-        if (!walletAddress) {
-          console.warn("[Router] WARNING: HYPERLIQUID_WALLET_ADDRESS not set, using fallback");
-          walletAddress = "0xf8a97533ced45b00ea479dd3e3b0e3602eb0e433";
+      // Fallback to hardcoded address if not set
+      if (!walletAddress) {
+        console.warn("[Router] WARNING: HYPERLIQUID_WALLET_ADDRESS not set in refreshBalance, using fallback");
+        walletAddress = "0x0838db67976dfbd2b25fcc6b3a1a705e65ea9b9f";
         }
         
         console.log("[Router] Using wallet address:", walletAddress);
@@ -369,10 +369,10 @@ export const appRouter = router({
       const userId = ctx.user?.id || "default_user";
       let walletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
       
-      // Fallback to hardcoded address if not set
-      if (!walletAddress) {
-        console.warn("[Router] WARNING: HYPERLIQUID_WALLET_ADDRESS not set in refreshBalance, using fallback");
-        walletAddress = "0xf8a97533ced45b00ea479dd3e3b0e3602eb0e433";
+        // Fallback to hardcoded address if not set
+        if (!walletAddress) {
+          console.warn("[Router] WARNING: HYPERLIQUID_WALLET_ADDRESS not set in startBot, using fallback");
+          walletAddress = "0x0838db67976dfbd2b25fcc6b3a1a705e65ea9b9f";
       }
       
       console.log("[Router] refreshBalance called for user:", userId);
