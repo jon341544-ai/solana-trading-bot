@@ -29,6 +29,8 @@ async function fetchHyperliquidBalance(walletAddress: string) {
       return { solBalance: 0, usdcBalance: 0 };
     }
     
+    console.log(`[Bot] Fetching balance for wallet: ${walletAddress}`);
+    
     const response = await fetch("https://api.hyperliquid.xyz/info", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
