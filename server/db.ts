@@ -245,16 +245,30 @@ export async function upsertBotStatus(userId: string, status: Partial<InsertBotS
   const statusId = `bot_status_${userId}`;
   const now = new Date();
 
-  await db.insert(botStatus)
-    .values({
-      id: statusId,
-      userId,
-      ...status,
-    })
-    .onDuplicateKeyUpdate({
-      set: {
+  // First try to update existing record
+  const existing = await getBotStatus(userId);
+  
+  if (existing) {
+    // Update existing record
+    await db.update(botStatus)
+      .set({
         ...status,
         updatedAt: now,
-      },
-    });
+      })
+      .where(eq(botStatus.userId, userId));
+  } else {
+    // Insert new record
+    await db.insert(botStatus)
+      .values({
+        id: statusId,
+        userId,
+        isRunning: status.isRunning ?? false,
+        balance: status.balance ?? "0",
+        usdcBalance: status.usdcBalance ?? "0",
+        currentPrice: status.currentPrice ?? "0",
+        trend: status.trend ?? "neutral",
+        lastSignal: status.lastSignal ?? null,
+        lastTradeTime: status.lastTradeTime ?? null,
+      });
+  }
 }
