@@ -246,21 +246,32 @@ export async function executeHyperliquidSpotTrade(
  */
 export async function getSolUsdcPrice(): Promise<number> {
   try {
-    const prices = await getSpotPrices();
+    console.log("[HyperliquidSpot] Fetching SOL price using allMids...");
+    
+    const response = await fetchWithRetry(`${HYPERLIQUID_API_URL}/info`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "allMids" }),
+      maxRetries: 3,
+      timeoutMs: 10000,
+    });
 
-    // Extract SOL price from the response
-    // The response structure depends on Hyperliquid's API format
-    if (prices && prices.assetCtxs) {
-      const solCtx = prices.assetCtxs.find((ctx: any) => ctx.name === "SOL");
-      if (solCtx && solCtx.markPx) {
-        const price = parseFloat(solCtx.markPx);
-        console.log(`[HyperliquidSpot] SOL/USDC Price: $${price.toFixed(2)}`);
-        return price;
-      }
+    if (!response.ok) {
+      throw new Error(`Failed to fetch prices: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("[HyperliquidSpot] allMids response received");
+
+    // Look for SOL price - it should be in the SOL key
+    if (data && data["SOL"]) {
+      const price = parseFloat(data["SOL"]);
+      console.log(`[HyperliquidSpot] SOL/USDC Price: $${price.toFixed(2)}`);
+      return price;
     }
 
     // Fallback: return 0 if price not found
-    console.warn("[HyperliquidSpot] Could not extract SOL price from response");
+    console.warn("[HyperliquidSpot] Could not extract SOL price from allMids response");
     return 0;
   } catch (error) {
     console.error("[HyperliquidSpot] Error getting SOL/USDC price:", error);

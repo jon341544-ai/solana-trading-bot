@@ -51,11 +51,13 @@ async function fetchHyperliquidBalance(walletAddress: string) {
       let usdcBalance = 0;
       
       for (const balance of data.balances) {
-        if (balance.coin === "SOL") {
+        if (balance.coin === "SOL" || balance.coin === "USOL") {
           solBalance = parseFloat(balance.total);
+          console.log(`[Bot] Found ${balance.coin} balance: ${solBalance}`);
         }
         if (balance.coin === "USDC") {
           usdcBalance = parseFloat(balance.total);
+          console.log(`[Bot] Found USDC balance: ${usdcBalance}`);
         }
       }
       
