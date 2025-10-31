@@ -126,20 +126,27 @@ async function fetchCurrentPrice() {
 // Update bot status with latest data
 async function updateBotStatus(userId: string, walletAddress: string) {
   try {
+    console.log(`[Bot] updateBotStatus called for userId=${userId}, wallet=${walletAddress}`);
     const { solBalance, usdcBalance } = await fetchHyperliquidBalance(walletAddress);
     const currentPrice = await fetchCurrentPrice();
     
+    console.log(`[Bot] Fetched data: SOL=${solBalance}, USDC=${usdcBalance}, Price=$${currentPrice}`);
+    
     const botStatus = activeBots.get(userId);
+    console.log(`[Bot] Bot status exists: ${!!botStatus}`);
+    
     if (botStatus) {
       botStatus.balance = solBalance;
       botStatus.usdcBalance = usdcBalance;
       botStatus.currentPrice = currentPrice;
       botStatus.lastTradeTime = new Date();
       
-      console.log(`[Bot] Updated status for ${userId}: SOL=${solBalance}, USDC=${usdcBalance}, Price=$${currentPrice}`);
+      console.log(`[Bot] ✅ Updated status for ${userId}: SOL=${solBalance}, USDC=${usdcBalance}, Price=$${currentPrice}`);
+    } else {
+      console.warn(`[Bot] ⚠️ Bot status not found for userId=${userId}`);
     }
   } catch (error) {
-    console.error("[Bot] Error updating bot status:", error);
+    console.error("[Bot] ❌ Error updating bot status:", error);
   }
 }
 
