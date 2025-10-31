@@ -97,63 +97,75 @@ export const appRouter = router({
      * Start the trading bot
      */
     startBot: publicProcedure.mutation(async ({ ctx }) => {
-      console.log("[Router] startBot called, userId:", ctx.user?.id || "default_user");
       const userId = ctx.user?.id || "default_user";
-      let config = await getTradingConfig(userId);
-
-      if (!config) {
+      console.log("[Router] startBot called, userId:", userId);
+      
+      try {
+        let config = await getTradingConfig(userId);
+        console.log("[Router] Found config:", config ? "yes" : "no");
+        
+        if (!config) {
+          const hyperliquidPrivateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
+          const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
+          console.log("[Router] Creating config, creds available:", !!(hyperliquidPrivateKey && hyperliquidWalletAddress));
+          
+          if (!hyperliquidPrivateKey || !hyperliquidWalletAddress) {
+            throw new Error("No trading configuration found and Hyperliquid credentials not available");
+          }
+          
+          const configId = `config_${userId}_${Date.now()}`;
+          const newConfig = {
+            id: configId,
+            userId: userId,
+            solanaPrivateKey: "",
+            rpcUrl: "https://api.mainnet-beta.solana.com",
+            walletAddress: hyperliquidWalletAddress,
+            period: 10,
+            multiplier: "3.0",
+            tradeAmountPercent: 50,
+            slippageTolerance: "1.5",
+            isActive: true,
+            autoTrade: true,
+          };
+          console.log("[Router] Creating new config:", configId);
+          await createTradingConfig(newConfig);
+          config = newConfig as any;
+        }
+        
         const hyperliquidPrivateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
         const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
-
-        if (!hyperliquidPrivateKey || !hyperliquidWalletAddress) {
-          throw new Error("No trading configuration found and Hyperliquid credentials not available");
+        
+        if (!config) {
+          throw new Error("Trading configuration not found");
         }
-
-        const configId = `config_${userId}_${Date.now()}`;
-        const newConfig = {
-          id: configId,
-          userId: userId,
-          solanaPrivateKey: "",
-          rpcUrl: "https://api.mainnet-beta.solana.com",
-          walletAddress: hyperliquidWalletAddress,
-          period: 10,
-          multiplier: "3.0",
-          tradeAmountPercent: 50,
-          slippageTolerance: "1.5",
-          isActive: true,
-          autoTrade: true,
+        
+        const botConfig: BotConfig = {
+          userId: config.userId,
+          configId: config.id,
+          privateKey: config.solanaPrivateKey || "",
+          rpcUrl: config.rpcUrl || "https://api.mainnet-beta.solana.com",
+          walletAddress: config.walletAddress || "",
+          period: config.period || 10,
+          multiplier: parseFloat((config.multiplier || "3.0").toString()),
+          tradeAmountPercent: config.tradeAmountPercent || 50,
+          slippageTolerance: parseFloat((config.slippageTolerance || "1.5").toString()),
+          autoTrade: config.autoTrade || false,
+          hyperliquidPrivateKey: hyperliquidPrivateKey || undefined,
+          hyperliquidWalletAddress: hyperliquidWalletAddress || undefined,
+          useHyperliquid: !!(hyperliquidPrivateKey && hyperliquidWalletAddress),
         };
-
-        await createTradingConfig(newConfig);
-        config = newConfig as any;
+        
+        console.log("[Router] Starting bot, useHyperliquid:", botConfig.useHyperliquid);
+        const success = await startBotForUser(userId, botConfig);
+        console.log("[Router] Bot start result:", success);
+        
+        return { success };
+      } catch (error) {
+        console.error("[Router] Error in startBot:", error);
+        throw error;
       }
-
-      const hyperliquidPrivateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
-      const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
-
-      if (!config) {
-        throw new Error("Trading configuration not found");
-      }
-
-      const botConfig: BotConfig = {
-        userId: config.userId,
-        configId: config.id,
-        privateKey: config.solanaPrivateKey || "",
-        rpcUrl: config.rpcUrl || "https://api.mainnet-beta.solana.com",
-        walletAddress: config.walletAddress || "",
-        period: config.period || 10,
-        multiplier: parseFloat((config.multiplier || "3.0").toString()),
-        tradeAmountPercent: config.tradeAmountPercent || 50,
-        slippageTolerance: parseFloat((config.slippageTolerance || "1.5").toString()),
-        autoTrade: config.autoTrade || false,
-        hyperliquidPrivateKey: hyperliquidPrivateKey || undefined,
-        hyperliquidWalletAddress: hyperliquidWalletAddress || undefined,
-        useHyperliquid: !!(hyperliquidPrivateKey && hyperliquidWalletAddress),
-      };
-
-      const success = await startBotForUser(userId, botConfig);
-      return { success };
     }),
+
 
     /**
      * Stop the trading bot
