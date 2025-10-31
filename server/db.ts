@@ -229,46 +229,59 @@ export async function getBotStatus(userId: string): Promise<BotStatus | undefine
   const db = await getDb();
   if (!db) return undefined;
 
-  const result = await db
-    .select()
-    .from(botStatus)
-    .where(eq(botStatus.userId, userId))
-    .limit(1);
+  try {
+    const result = await db
+      .select()
+      .from(botStatus)
+      .where(eq(botStatus.userId, userId))
+      .limit(1);
 
-  return result.length > 0 ? result[0] : undefined;
+    return result.length > 0 ? result[0] : undefined;
+  } catch (error) {
+    console.error("[Database] Error getting bot status:", error);
+    return undefined;
+  }
 }
 
 export async function upsertBotStatus(userId: string, status: Partial<InsertBotStatus>) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
+  if (!db) {
+    console.warn("[Database] Cannot upsert bot status: database not available");
+    return;
+  }
 
-  const statusId = `bot_status_${userId}`;
-  const now = new Date();
+  try {
+    const statusId = `bot_status_${userId}`;
+    const now = new Date();
 
-  // First try to update existing record
-  const existing = await getBotStatus(userId);
-  
-  if (existing) {
-    // Update existing record
-    await db.update(botStatus)
-      .set({
-        ...status,
-        updatedAt: now,
-      })
-      .where(eq(botStatus.userId, userId));
-  } else {
-    // Insert new record
-    await db.insert(botStatus)
-      .values({
-        id: statusId,
-        userId,
-        isRunning: status.isRunning ?? false,
-        balance: status.balance ?? "0",
-        usdcBalance: status.usdcBalance ?? "0",
-        currentPrice: status.currentPrice ?? "0",
-        trend: status.trend ?? "neutral",
-        lastSignal: status.lastSignal ?? null,
-        lastTradeTime: status.lastTradeTime ?? null,
-      });
+    // First try to update existing record
+    const existing = await getBotStatus(userId);
+    
+    if (existing) {
+      // Update existing record
+      await db.update(botStatus)
+        .set({
+          ...status,
+          updatedAt: now,
+        })
+        .where(eq(botStatus.userId, userId));
+    } else {
+      // Insert new record
+      await db.insert(botStatus)
+        .values({
+          id: statusId,
+          userId,
+          isRunning: status.isRunning ?? false,
+          balance: status.balance ?? "0",
+          usdcBalance: status.usdcBalance ?? "0",
+          currentPrice: status.currentPrice ?? "0",
+          trend: status.trend ?? "neutral",
+          lastSignal: status.lastSignal ?? null,
+          lastTradeTime: status.lastTradeTime ?? null,
+        });
+    }
+  } catch (error) {
+    console.error("[Database] Error upserting bot status:", error);
+    // Don't throw - let the bot continue with in-memory state
   }
 }
