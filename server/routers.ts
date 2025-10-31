@@ -143,12 +143,16 @@ async function updateBotStatus(userId: string, walletAddress: string) {
       botStatus.currentPrice = currentPrice;
       botStatus.lastTradeTime = new Date();
       
-      // Also save to database
-      await upsertBotStatus(userId, {
-        balance: solBalance.toString(),
-        usdcBalance: usdcBalance.toString(),
-        currentPrice: currentPrice.toString(),
-      });
+      // Also save to database (with error handling)
+      try {
+        await upsertBotStatus(userId, {
+          balance: solBalance.toString(),
+          usdcBalance: usdcBalance.toString(),
+          currentPrice: currentPrice.toString(),
+        });
+      } catch (dbError) {
+        console.warn("[Bot] Database save failed, but in-memory state is updated:", (dbError as any).message?.split('\n')[0]);
+      }
       
       console.log(`[Bot] ✅ Updated status for ${userId}: SOL=${solBalance}, USDC=${usdcBalance}, Price=$${currentPrice}`);
     } else {
