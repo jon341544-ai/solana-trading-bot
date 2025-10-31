@@ -72,7 +72,13 @@ export class TradingBotEngine {
   constructor(config: BotConfig) {
     this.config = config;
     this.connection = createConnection(config.rpcUrl);
-    this.keypair = createKeypairFromBase58(config.privateKey);
+    // Only create keypair if using Solana (not Hyperliquid)
+    if (config.privateKey && !config.useHyperliquid) {
+      this.keypair = createKeypairFromBase58(config.privateKey);
+    } else {
+      // For Hyperliquid mode, create a dummy keypair (won't be used)
+      this.keypair = Keypair.generate();
+    }
     this.state = {
       isRunning: false,
       lastSignal: null,

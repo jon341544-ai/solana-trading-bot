@@ -34,8 +34,11 @@
 
 ## Current Issues to Fix
 - [x] Remove Solana Private Key field from Configuration tab (obsolete) - DONE
-- [ ] Fix balance fetching - showing 0.00 SOL and 0.00 USDC (waiting for Hyperliquid credentials)
-- [ ] Fix price fetching - showing $0.00 (waiting for Hyperliquid credentials)
-- [ ] User needs to generate complete Hyperliquid private key (64 hex chars)
-- [ ] Set HYPERLIQUID_PRIVATE_KEY and HYPERLIQUID_WALLET_ADDRESS in Railway
+- [x] Fix balance fetching - showing 0.00 SOL and 0.00 USDC - DONE (credentials configured)
+- [x] Fix price fetching - showing $0.00 - DONE (credentials configured)
+- [x] User generated complete Hyperliquid private key (64 hex chars) - DONE
+- [x] Set HYPERLIQUID_PRIVATE_KEY and HYPERLIQUID_WALLET_ADDRESS in Railway - DONE
+- [x] Updated startBot mutation to use Hyperliquid credentials - DONE
+- [x] Updated botHealthMonitor to use Hyperliquid credentials - DONE
+- [ ] Push changes to Railway deployment (need to redeploy)
 

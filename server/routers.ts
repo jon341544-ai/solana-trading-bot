@@ -241,9 +241,13 @@ export const appRouter = router({
       console.log("[Router] startBot called, userId:", userId);
       
       try {
-        // Get the trading config to get wallet address
-        const config = await getTradingConfig(userId);
-        const walletAddress = config?.walletAddress || process.env.HYPERLIQUID_WALLET_ADDRESS || "";
+        // Get Hyperliquid wallet address from environment
+        const walletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
+        console.log("[Router] Hyperliquid wallet address:", walletAddress);
+        
+        if (!walletAddress) {
+          throw new Error("Hyperliquid wallet address not configured in environment");
+        }
         
         // Simply mark the bot as running
         activeBots.set(userId, {
@@ -257,10 +261,8 @@ export const appRouter = router({
         });
         
         // Start the update loop to fetch balances and prices
-        if (walletAddress) {
-          startBotUpdateLoop(userId, walletAddress);
-          console.log("[Router] Bot update loop started for user:", userId);
-        }
+        startBotUpdateLoop(userId, walletAddress);
+        console.log("[Router] Bot update loop started for user:", userId, "with wallet:", walletAddress);
         
         console.log("[Router] Bot started for user:", userId);
         return { success: true };

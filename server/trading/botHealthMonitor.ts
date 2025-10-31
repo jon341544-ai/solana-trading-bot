@@ -81,6 +81,15 @@ async function checkBotHealth(): Promise<void> {
  */
 async function restartBotForUser(userId: string): Promise<void> {
   try {
+    // Check if Hyperliquid credentials are configured
+    const hyperliquidPrivateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
+    const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
+    
+    if (!hyperliquidPrivateKey || !hyperliquidWalletAddress) {
+      console.warn(`[HealthMonitor] Hyperliquid credentials not configured in environment`);
+      return;
+    }
+
     const db = await getDb();
     if (!db) {
       console.warn("[HealthMonitor] Database not available, cannot restart bot");
@@ -101,22 +110,21 @@ async function restartBotForUser(userId: string): Promise<void> {
 
     const config = configs[0];
 
-    if (!config.solanaPrivateKey) {
-      console.warn(`[HealthMonitor] No private key configured for user ${userId}`);
-      return;
-    }
-
+    // Use Hyperliquid credentials from environment
     const botConfig: BotConfig = {
       userId: config.userId,
       configId: config.id,
-      privateKey: config.solanaPrivateKey,
+      privateKey: config.solanaPrivateKey || "",
       rpcUrl: config.rpcUrl || "https://api.mainnet-beta.solana.com",
       walletAddress: config.walletAddress || "",
+      hyperliquidPrivateKey: hyperliquidPrivateKey,
+      hyperliquidWalletAddress: hyperliquidWalletAddress,
       period: config.period || 10,
       multiplier: parseFloat((config.multiplier || "3.0").toString()),
       tradeAmountPercent: config.tradeAmountPercent || 50,
       slippageTolerance: parseFloat((config.slippageTolerance || "1.5").toString()),
       autoTrade: config.autoTrade || false,
+      useHyperliquid: true,
     };
 
     const success = await startBotForUser(userId, botConfig);
@@ -135,24 +143,9 @@ async function restartBotForUser(userId: string): Promise<void> {
  */
 async function restartInactiveBots(): Promise<void> {
   try {
-    const db = await getDb();
-    if (!db) {
-      return;
-    }
-
-    // Get all bots that should be running but aren't
-    const inactiveBots = await db
-      .select()
-      .from(tradingConfigs)
-      .where(eq(tradingConfigs.isActive, true));
-
-    if (inactiveBots.length > 0) {
-      console.log(`[HealthMonitor] Found ${inactiveBots.length} bots that should be running`);
-
-      for (const config of inactiveBots) {
-        await restartBotForUser(config.userId);
-      }
-    }
+    // Disabled: Users should manually start bots via the dashboard
+    // This prevents errors from trying to restart bots without proper configuration
+    console.log("[HealthMonitor] Bot auto-restart disabled - users can start bots manually via dashboard");
   } catch (error) {
     console.error("[HealthMonitor] Error checking for inactive bots:", error);
   }
