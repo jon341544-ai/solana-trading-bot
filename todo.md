@@ -16,9 +16,10 @@
 - [ ] Bot executes live trades based on SuperTrend + MACD + Bixord FVMA signals
 
 ## Current Issues
-- [ ] Bot not actually starting (says "started successfully" but no logs appear)
-- [ ] No logs being saved to database
-- [ ] Status shows "Stopped" even after clicking Start Bot
-- [ ] Balances show 0.00 (because bot isn't running)
+- [x] Bot not actually starting (FIXED: Simplified bot.start() to remove Hyperliquid balance fetch)
+- [ ] No logs being saved to database (bot.addLog() not working)
+- [ ] Status shows "Stopped" even though bot is in activeBots map
+- [ ] getBotStatus query not finding the running bot
+- [ ] Balances show 0.00 (logs aren't being saved)
 - [ ] Test transaction fails with "Private key not configured"
 
