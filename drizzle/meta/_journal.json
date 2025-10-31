@@ -15,6 +15,13 @@
       "when": 1761003628917,
       "tag": "0001_tense_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1761948120107,
+      "tag": "0002_fast_jackal",
+      "breakpoints": true
     }
   ]
 }

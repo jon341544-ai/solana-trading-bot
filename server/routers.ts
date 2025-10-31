@@ -10,6 +10,8 @@ import {
   getBotLogs,
   getTradeHistory,
   getTradeStats,
+  getBotStatus as getDbBotStatus,
+  upsertBotStatus,
 } from "./db";
 import { TradingBotEngine, BotConfig } from "./trading/botEngine";
 import { startBotForUser, stopBotForUser } from "./trading/botManager";
@@ -140,6 +142,13 @@ async function updateBotStatus(userId: string, walletAddress: string) {
       botStatus.usdcBalance = usdcBalance;
       botStatus.currentPrice = currentPrice;
       botStatus.lastTradeTime = new Date();
+      
+      // Also save to database
+      await upsertBotStatus(userId, {
+        balance: solBalance.toString(),
+        usdcBalance: usdcBalance.toString(),
+        currentPrice: currentPrice.toString(),
+      });
       
       console.log(`[Bot] ✅ Updated status for ${userId}: SOL=${solBalance}, USDC=${usdcBalance}, Price=$${currentPrice}`);
     } else {
@@ -283,6 +292,17 @@ export const appRouter = router({
         console.log("[Router] Initial data - SOL:", solBalance, "USDC:", usdcBalance, "Price:", currentPrice);
         
         // Mark the bot as running with initial data
+        const botStatusData = {
+          isRunning: true,
+          balance: solBalance.toString(),
+          usdcBalance: usdcBalance.toString(),
+          currentPrice: currentPrice.toString(),
+          lastSignal: null,
+          lastTradeTime: new Date(),
+          trend: "down" as const,
+        };
+        
+        // Save to memory
         activeBots.set(userId, {
           isRunning: true,
           balance: solBalance,
@@ -292,6 +312,10 @@ export const appRouter = router({
           lastTradeTime: new Date(),
           trend: "down",
         });
+        
+        // Save to database
+        await upsertBotStatus(userId, botStatusData);
+        console.log("[Router] Bot status saved to database for user:", userId);
         
         // Start the update loop to keep fetching balances and prices
         startBotUpdateLoop(userId, walletAddress);
@@ -359,16 +383,23 @@ export const appRouter = router({
     getBotStatus: publicProcedure.query(async ({ ctx }) => {
       const userId = ctx.user?.id || "default_user";
       console.log("[Router] getBotStatus called, userId:", userId);
-      console.log("[Router] All active bots:", Array.from(activeBots.keys()));
       
-      const botStatus = activeBots.get(userId);
-      if (botStatus) {
-        console.log("[Router] Found bot for user:", userId, "isRunning:", botStatus.isRunning);
-        return botStatus;
+      const dbStatus = await getDbBotStatus(userId);
+      if (dbStatus) {
+        console.log("[Router] Found bot status in DB for user:", userId, "balance:", dbStatus.balance);
+        return {
+          isRunning: dbStatus.isRunning,
+          currentPrice: parseFloat(dbStatus.currentPrice?.toString() || "0"),
+          balance: parseFloat(dbStatus.balance?.toString() || "0"),
+          usdcBalance: parseFloat(dbStatus.usdcBalance?.toString() || "0"),
+          trend: dbStatus.trend || "neutral",
+          lastSignal: dbStatus.lastSignal,
+          lastTradeTime: dbStatus.lastTradeTime,
+        };
       }
       
-      // If bot is not running, return default stopped status
-      console.log("[Router] No bot found for user:", userId);
+      // If bot is not in DB, return default stopped status
+      console.log("[Router] No bot found in DB for user:", userId);
       return {
         isRunning: false,
         currentPrice: 0,

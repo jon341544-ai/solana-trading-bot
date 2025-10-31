@@ -1,11 +1,11 @@
 import { eq, desc } from "drizzle-orm";
 import mysql from "mysql2/promise";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, tradingConfigs, TradingConfig, botLogs, trades } from "../drizzle/schema";
+import { InsertUser, users, tradingConfigs, TradingConfig, botLogs, trades, botStatus, BotStatus, InsertBotStatus } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 // Export schema tables for use in other modules
-export { tradingConfigs, botLogs, trades } from "../drizzle/schema";
+export { tradingConfigs, botLogs, trades, botStatus } from "../drizzle/schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _tablesCreated = false;
@@ -222,3 +222,39 @@ export async function getTradeStats(userId: string) {
   };
 }
 
+/**
+ * Bot Status operations
+ */
+export async function getBotStatus(userId: string): Promise<BotStatus | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(botStatus)
+    .where(eq(botStatus.userId, userId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertBotStatus(userId: string, status: Partial<InsertBotStatus>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const statusId = `bot_status_${userId}`;
+  const now = new Date();
+
+  await db.insert(botStatus)
+    .values({
+      id: statusId,
+      userId,
+      ...status,
+    })
+    .onDuplicateKeyUpdate({
+      set: {
+        ...status,
+        updatedAt: now,
+      },
+    });
+}

@@ -117,3 +117,25 @@ export const botLogs = mysqlTable("bot_logs", {
 export type BotLog = typeof botLogs.$inferSelect;
 export type InsertBotLog = typeof botLogs.$inferInsert;
 
+/**
+ * Bot status table for tracking real-time bot state
+ */
+export const botStatus = mysqlTable("bot_status", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  userId: varchar("userId", { length: 64 }).notNull().unique(),
+  
+  isRunning: boolean("isRunning").default(false),
+  balance: decimal("balance", { precision: 30, scale: 8 }).default("0"),
+  usdcBalance: decimal("usdcBalance", { precision: 30, scale: 8 }).default("0"),
+  currentPrice: decimal("currentPrice", { precision: 20, scale: 8 }).default("0"),
+  trend: mysqlEnum("trend", ["up", "down", "neutral"]).default("neutral"),
+  lastSignal: varchar("lastSignal", { length: 64 }),
+  lastTradeTime: timestamp("lastTradeTime"),
+  
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
+});
+
+export type BotStatus = typeof botStatus.$inferSelect;
+export type InsertBotStatus = typeof botStatus.$inferInsert;
+
