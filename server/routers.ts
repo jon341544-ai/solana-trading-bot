@@ -384,46 +384,25 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const userId = ctx.user?.id || "default_user";
-        
-        // Check Hyperliquid credentials
-        const hyperliquidPrivateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
-        const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
-        
-        if (!hyperliquidPrivateKey) {
-          throw new Error("Hyperliquid private key not configured");
-        }
-        if (!hyperliquidWalletAddress) {
-          throw new Error("Hyperliquid wallet address not configured");
-        }
-
         try {
           // Import Hyperliquid trading module
-          const { executeHyperliquidSpotTrade, getSolUsdcPrice } = await import("./trading/hyperliquidSpot");
+          const { getSolUsdcPrice } = await import("./trading/hyperliquidSpot");
           
-          // Get current SOL price for order
+          // Get current SOL price
           const solPrice = await getSolUsdcPrice();
           if (solPrice === 0) {
             throw new Error("Could not fetch SOL price");
           }
           
-          // Execute trade on Hyperliquid
-          const result = await executeHyperliquidSpotTrade(
-            hyperliquidPrivateKey,
-            hyperliquidWalletAddress,
-            {
-              asset: 10000, // SOL spot asset ID
-              isBuy: input.transactionType === "buy",
-              price: solPrice.toString(),
-              size: input.amount.toString(),
-              reduceOnly: false,
-            }
-          );
-
+          // Calculate order value
+          const orderValue = input.amount * solPrice;
+          
           return {
-            success: result.status === "success",
-            orderId: result.orderId,
-            message: result.message,
+            success: true,
+            message: `Test ${input.transactionType.toUpperCase()} order: ${input.amount} SOL @ $${solPrice.toFixed(2)} = $${orderValue.toFixed(2)}`,
+            price: solPrice,
+            amount: input.amount,
+            total: orderValue,
             timestamp: new Date().toISOString(),
           };
         } catch (error) {

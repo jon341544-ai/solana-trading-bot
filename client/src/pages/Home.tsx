@@ -109,7 +109,7 @@ export default function Home() {
       });
 
       if (result.success) {
-        alert(`Test ${type.toUpperCase()} transaction successful!\nOrder ID: ${result.orderId || 'N/A'}\nMessage: ${result.message}`);
+        alert(`Test ${type.toUpperCase()} transaction successful!\n${result.message}`);
         logsQuery.refetch();
         tradeHistoryQuery.refetch();
       } else {
