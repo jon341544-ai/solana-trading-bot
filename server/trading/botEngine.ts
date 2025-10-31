@@ -97,27 +97,6 @@ export class TradingBotEngine {
     await this.addLog("🤖 Bot started", "success");
 
     try {
-      // Update balance
-      let balance = 0;
-      if (this.config.useHyperliquid && this.config.hyperliquidWalletAddress) {
-        // Fetch from Hyperliquid
-        try {
-          const userState = await getSpotUserState(this.config.hyperliquidWalletAddress);
-          if (userState && userState.balances) {
-            const solBalance = userState.balances.find((b: any) => b.coin === 'SOL');
-            if (solBalance) {
-              balance = Math.floor(parseFloat(solBalance.total) * 1e9);
-            }
-          }
-        } catch (error) {
-          console.error("Failed to fetch initial Hyperliquid balance:", error);
-        }
-      } else {
-        balance = await getWalletBalance(this.connection, this.keypair.publicKey);
-      }
-      this.state.balance = balance;
-      await this.addLog(`💰 Wallet balance: ${lamportsToSol(balance).toFixed(4)} SOL`, "info");
-
       // Start the trading loop
       this.updateInterval = setInterval(() => {
         this.update().catch((error) => {
