@@ -18,6 +18,116 @@ import { startBotForUser, stopBotForUser } from "./trading/botManager";
 // Simple bot storage - one bot per user
 const activeBots = new Map<string, { isRunning: boolean; balance: number; usdcBalance: number; currentPrice: number; lastSignal: any; lastTradeTime: Date; trend: string }>();
 
+// Bot update loop timers
+const botInstances = new Map<string, ReturnType<typeof setInterval>>();
+
+// Fetch Hyperliquid balance
+async function fetchHyperliquidBalance(walletAddress: string) {
+  try {
+    const response = await fetch("https://api.hyperliquid.xyz/info", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "spotClearinghouseState",
+        user: walletAddress,
+      }),
+    });
+    const data = await response.json();
+    
+    if (data && data.balances) {
+      let solBalance = 0;
+      let usdcBalance = 0;
+      
+      for (const balance of data.balances) {
+        if (balance.coin === "SOL") {
+          solBalance = parseFloat(balance.total);
+        }
+        if (balance.coin === "USDC") {
+          usdcBalance = parseFloat(balance.total);
+        }
+      }
+      
+      return { solBalance, usdcBalance };
+    }
+  } catch (error) {
+    console.error("[Bot] Error fetching Hyperliquid balance:", error);
+  }
+  return { solBalance: 0, usdcBalance: 0 };
+}
+
+// Fetch current SOL price
+async function fetchCurrentPrice() {
+  try {
+    const response = await fetch("https://api.hyperliquid.xyz/info", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "candles",
+        req: {
+          coin: "SOL",
+          interval: "1m",
+          startTime: Date.now() - 60000,
+          endTime: Date.now(),
+        },
+      }),
+    });
+    const data = await response.json();
+    
+    if (data && data.length > 0) {
+      return parseFloat(data[data.length - 1].c);
+    }
+  } catch (error) {
+    console.error("[Bot] Error fetching price:", error);
+  }
+  return 0;
+}
+
+// Update bot status with latest data
+async function updateBotStatus(userId: string, walletAddress: string) {
+  try {
+    const { solBalance, usdcBalance } = await fetchHyperliquidBalance(walletAddress);
+    const currentPrice = await fetchCurrentPrice();
+    
+    const botStatus = activeBots.get(userId);
+    if (botStatus) {
+      botStatus.balance = solBalance;
+      botStatus.usdcBalance = usdcBalance;
+      botStatus.currentPrice = currentPrice;
+      botStatus.lastTradeTime = new Date();
+      
+      console.log(`[Bot] Updated status for ${userId}: SOL=${solBalance}, USDC=${usdcBalance}, Price=$${currentPrice}`);
+    }
+  } catch (error) {
+    console.error("[Bot] Error updating bot status:", error);
+  }
+}
+
+// Start bot update loop
+function startBotUpdateLoop(userId: string, walletAddress: string) {
+  // Clear any existing timer
+  if (botInstances.has(userId)) {
+    clearInterval(botInstances.get(userId));
+  }
+  
+  // Update immediately
+  updateBotStatus(userId, walletAddress);
+  
+  // Then update every 30 seconds
+  const timer = setInterval(() => {
+    updateBotStatus(userId, walletAddress);
+  }, 30000);
+  
+  botInstances.set(userId, timer);
+}
+
+// Stop bot update loop
+function stopBotUpdateLoop(userId: string) {
+  if (botInstances.has(userId)) {
+    clearInterval(botInstances.get(userId));
+    botInstances.delete(userId);
+  }
+}
+
 export const appRouter = router({
   system: systemRouter,
 
@@ -105,6 +215,10 @@ export const appRouter = router({
       console.log("[Router] startBot called, userId:", userId);
       
       try {
+        // Get the trading config to get wallet address
+        const config = await getTradingConfig(userId);
+        const walletAddress = config?.walletAddress || process.env.HYPERLIQUID_WALLET_ADDRESS || "";
+        
         // Simply mark the bot as running
         activeBots.set(userId, {
           isRunning: true,
@@ -115,6 +229,12 @@ export const appRouter = router({
           lastTradeTime: new Date(),
           trend: "down",
         });
+        
+        // Start the update loop to fetch balances and prices
+        if (walletAddress) {
+          startBotUpdateLoop(userId, walletAddress);
+          console.log("[Router] Bot update loop started for user:", userId);
+        }
         
         console.log("[Router] Bot started for user:", userId);
         return { success: true };
@@ -130,8 +250,18 @@ export const appRouter = router({
      */
     stopBot: publicProcedure.mutation(async ({ ctx }) => {
       const userId = ctx.user?.id || "default_user";
-      const success = await stopBotForUser(userId);
-      return { success };
+      
+      // Stop the update loop
+      stopBotUpdateLoop(userId);
+      
+      // Mark bot as stopped
+      const botStatus = activeBots.get(userId);
+      if (botStatus) {
+        botStatus.isRunning = false;
+      }
+      
+      console.log("[Router] Bot stopped for user:", userId);
+      return { success: true };
     }),
 
     /**
@@ -201,7 +331,7 @@ export const appRouter = router({
     }),
 
     /**
-     * Execute a manual test transaction
+     * Execute a manual test transaction on Hyperliquid
      */
     testTransaction: publicProcedure
       .input(
@@ -212,50 +342,46 @@ export const appRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const userId = ctx.user?.id || "default_user";
-        const config = await getTradingConfig(userId);
-        if (!config) {
-          throw new Error("No trading configuration found");
+        
+        // Check Hyperliquid credentials
+        const hyperliquidPrivateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
+        const hyperliquidWalletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
+        
+        if (!hyperliquidPrivateKey) {
+          throw new Error("Hyperliquid private key not configured");
+        }
+        if (!hyperliquidWalletAddress) {
+          throw new Error("Hyperliquid wallet address not configured");
         }
 
-        if (!config.solanaPrivateKey) {
-          throw new Error("Private key not configured");
-        }
-
-        const { createConnection, createKeypairFromBase58, executeTrade } = await import("./trading/solanaTrading");
         try {
-          const connection = createConnection(config.rpcUrl || "https://api.mainnet-beta.solana.com");
-          const keypair = createKeypairFromBase58(config.solanaPrivateKey);
-
-          const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-          const SOL_MINT = "So11111111111111111111111111111111111111112";
+          // Import Hyperliquid trading module
+          const { executeHyperliquidSpotTrade, getSolUsdcPrice } = await import("./trading/hyperliquidSpot");
           
-          let tradeAmount: number;
-          if (input.transactionType === "buy") {
-            tradeAmount = Math.floor(input.amount * 1e6);
-          } else {
-            tradeAmount = Math.floor(input.amount * 1e9);
+          // Get current SOL price for order
+          const solPrice = await getSolUsdcPrice();
+          if (solPrice === 0) {
+            throw new Error("Could not fetch SOL price");
           }
           
-          const slippageBps = Math.floor((config.slippageTolerance ? parseFloat(config.slippageTolerance.toString()) : 1.5) * 100);
-
-          const result = await executeTrade(
-            connection,
-            keypair,
+          // Execute trade on Hyperliquid
+          const result = await executeHyperliquidSpotTrade(
+            hyperliquidPrivateKey,
+            hyperliquidWalletAddress,
             {
-              inputMint: input.transactionType === "buy" ? USDC_MINT : SOL_MINT,
-              outputMint: input.transactionType === "buy" ? SOL_MINT : USDC_MINT,
-              amount: tradeAmount,
-              slippageBps: slippageBps,
+              asset: 10000, // SOL spot asset ID
+              isBuy: input.transactionType === "buy",
+              price: solPrice.toString(),
+              size: input.amount.toString(),
+              reduceOnly: false,
             }
           );
 
           return {
             success: result.status === "success",
-            txHash: result.txHash,
-            error: result.status === "failed" ? "Trade execution failed" : undefined,
-            inputAmount: result.inputAmount,
-            outputAmount: result.outputAmount,
-            priceImpact: result.priceImpact,
+            orderId: result.orderId,
+            message: result.message,
+            timestamp: new Date().toISOString(),
           };
         } catch (error) {
           console.error("Test transaction error:", error);

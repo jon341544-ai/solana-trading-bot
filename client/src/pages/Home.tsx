@@ -109,11 +109,11 @@ export default function Home() {
       });
 
       if (result.success) {
-        alert(`Test ${type.toUpperCase()} transaction successful!\nTX Hash: ${result.txHash}`);
+        alert(`Test ${type.toUpperCase()} transaction successful!\nOrder ID: ${result.orderId || 'N/A'}\nMessage: ${result.message}`);
         logsQuery.refetch();
         tradeHistoryQuery.refetch();
       } else {
-        alert(`Test ${type.toUpperCase()} transaction failed: ${result.error}`);
+        alert(`Test ${type.toUpperCase()} transaction failed: ${result.message}`);
       }
     } catch (error) {
       alert(`Error executing test transaction: ${error}`);
