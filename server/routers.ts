@@ -317,9 +317,13 @@ export const appRouter = router({
           trend: "down",
         });
         
-        // Save to database
-        await upsertBotStatus(userId, botStatusData);
-        console.log("[Router] Bot status saved to database for user:", userId);
+        // Save to database (with error handling)
+        try {
+          await upsertBotStatus(userId, botStatusData);
+          console.log("[Router] Bot status saved to database for user:", userId);
+        } catch (dbError) {
+          console.warn("[Router] Database save failed, but in-memory state is set:", (dbError as any).message?.split('\n')[0]);
+        }
         
         // Start the update loop to keep fetching balances and prices
         startBotUpdateLoop(userId, walletAddress);
