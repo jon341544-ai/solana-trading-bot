@@ -5,7 +5,6 @@
  * even when the web page is closed. Bots are stored in memory
  * and their state is persisted to the database.
  */
-
 import { TradingBotEngine } from "./botEngine";
 import { getDb, tradingConfigs } from "../db";
 import { BotConfig } from "./botEngine";
@@ -25,13 +24,17 @@ export async function startBotForUser(userId: string, config: BotConfig): Promis
       return true;
     }
 
-    // Create and start new bot
+    // Create new bot
     const bot = new TradingBotEngine(config);
-    await bot.start();
-
-    // Store in active bots map
+    
+    // Store in active bots map BEFORE starting (so we can query it even if start fails)
     activeBots.set(userId, bot);
-
+    console.log(`[BotManager] Created bot for user ${userId}`);
+    
+    // Start the bot
+    await bot.start();
+    console.log(`[BotManager] Started bot for user ${userId}`);
+    
     // Update database to mark bot as active
     const db = await getDb();
     if (db) {
@@ -40,11 +43,11 @@ export async function startBotForUser(userId: string, config: BotConfig): Promis
         .set({ isActive: true })
         .where(eq(tradingConfigs.id, config.configId));
     }
-
-    console.log(`[BotManager] Started bot for user ${userId}`);
+    
     return true;
   } catch (error) {
     console.error(`[BotManager] Failed to start bot for user ${userId}:`, error);
+    // Keep the bot in the map so we can see its error state
     return false;
   }
 }
@@ -69,12 +72,13 @@ export async function stopBotForUser(userId: string): Promise<boolean> {
     // Update database to mark bot as inactive
     const db = await getDb();
     if (db) {
+      // Find the config for this user
       const config = await db
         .select()
         .from(tradingConfigs)
         .where(eq(tradingConfigs.userId, userId))
         .limit(1);
-
+      
       if (config.length > 0) {
         await db
           .update(tradingConfigs)
@@ -97,51 +101,50 @@ export async function stopBotForUser(userId: string): Promise<boolean> {
 export function getBotStatus(userId: string) {
   const bot = activeBots.get(userId);
   if (!bot) {
-    return { isRunning: false };
+    return {
+      isRunning: false,
+      status: "Stopped",
+      solBalance: 0,
+      usdcBalance: 0,
+      lastPrice: 0,
+      trend: "neutral",
+    };
   }
   return bot.getStatus();
 }
 
 /**
- * Check if bot is running for a user
- */
-export function isBotRunning(userId: string): boolean {
-  return activeBots.has(userId);
-}
-
-/**
  * Get all active bots
  */
-export function getActiveBots(): Map<string, TradingBotEngine> {
-  return activeBots;
+export function getActiveBots() {
+  return Array.from(activeBots.entries()).map(([userId, bot]) => ({
+    userId,
+    status: bot.getStatus(),
+  }));
 }
 
 /**
- * Restore bots from database on server startup
- * This ensures bots continue running if the server restarts
+ * Restore bots from database (called on server startup)
  */
 export async function restoreBotsFromDatabase(): Promise<void> {
   try {
     const db = await getDb();
-    if (!db) {
-      console.warn("[BotManager] Database not available, skipping bot restoration");
-      return;
-    }
-
-    // Get all active bot configurations
-    const activeConfigs = await db
+    if (!db) return;
+    
+    // Get all active configs
+    const configs = await db
       .select()
       .from(tradingConfigs)
       .where(eq(tradingConfigs.isActive, true));
-
-    console.log(`[BotManager] Found ${activeConfigs.length} active bots to restore`);
-
+    
+    console.log(`[BotManager] Restoring ${configs.length} bots from database`);
+    
     // Start each bot
-    for (const config of activeConfigs) {
+    for (const config of configs) {
       const botConfig: BotConfig = {
         userId: config.userId,
         configId: config.id,
-        privateKey: config.solanaPrivateKey,
+        privateKey: config.solanaPrivateKey || "",
         rpcUrl: config.rpcUrl || "https://api.mainnet-beta.solana.com",
         walletAddress: config.walletAddress || "",
         period: config.period || 10,
@@ -149,37 +152,30 @@ export async function restoreBotsFromDatabase(): Promise<void> {
         tradeAmountPercent: config.tradeAmountPercent || 50,
         slippageTolerance: parseFloat((config.slippageTolerance || "1.5").toString()),
         autoTrade: config.autoTrade || false,
+        hyperliquidPrivateKey: process.env.HYPERLIQUID_PRIVATE_KEY,
+        hyperliquidWalletAddress: process.env.HYPERLIQUID_WALLET_ADDRESS,
+        useHyperliquid: !!(process.env.HYPERLIQUID_PRIVATE_KEY && process.env.HYPERLIQUID_WALLET_ADDRESS),
       };
-
-      const success = await startBotForUser(config.userId, botConfig);
-      if (success) {
-        console.log(`[BotManager] Restored bot for user ${config.userId}`);
-      } else {
-        console.error(`[BotManager] Failed to restore bot for user ${config.userId}`);
-      }
+      
+      await startBotForUser(config.userId, botConfig);
     }
   } catch (error) {
-    console.error("[BotManager] Failed to restore bots from database:", error);
+    console.error("[BotManager] Failed to restore bots:", error);
   }
 }
 
 /**
- * Shutdown all bots gracefully
+ * Shutdown all bots (called on server shutdown)
  */
 export async function shutdownAllBots(): Promise<void> {
-  console.log(`[BotManager] Shutting down ${activeBots.size} bots...`);
-
-  const botEntries = Array.from(activeBots.entries());
-  for (const [userId, bot] of botEntries) {
-    try {
-      await bot.stop();
-      console.log(`[BotManager] Stopped bot for user ${userId}`);
-    } catch (error) {
-      console.error(`[BotManager] Error stopping bot for user ${userId}:`, error);
+  try {
+    const bots = Array.from(activeBots.keys());
+    console.log(`[BotManager] Shutting down ${bots.length} bots`);
+    
+    for (const userId of bots) {
+      await stopBotForUser(userId);
     }
+  } catch (error) {
+    console.error("[BotManager] Error shutting down bots:", error);
   }
-
-  activeBots.clear();
-  console.log("[BotManager] All bots shut down");
 }
-

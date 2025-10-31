@@ -16,8 +16,9 @@
 - [ ] Bot executes live trades based on SuperTrend + MACD + Bixord FVMA signals
 
 ## Current Issues
-- [x] Dashboard doesn't refresh bot status after start (FIXED: getBotStatus now checks bot manager first)
-- [x] Hyperliquid credentials not being saved in config (FIXED: startBot auto-creates config)
-- [ ] Balance fetching not working (shows 0.00) (IN PROGRESS: Added debug logging)
-- [ ] Test transaction fails with "Private key not configured" (PENDING)
+- [ ] Bot not actually starting (says "started successfully" but no logs appear)
+- [ ] No logs being saved to database
+- [ ] Status shows "Stopped" even after clicking Start Bot
+- [ ] Balances show 0.00 (because bot isn't running)
+- [ ] Test transaction fails with "Private key not configured"
 
