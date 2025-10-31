@@ -77,13 +77,7 @@ async function fetchCurrentPrice() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        type: "candles",
-        req: {
-          coin: "SOL",
-          interval: "1m",
-          startTime: Date.now() - 60000,
-          endTime: Date.now(),
-        },
+        type: "allMids",
       }),
     });
     
@@ -93,14 +87,31 @@ async function fetchCurrentPrice() {
     }
     
     const data = await response.json();
-    console.log("[Bot] Hyperliquid price response:", data);
+    console.log("[Bot] Hyperliquid allMids response:", data);
     
-    if (data && data.length > 0) {
-      const price = parseFloat(data[data.length - 1].c);
-      console.log(`[Bot] Fetched SOL price: $${price}`);
-      return price;
+    // Look for SOL price - it could be "SOL" or "@<index>" format
+    let solPrice = 0;
+    if (data["SOL"]) {
+      solPrice = parseFloat(data["SOL"]);
+    } else if (data["@1"]) {
+      // Try common spot index for SOL/USDC
+      solPrice = parseFloat(data["@1"]);
     } else {
-      console.warn("[Bot] No price data in Hyperliquid response");
+      // Try to find any SOL-related key
+      for (const key in data) {
+        if (key.includes("SOL") || key.includes("@")) {
+          solPrice = parseFloat(data[key]);
+          console.log(`[Bot] Found SOL price at key ${key}: $${solPrice}`);
+          break;
+        }
+      }
+    }
+    
+    if (solPrice > 0) {
+      console.log(`[Bot] Fetched SOL price: $${solPrice}`);
+      return solPrice;
+    } else {
+      console.warn("[Bot] No SOL price data in Hyperliquid response");
     }
   } catch (error) {
     console.error("[Bot] Error fetching price:", error);
