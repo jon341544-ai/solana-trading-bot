@@ -290,8 +290,13 @@ export const appRouter = router({
         
         // Fetch initial balance and price BEFORE marking as running
         console.log("[Router] Fetching initial balance and price...");
+        console.log("[Router] About to call fetchHyperliquidBalance with wallet:", walletAddress);
         const { solBalance, usdcBalance } = await fetchHyperliquidBalance(walletAddress);
+        console.log("[Router] fetchHyperliquidBalance returned:", { solBalance, usdcBalance });
+        
+        console.log("[Router] About to call fetchCurrentPrice");
         const currentPrice = await fetchCurrentPrice();
+        console.log("[Router] fetchCurrentPrice returned:", currentPrice);
         
         console.log("[Router] Initial data - SOL:", solBalance, "USDC:", usdcBalance, "Price:", currentPrice);
         
