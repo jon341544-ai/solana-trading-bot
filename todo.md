@@ -42,3 +42,12 @@
 - [x] Updated botHealthMonitor to use Hyperliquid credentials - DONE
 - [ ] Push changes to Railway deployment (need to redeploy)
 
+
+
+## Balance Display Issue (NEW)
+- [ ] Bot won't start on production (Railway)
+- [ ] Refresh Balance button shows success but doesn't fetch balance
+- [ ] Dev server works correctly (shows 0.2929 SOL)
+- [ ] Production shows 0.0000 SOL even after refresh
+- [ ] Need to debug why startBot mutation fails on production
+
