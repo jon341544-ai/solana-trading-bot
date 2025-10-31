@@ -8,6 +8,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { restoreBotsFromDatabase, shutdownAllBots } from "../trading/botManager";
 import { startHealthMonitor, stopHealthMonitor } from "../trading/botHealthMonitor";
+import { initializeDatabase } from "../db-init";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -61,6 +62,15 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });
+
+  // Initialize database tables
+  console.log("[Server] Initializing database...");
+  try {
+    await initializeDatabase();
+    console.log("[Server] Database initialization complete");
+  } catch (error) {
+    console.error("[Server] Failed to initialize database:", error);
+  }
 
   // Restore bots from database on startup
   console.log("[Server] Restoring bots from database...");
