@@ -103,11 +103,12 @@ export function getBotStatus(userId: string) {
   if (!bot) {
     return {
       isRunning: false,
-      status: "Stopped",
-      solBalance: 0,
+      balance: 0,
       usdcBalance: 0,
-      lastPrice: 0,
-      trend: "neutral",
+      currentPrice: 0,
+      lastSignal: null,
+      lastTradeTime: new Date(),
+      trend: "down",
     };
   }
   return bot.getStatus();
