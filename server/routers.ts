@@ -392,27 +392,45 @@ export const appRouter = router({
      */
     refreshBalance: publicProcedure.mutation(async ({ ctx }) => {
       const userId = ctx.user?.id || "default_user";
-      let walletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
-      
-        // Fallback to hardcoded address if not set
-        if (!walletAddress) {
-          console.warn("[Router] WARNING: HYPERLIQUID_WALLET_ADDRESS not set in startBot, using fallback");
-          walletAddress = "0xf8a97533ced45b00ea479dd3e3b0e3602eb0e433";
-      }
+      const walletAddress = "0xf8a97533ced45b00ea479dd3e3b0e3602eb0e433";
       
       console.log("[Router] refreshBalance called for user:", userId);
       
-      // Force immediate update
-      await updateBotStatus(userId, walletAddress);
-      
-      // Return the updated status
-      const botStatus = activeBots.get(userId);
-      if (botStatus) {
+      try {
+        // Fetch balance directly from Hyperliquid
+        const { solBalance, usdcBalance } = await fetchHyperliquidBalance(walletAddress);
+        const currentPrice = await fetchSOLPrice();
+        
+        console.log(`[Router] Fetched balance: SOL=${solBalance}, USDC=${usdcBalance}, Price=$${currentPrice}`);
+        
+        // Update in-memory state if bot exists
+        let botStatus = activeBots.get(userId);
+        if (!botStatus) {
+          // Create a new bot status if it doesn't exist
+          botStatus = {
+            isRunning: false,
+            balance: solBalance,
+            usdcBalance: usdcBalance,
+            currentPrice: currentPrice,
+            lastSignal: null,
+            lastTradeTime: new Date(),
+            trend: "down",
+          };
+          activeBots.set(userId, botStatus);
+        } else {
+          // Update existing bot status
+          botStatus.balance = solBalance;
+          botStatus.usdcBalance = usdcBalance;
+          botStatus.currentPrice = currentPrice;
+          botStatus.lastTradeTime = new Date();
+        }
+        
         console.log("[Router] Returning refreshed balance:", botStatus);
         return botStatus;
+      } catch (error) {
+        console.error("[Router] Error refreshing balance:", error);
+        return { isRunning: false, balance: 0, usdcBalance: 0, currentPrice: 0, lastSignal: null, lastTradeTime: new Date(), trend: "down" };
       }
-      
-      return { isRunning: false, balance: 0, usdcBalance: 0, currentPrice: 0, lastSignal: null, lastTradeTime: new Date(), trend: "down" };
     }),
 
     /**
