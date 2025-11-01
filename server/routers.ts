@@ -81,8 +81,8 @@ async function fetchHyperliquidBalance(walletAddress: string) {
   return { solBalance: 0, usdcBalance: 0 };
 }
 
-// Fetch current SOL price
-async function fetchCurrentPrice() {
+// Fetch SOL price from Hyperliquid
+async function fetchSOLPrice() {
   try {
     const response = await fetch("https://api.hyperliquid.xyz/info", {
       method: "POST",
@@ -319,74 +319,37 @@ export const appRouter = router({
       }),
 
     /**
-     * Start the trading bot
+     * Start the trading bot (Hyperliquid Spot trading)
      */
     startBot: publicProcedure.mutation(async ({ ctx }) => {
       const userId = ctx.user?.id || "default_user";
-      console.log("[Perps] Starting bot for user:", userId);
+      const walletAddress = "0xf8a97533ced45b00ea479dd3e3b0e3602eb0e433";
+      
+      console.log("[Bot] Starting Spot trading bot for user:", userId);
+      console.log("[Bot] Using wallet:", walletAddress);
       
       try {
-        // Get credentials from environment
-        let walletAddress = process.env.HYPERLIQUID_WALLET_ADDRESS;
-        const privateKey = process.env.HYPERLIQUID_PRIVATE_KEY;
+        // Fetch initial balance from Spot account
+        const { solBalance, usdcBalance } = await fetchHyperliquidBalance(walletAddress);
+        const currentPrice = await fetchSOLPrice();
         
-        if (!walletAddress) {
-          walletAddress = "0x0838db67976dfbd2b25fcc6b3a1a705e65ea9b9f";
-        }
-        
-        if (!privateKey) {
-          throw new Error("HYPERLIQUID_PRIVATE_KEY not set in environment");
-        }
-        
-        console.log("[Perps] Using wallet:", walletAddress);
-        
-        // Fetch initial balance
-        const balance = await fetchPerpsBalance(walletAddress);
-        if (!balance) {
-          throw new Error("Could not fetch Perps balance");
-        }
-        
-        const currentPrice = await fetchPerpPrice();
-        console.log(`[Perps] Account value: $${balance.accountValue.toFixed(2)}, SOL price: $${currentPrice.toFixed(2)}`);
-        
-        // Create Perps trading engine
-        const botEngine = new TradingBotEngine({
-          period: 10,
-          multiplier: 3.0,
-        });
-        
-        const perpsTradingConfig: PerpsTradingConfig = {
-          walletAddress: walletAddress,
-          privateKey: privateKey,
-          leverage: 2,
-          positionSizePercent: 50,
-          stopLossPercent: 3.5,
-          maxDailyLossPercent: 12,
-        };
-        
-        const perpEngine = new PerpsTradingEngine(perpsTradingConfig, botEngine);
-        await perpEngine.initializeDailyStats();
-        
-        perpsTradingEngines.set(userId, perpEngine);
+        console.log(`[Bot] Spot balance: SOL=${solBalance.toFixed(4)}, USDC=${usdcBalance.toFixed(2)}, Price=$${currentPrice.toFixed(2)}`);
         
         // Update bot status
         activeBots.set(userId, {
           isRunning: true,
-          balance: balance.accountValue,
-          usdcBalance: 0,
+          balance: solBalance,
+          usdcBalance: usdcBalance,
           currentPrice: currentPrice,
           lastSignal: null,
           lastTradeTime: new Date(),
           trend: "down",
         });
         
-        // Start update loop
-        startPerpsBotUpdateLoop(userId, walletAddress, perpEngine);
-        
-        console.log("[Perps] Bot started successfully!");
+        console.log("[Bot] Spot trading bot started successfully!");
         return { success: true };
       } catch (error) {
-        console.error("[Perps] Error starting bot:", error);
+        console.error("[Bot] Error starting bot:", error);
         throw error;
       }
     }),
@@ -434,7 +397,7 @@ export const appRouter = router({
         // Fallback to hardcoded address if not set
         if (!walletAddress) {
           console.warn("[Router] WARNING: HYPERLIQUID_WALLET_ADDRESS not set in startBot, using fallback");
-          walletAddress = "0x0838db67976dfbd2b25fcc6b3a1a705e65ea9b9f";
+          walletAddress = "0xf8a97533ced45b00ea479dd3e3b0e3602eb0e433";
       }
       
       console.log("[Router] refreshBalance called for user:", userId);
