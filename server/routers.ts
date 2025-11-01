@@ -32,51 +32,61 @@ const botInstances = new Map<string, ReturnType<typeof setInterval>>();
 async function fetchHyperliquidBalance(walletAddress: string) {
   try {
     if (!walletAddress) {
-      console.warn("[Bot] No wallet address provided for balance fetch");
+      console.warn("[Bot] ⚠️ No wallet address provided for balance fetch");
       return { solBalance: 0, usdcBalance: 0 };
     }
     
-    console.log(`[Bot] Fetching balance for wallet: ${walletAddress}`);
+    console.log(`[Bot] 🔍 Fetching balance for wallet: ${walletAddress}`);
+    
+    const requestBody = {
+      type: "spotClearinghouseState",
+      user: walletAddress.toLowerCase(),
+    };
+    console.log("[Bot] 📤 Request body:", JSON.stringify(requestBody));
     
     const response = await fetch("https://api.hyperliquid.xyz/info", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "spotClearinghouseState",
-        user: walletAddress.toLowerCase(),
-      }),
+      body: JSON.stringify(requestBody),
     });
     
+    console.log(`[Bot] 📨 Response status: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
-      console.error(`[Bot] Hyperliquid API error: ${response.status} ${response.statusText}`);
+      console.error(`[Bot] ❌ Hyperliquid API error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error("[Bot] Error response body:", errorText);
       return { solBalance: 0, usdcBalance: 0 };
     }
     
     const data = await response.json();
-    console.log("[Bot] Hyperliquid balance response:", data);
+    console.log("[Bot] 📥 Hyperliquid balance response:", JSON.stringify(data));
     
-    if (data && data.balances) {
+    if (data && data.balances && Array.isArray(data.balances)) {
       let solBalance = 0;
       let usdcBalance = 0;
       
+      console.log(`[Bot] Found ${data.balances.length} balance entries`);
+      
       for (const balance of data.balances) {
+        console.log(`[Bot] Processing balance: coin=${balance.coin}, total=${balance.total}`);
         if (balance.coin === "SOL" || balance.coin === "USOL") {
           solBalance = parseFloat(balance.total);
-          console.log(`[Bot] Found ${balance.coin} balance: ${solBalance}`);
+          console.log(`[Bot] ✅ Found ${balance.coin} balance: ${solBalance}`);
         }
         if (balance.coin === "USDC") {
           usdcBalance = parseFloat(balance.total);
-          console.log(`[Bot] Found USDC balance: ${usdcBalance}`);
+          console.log(`[Bot] ✅ Found USDC balance: ${usdcBalance}`);
         }
       }
       
-      console.log(`[Bot] Fetched balances - SOL: ${solBalance}, USDC: ${usdcBalance}`);
+      console.log(`[Bot] ✅ Final balances - SOL: ${solBalance}, USDC: ${usdcBalance}`);
       return { solBalance, usdcBalance };
     } else {
-      console.warn("[Bot] No balances in Hyperliquid response", data);
+      console.warn("[Bot] ⚠️ No balances in Hyperliquid response", JSON.stringify(data));
     }
   } catch (error) {
-    console.error("[Bot] Error fetching Hyperliquid balance:", error);
+    console.error("[Bot] ❌ Error fetching Hyperliquid balance:", error);
   }
   return { solBalance: 0, usdcBalance: 0 };
 }
