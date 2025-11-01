@@ -170,6 +170,8 @@ async function updateBotStatus(userId: string, walletAddress: string) {
 
 // Start bot update loop
 function startBotUpdateLoop(userId: string, walletAddress: string) {
+  console.log("[Bot] Starting update loop for user:", userId);
+  
   // Clear any existing timer
   if (botInstances.has(userId)) {
     clearInterval(botInstances.get(userId));
@@ -184,6 +186,7 @@ function startBotUpdateLoop(userId: string, walletAddress: string) {
   }, 30000);
   
   botInstances.set(userId, timer);
+  console.log("[Bot] Update loop started");
 }
 
 // Stop bot update loop
@@ -357,34 +360,30 @@ export const appRouter = router({
 
   stopBot: publicProcedure.mutation(async ({ ctx }) => {
       const userId = ctx.user?.id || "default_user";
+      console.log("[Bot] Stopping bot for user:", userId);
       
-      // Stop the update loop
-      stopBotUpdateLoop(userId);
-      
-      // Close any open Perps positions
-      const perpEngine = perpsTradingEngines.get(userId);
-      if (perpEngine) {
-        try {
-          const position = perpEngine.getCurrentPosition();
-          if (position) {
-            console.log("[Perps] Closing position before stopping bot");
-            // Close position by selling/buying opposite
-            // This will be handled by the Perps engine
-          }
-        } catch (error) {
-          console.error("[Perps] Error closing position:", error);
+      try {
+        // Stop the update loop
+        stopBotUpdateLoop(userId);
+        console.log("[Bot] Update loop stopped");
+        
+        // Remove from active bots
+        activeBots.delete(userId);
+        console.log("[Bot] Removed from active bots");
+        
+        // Clean up any Perps engines if they exist
+        const perpEngine = perpsTradingEngines.get(userId);
+        if (perpEngine) {
+          perpsTradingEngines.delete(userId);
+          console.log("[Bot] Cleaned up Perps engine");
         }
-        perpsTradingEngines.delete(userId);
+        
+        console.log("[Bot] Bot stopped successfully for user:", userId);
+        return { success: true };
+      } catch (error) {
+        console.error("[Bot] Error stopping bot:", error);
+        throw error;
       }
-      
-      // Mark bot as stopped
-      const botStatus = activeBots.get(userId);
-      if (botStatus) {
-        botStatus.isRunning = false;
-      }
-      
-      console.log("[Router] Bot stopped for user:", userId);
-      return { success: true };
     }),
 
     /**
