@@ -11,6 +11,10 @@ import threading
 
 app = Flask(__name__)
 
+@app.route('/health')
+def health_check():
+    return jsonify({'status': 'healthy', 'message': 'Bot is running'})
+
 # Configuration
 class Config:
     def __init__(self):
