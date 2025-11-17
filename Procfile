@@ -1,1 +1,0 @@
-web: gunicorn simple_bot:app
