@@ -1,22 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ETH Trading Bot</title>
+    <title>SOL Trading Bot</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
         .card { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
-        button { background: #007cba; color: white; border: none; padding: 10px 15px; margin: 5px; border-radius: 3px; cursor: pointer; }
-        button:hover { background: #005a87; }
+        button { background: #9945FF; color: white; border: none; padding: 10px 15px; margin: 5px; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #7d37d9; }
         .error { color: red; }
         .success { color: green; }
         pre { background: #eee; padding: 10px; border-radius: 3px; overflow-x: auto; }
     </style>
 </head>
 <body>
-    <h1>ETH Trading Bot</h1>
+    <h1>SOL Trading Bot</h1>
+    <h2>CoinCatch Spot Trading</h2>
     
     <div class="card">
-        <strong>ETH Price:</strong> $<span id="ethPrice">--</span>
+        <strong>SOL Price:</strong> $<span id="solPrice">--</span>
     </div>
     
     <div class="card">
@@ -24,7 +25,7 @@
     </div>
     
     <div class="card">
-        <strong>ETH Balance:</strong> <span id="ethBalance">--</span> ETH
+        <strong>SOL Balance:</strong> <span id="solBalance">--</span> SOL
     </div>
 
     <div class="card">
@@ -34,56 +35,56 @@
     <div>
         <button onclick="testConnection()">Test Connection</button>
         <button onclick="refreshBalance()">Refresh Balance</button>
-        <button onclick="buyETH()">Buy $5 ETH</button>
+        <button onclick="buySOL()">Buy $5 SOL</button>
         <button onclick="debugInfo()">Debug</button>
     </div>
 
     <div id="result" style="margin-top: 20px;"></div>
 
     <script>
-        async function apiCall(endpoint) {
+        async function apiCall(endpoint, method = 'GET') {
             try {
-                const response = await fetch(endpoint);
+                const response = await fetch(endpoint, { method });
                 return await response.json();
             } catch (error) {
-                return { status: 'error', message: error.toString() };
+                return { status: 'error', message: 'Network error: ' + error };
             }
         }
 
         function updateDisplay(data) {
-            if (data.eth_price) {
-                document.getElementById('ethPrice').textContent = parseFloat(data.eth_price).toFixed(2);
+            if (data.sol_price) {
+                document.getElementById('solPrice').textContent = data.sol_price;
             }
-            if (data.eth_balance) {
-                document.getElementById('ethBalance').textContent = parseFloat(data.eth_balance).toFixed(6);
+            if (data.sol_balance) {
+                document.getElementById('solBalance').textContent = data.sol_balance;
             }
             if (data.usdt_balance) {
-                document.getElementById('usdtBalance').textContent = parseFloat(data.usdt_balance).toFixed(2);
+                document.getElementById('usdtBalance').textContent = data.usdt_balance;
             }
         }
 
         async function testConnection() {
             const result = document.getElementById('result');
-            result.innerHTML = 'Testing...';
+            result.innerHTML = 'Testing connection...';
             
             const data = await apiCall('/api/test');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div class="success">✅ Connection successful</div>';
+                result.innerHTML = '<div class="success">✅ ' + data.message + '</div>';
                 document.getElementById('status').textContent = 'Connected';
                 document.getElementById('status').style.color = 'green';
+                updateDisplay(data);
             } else {
-                result.innerHTML = `<div class="error">❌ ${data.message}</div>`;
+                result.innerHTML = '<div class="error">❌ ' + data.message + '</div>';
                 document.getElementById('status').textContent = 'Error';
                 document.getElementById('status').style.color = 'red';
+                updateDisplay(data);
             }
-            
-            updateDisplay(data);
         }
 
         async function refreshBalance() {
             const result = document.getElementById('result');
-            result.innerHTML = 'Refreshing...';
+            result.innerHTML = 'Refreshing balance...';
             
             const data = await apiCall('/api/balance');
             
@@ -91,21 +92,24 @@
                 result.innerHTML = '<div class="success">✅ Balance updated</div>';
                 updateDisplay(data);
             } else {
-                result.innerHTML = `<div class="error">❌ ${data.message}</div>`;
+                result.innerHTML = '<div class="error">❌ ' + data.message + '</div>';
             }
         }
 
-        async function buyETH() {
+        async function buySOL() {
             const result = document.getElementById('result');
-            result.innerHTML = 'Buying...';
+            result.innerHTML = 'Placing order...';
             
-            const data = await apiCall('/api/buy', { method: 'POST' });
+            const data = await apiCall('/api/buy', 'POST');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div class="success">✅ Order placed</div>';
+                result.innerHTML = '<div class="success">✅ ' + data.message + '</div>';
                 setTimeout(refreshBalance, 2000);
             } else {
-                result.innerHTML = `<div class="error">❌ ${data.message}</div>`;
+                result.innerHTML = '<div class="error">❌ ' + data.message + '</div>';
+                if (data.details) {
+                    result.innerHTML += '<div class="error">Details: ' + data.details + '</div>';
+                }
             }
         }
 
@@ -114,10 +118,10 @@
             result.innerHTML = 'Loading debug info...';
             
             const data = await apiCall('/api/debug');
-            result.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
         }
 
-        // Initialize
+        // Load initial data
         testConnection();
     </script>
 </body>
