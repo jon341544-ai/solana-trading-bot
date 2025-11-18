@@ -1,267 +1,474 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>SOL Trading Bot - Solana</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOL Trading Bot</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 20px;
-            background: #f0f0f0;
         }
-        .card {
-            background: #fff;
-            padding: 20px;
-            margin: 10px 0;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,.1);
-        }
+        
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff;
+            background: white;
             padding: 30px;
-            border-radius: 8px;
+            border-radius: 15px;
             text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
-        button {
-            background: #667eea;
-            color: #fff;
-            border: none;
-            padding: 12px 20px;
-            margin: 5px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
         }
-        button:hover {
-            background: #5568d3;
+        
+        .header p {
+            color: #666;
+            font-size: 1.2em;
         }
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .start-button {
-            background: #28a745;
-            font-size: 16px;
-            padding: 15px 30px;
-        }
-        .start-button:hover {
-            background: #218838;
-        }
-        .stop-button {
-            background: #dc3545;
-            font-size: 16px;
-            padding: 15px 30px;
-        }
-        .stop-button:hover {
-            background: #c82333;
-        }
-        .status-running {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .status-stopped {
-            color: #dc3545;
-            font-weight: bold;
-        }
-        .signal-long {
-            color: #28a745;
-        }
-        .signal-short {
-            color: #dc3545;
-        }
-        .signal-neutral {
-            color: #6c757d;
-        }
-        input[type="number"] {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            width: 150px;
-        }
-        select {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            width: 150px;
-        }
-        .settings {
-            background: #f8f9fa;
+        
+        .mode-info {
+            background: #fff9e6;
+            border-left: 4px solid #ffc107;
             padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
+            margin: 20px 0;
+            border-radius: 8px;
         }
-        table {
+        
+        .mode-info h3 {
+            color: #f57c00;
+            margin-bottom: 10px;
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .status-item label {
+            display: block;
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .status-item .value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-running { color: #28a745 !important; }
+        .status-stopped { color: #dc3545 !important; }
+        
+        .signal-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            margin-top: 15px;
         }
-        th, td {
-            padding: 10px;
+        
+        .signal-table th,
+        .signal-table td {
+            padding: 12px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid #e0e0e0;
         }
-        th {
+        
+        .signal-table th {
             background: #f8f9fa;
-            font-weight: bold;
+            font-weight: 600;
+            color: #666;
         }
-        .trade-buy {
-            color: #28a745;
-            font-weight: bold;
+        
+        .signal-long { color: #28a745; font-weight: bold; }
+        .signal-short { color: #dc3545; font-weight: bold; }
+        .signal-neutral { color: #6c757d; font-weight: bold; }
+        
+        .form-group {
+            margin-bottom: 20px;
         }
-        .trade-sell {
-            color: #dc3545;
-            font-weight: bold;
-        }
-        .setting-group {
-            margin-bottom: 15px;
-        }
-        .setting-group label {
+        
+        .form-group label {
             display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
         }
-        .highlight {
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        .start-button {
+            background: #28a745;
+            color: white;
+        }
+        
+        .start-button:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .stop-button {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .stop-button:hover:not(:disabled) {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+        
+        .update-button {
+            background: #667eea;
+            color: white;
+        }
+        
+        .update-button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .buy-button {
+            background: #28a745;
+            color: white;
+        }
+        
+        .buy-button:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .sell-button {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .sell-button:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+        
+        .balance-button {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .balance-button:hover {
+            background: #138496;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(23, 162, 184, 0.3);
+        }
+        
+        .refresh-button {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .refresh-button:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .warning-box {
             background: #fff3cd;
-            padding: 10px;
-            border-radius: 5px;
-            border: 2px solid #ffc107;
-            margin: 10px 0;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
         }
+        
+        .warning-box strong {
+            color: #856404;
+        }
+        
+        #result {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .trade-history {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .trade-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .trade-item .trade-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .trade-item .trade-action {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .trade-buy { color: #28a745; }
+        .trade-sell { color: #dc3545; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🤖 SOL Trading Bot</h1>
-        <p>Fixed SOL Amount Trading Mode</p>
-    </div>
-    
-    <div class="highlight">
-        <strong>💡 MODE:</strong> Buy & Sell Fixed SOL Amount Each Trade<br>
-        Example: 0.1 SOL → Always buys/sells exactly 0.1 SOL
-    </div>
-    
-    <div class="card">
-        <h3>Bot Status</h3>
-        <strong>Status:</strong> <span id="botStatus" class="status-stopped">STOPPED</span><br>
-        <strong>Position:</strong> <span id="currentPosition">NONE</span><br>
-        <strong>Last Trade:</strong> <span id="lastTrade">Never</span><br>
-        <strong>Interval:</strong> <span id="currentInterval">15m</span>
-    </div>
-
-    <div class="card">
-        <h3>Market Data</h3>
-        <strong>SOL Price:</strong> $<span id="solPrice">--</span><br>
-        <strong>USDT:</strong> $<span id="usdtBalance">--</span><br>
-        <strong>SOL:</strong> <span id="solBalance">--</span> SOL<br>
-        <strong>Trade Amount:</strong> <span id="tradeAmount">0.1</span> SOL
-    </div>
-
-    <div class="card">
-        <h3>Signals (2 of 3 needed)</h3>
-        <table>
-            <tr>
-                <th>Indicator</th>
-                <th>Signal</th>
-            </tr>
-            <tr>
-                <td>Supertrend</td>
-                <td id="supertrendSignal">--</td>
-            </tr>
-            <tr>
-                <td>MACD</td>
-                <td id="macdSignal">--</td>
-            </tr>
-            <tr>
-                <td>FantailVMA</td>
-                <td id="fantailSignal">--</td>
-            </tr>
-            <tr style="background: #f8f9fa; font-weight: bold">
-                <td>CONSENSUS</td>
-                <td id="consensusSignal">--</td>
-            </tr>
-        </table>
-    </div>
-
-    <div class="card settings">
-        <h3>⚙️ Settings</h3>
-        
-        <div class="setting-group">
-            <label><strong>Fixed SOL Amount:</strong></label>
-            <input type="number" id="solTradeAmount" value="0.1" min="0.1" max="10" step="0.1">
-            <div style="font-size: 12px; color: #666;">SOL to buy/sell each trade (min: 0.1)</div>
-        </div>
-
-        <div class="setting-group">
-            <label><strong>Check Interval (seconds):</strong></label>
-            <input type="number" id="checkInterval" value="900" min="60" step="60">
-        </div>
-
-        <div class="setting-group">
-            <label><strong>Timeframe:</strong></label>
-            <select id="indicatorInterval">
-                <option value="1m">1 Minute</option>
-                <option value="5m">5 Minutes</option>
-                <option value="15m" selected>15 Minutes</option>
-                <option value="30m">30 Minutes</option>
-                <option value="1H">1 Hour</option>
-                <option value="4H">4 Hours</option>
-                <option value="1D">1 Day</option>
-            </select>
-        </div>
-
-        <button onclick="updateSettings()">Update Settings</button>
-    </div>
-
-    <div class="card" style="text-align: center">
-        <button onclick="startBot()" id="startButton" class="start-button">▶️ START</button>
-        <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>⏹️ STOP</button>
-    </div>
-
-    <div class="card">
-        <h3>🎮 Manual Trading</h3>
-        <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 15px; border: 1px solid #ffc107;">
-            <strong>⚠️ Warning:</strong> Manual trades execute immediately and bypass automated signals
+    <div class="container">
+        <div class="header">
+            <h1>🤖 SOL Trading Bot</h1>
+            <p>Fixed SOL Amount Trading Mode</p>
         </div>
         
-        <div class="setting-group">
-            <label><strong>Manual Trade Amount (SOL):</strong></label>
-            <input type="number" id="manualTradeAmount" value="0.1" min="0.1" max="10" step="0.1">
-            <div style="font-size: 12px; color: #666;">SOL amount for manual buy/sell (min: 0.1)</div>
+        <div class="mode-info">
+            <h3>💡 MODE: Buy & Sell Fixed SOL Amount Each Trade</h3>
+            <p>Example: 0.1 SOL → Always buys/sells exactly 0.1 SOL</p>
         </div>
-
-        <div style="text-align: center; margin-top: 15px;">
-            <button onclick="manualBuy()" style="background: #28a745; font-size: 14px; padding: 10px 20px;">
-                🛒 Manual BUY
-            </button>
-            <button onclick="manualSell()" style="background: #dc3545; font-size: 14px; padding: 10px 20px;">
-                💰 Manual SELL
-            </button>
+        
+        <div class="card">
+            <h2>Bot Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>Status:</label>
+                    <div class="value" id="botStatus">STOPPED</div>
+                </div>
+                <div class="status-item">
+                    <label>Position:</label>
+                    <div class="value" id="position">NONE</div>
+                </div>
+                <div class="status-item">
+                    <label>Last Trade:</label>
+                    <div class="value" id="lastTrade">Never</div>
+                </div>
+                <div class="status-item">
+                    <label>Interval:</label>
+                    <div class="value" id="intervalDisplay">15m</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Market Data</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>SOL Price:</label>
+                    <div class="value" id="solPrice">$--</div>
+                </div>
+                <div class="status-item">
+                    <label>USDT:</label>
+                    <div class="value" id="usdtBalance">$--</div>
+                </div>
+                <div class="status-item">
+                    <label>SOL:</label>
+                    <div class="value" id="solBalance">-- SOL</div>
+                </div>
+                <div class="status-item">
+                    <label>Trade Amount:</label>
+                    <div class="value" id="tradeAmountDisplay">0.1 SOL</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Signals (2 of 3 needed)</h2>
+            <table class="signal-table">
+                <thead>
+                    <tr>
+                        <th>Indicator</th>
+                        <th>Signal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Supertrend</td>
+                        <td id="supertrendSignal">--</td>
+                    </tr>
+                    <tr>
+                        <td>MACD</td>
+                        <td id="macdSignal">--</td>
+                    </tr>
+                    <tr>
+                        <td>FantailVMA</td>
+                        <td id="fantailSignal">--</td>
+                    </tr>
+                    <tr style="font-weight: bold; background: #f8f9fa;">
+                        <td>CONSENSUS</td>
+                        <td id="consensusSignal">--</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="card">
+            <h2>⚙ Settings</h2>
+            
+            <div class="form-group">
+                <label>Fixed SOL Amount:</label>
+                <input type="number" id="solTradeAmount" value="0.1" min="0.1" max="100" step="0.1">
+                <small>SOL to buy/sell each trade (min: 0.1)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Check Interval (seconds):</label>
+                <input type="number" id="checkInterval" value="900" min="60" step="60">
+                <small>How often to check signals (min: 60)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Timeframe:</label>
+                <select id="indicatorInterval">
+                    <option value="1m">1 Minute</option>
+                    <option value="5m">5 Minutes</option>
+                    <option value="15m" selected>15 Minutes</option>
+                    <option value="30m">30 Minutes</option>
+                    <option value="1H">1 Hour</option>
+                    <option value="4H">4 Hours</option>
+                    <option value="1D">1 Day</option>
+                </select>
+                <small>Candle timeframe for indicators</small>
+            </div>
+            
+            <button onclick="updateSettings()" class="update-button">Update Settings</button>
+        </div>
+        
+        <div class="card">
+            <div class="button-group">
+                <button onclick="startBot()" id="startButton" class="start-button">▶ START</button>
+                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>🎮 Manual Trading</h2>
+            
+            <div class="warning-box">
+                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals
+            </div>
+            
+            <div class="form-group">
+                <label>Manual Trade Amount (SOL):</label>
+                <input type="number" id="manualTradeAmount" value="0.1" min="0.1" max="100" step="0.1">
+                <small>SOL amount for manual buy/sell (min: 0.1)</small>
+            </div>
+            
+            <div class="button-group">
+                <button onclick="manualBuy()" class="buy-button">🛒 Manual BUY</button>
+                <button onclick="manualSell()" class="sell-button">💰 Manual SELL</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📊 Trade History</h2>
+            <div class="trade-history" id="tradeHistory">
+                <p style="text-align: center; color: #666;">No trades yet</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="button-group">
+                <button onclick="refreshData()" class="refresh-button">🔄 Refresh</button>
+                <button onclick="getBalance()" class="balance-button">💰 Balance</button>
+            </div>
+            <div id="result"></div>
         </div>
     </div>
-
-    <div class="card">
-        <h3>📊 Trade History</h3>
-        <div id="tradeHistory">No trades yet</div>
-    </div>
-
-    <div class="card">
-        <button onclick="refreshData()">🔄 Refresh</button>
-        <button onclick="getBalance()">💰 Balance</button>
-    </div>
-
-    <div id="result" style="margin-top: 20px"></div>
 
     <script>
-        let refreshInterval;
-
-        async function apiCall(endpoint, msolod = 'GET') {
+        async function apiCall(endpoint, method = 'GET') {
             try {
-                const response = await fetch(endpoint, { msolod });
+                const response = await fetch(endpoint, { method: method });
                 return await response.json();
             } catch (error) {
-                return { status: 'error', message: error.message };
+                console.error('API call failed:', error);
+                return { status: 'error', message: 'Network error' };
             }
         }
 
@@ -273,18 +480,15 @@
 
         async function startBot() {
             const result = document.getElementById('result');
-            result.innerHTML = 'Starting...';
+            result.innerHTML = '<div style="color: blue">Starting...</div>';
             
             const data = await apiCall('/api/start_bot', 'POST');
             
             if (data.status === 'success') {
                 result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
-                document.getElementById('botStatus').textContent = 'RUNNING';
-                document.getElementById('botStatus').className = 'status-running';
                 document.getElementById('startButton').disabled = true;
                 document.getElementById('stopButton').disabled = false;
-                
-                refreshInterval = setInterval(refreshData, 5000);
+                setTimeout(refreshData, 1000);
             } else {
                 result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
             }
@@ -292,138 +496,54 @@
 
         async function stopBot() {
             const result = document.getElementById('result');
-            result.innerHTML = 'Stopping...';
+            result.innerHTML = '<div style="color: blue">Stopping...</div>';
             
             const data = await apiCall('/api/stop_bot', 'POST');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div style="color: orange">⏹️ ' + data.message + '</div>';
-                document.getElementById('botStatus').textContent = 'STOPPED';
-                document.getElementById('botStatus').className = 'status-stopped';
+                result.innerHTML = '<div style="color: orange">■ ' + data.message + '</div>';
                 document.getElementById('startButton').disabled = false;
                 document.getElementById('stopButton').disabled = true;
-                
-                if (refreshInterval) clearInterval(refreshInterval);
+                setTimeout(refreshData, 1000);
             } else {
                 result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
             }
         }
 
         async function updateSettings() {
-            const solTradeAmount = parseFloat(document.getElementById('solTradeAmount').value);
-            const checkInterval = parseInt(document.getElementById('checkInterval').value);
-            const indicatorInterval = document.getElementById('indicatorInterval').value;
+            const solAmount = document.getElementById('solTradeAmount').value;
+            const interval = document.getElementById('checkInterval').value;
+            const timeframe = document.getElementById('indicatorInterval').value;
             
-            if (solTradeAmount < 0.1 || solTradeAmount > 10) {
-                alert('SOL amount must be 0.1-10 SOL');
-                return;
-            }
-            
-            if (checkInterval < 60) {
-                alert('Min check interval is 60 sec');
-                return;
-            }
-            
-            const data = await apiCall(`/api/update_settings?sol_trade_amount=${solTradeAmount}&check_interval=${checkInterval}&indicator_interval=${indicatorInterval}`, 'POST');
+            const data = await apiCall(
+                `/api/update_settings?sol_trade_amount=${solAmount}&check_interval=${interval}&indicator_interval=${timeframe}`,
+                'POST'
+            );
             
             if (data.status === 'success') {
                 document.getElementById('result').innerHTML = '<div style="color: green">✅ Updated</div>';
-                document.getElementById('currentInterval').textContent = indicatorInterval;
-                document.getElementById('tradeAmount').textContent = solTradeAmount;
+                setTimeout(refreshData, 500);
             } else {
                 document.getElementById('result').innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
-            }
-        }
-
-        async function refreshData() {
-            const data = await apiCall('/api/status');
-            
-            if (data.status === 'success') {
-                if (data.is_running) {
-                    document.getElementById('botStatus').textContent = 'RUNNING';
-                    document.getElementById('botStatus').className = 'status-running';
-                    document.getElementById('startButton').disabled = true;
-                    document.getElementById('stopButton').disabled = false;
-                } else {
-                    document.getElementById('botStatus').textContent = 'STOPPED';
-                    document.getElementById('botStatus').className = 'status-stopped';
-                    document.getElementById('startButton').disabled = false;
-                    document.getElementById('stopButton').disabled = true;
-                }
-                
-                document.getElementById('currentPosition').textContent = data.last_position || 'NONE';
-                document.getElementById('lastTrade').textContent = data.last_trade_time || 'Never';
-                document.getElementById('currentInterval').textContent = data.indicator_interval || '15m';
-                document.getElementById('tradeAmount').textContent = data.sol_trade_amount || '0.1';
-                
-                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
-                document.getElementById('checkInterval').value = data.check_interval || 900;
-                document.getElementById('indicatorInterval').value = data.indicator_interval || '15m';
-                
-                if (data.signals) {
-                    document.getElementById('solPrice').textContent = data.signals.price.toFixed(2);
-                    document.getElementById('supertrendSignal').innerHTML = formatSignal(data.signals.supertrend);
-                    document.getElementById('macdSignal').innerHTML = formatSignal(data.signals.macd);
-                    document.getElementById('fantailSignal').innerHTML = formatSignal(data.signals.fantail_vma);
-                    
-                    let consensusHTML = data.signals.consensus;
-                    if (data.signals.consensus === 'BUY') {
-                        consensusHTML = '<span class="signal-long">🚀 BUY</span>';
-                    } else if (data.signals.consensus === 'SELL') {
-                        consensusHTML = '<span class="signal-short">📉 SELL</span>';
-                    } else {
-                        consensusHTML = '<span class="signal-neutral">⏸️ NEUTRAL</span>';
-                    }
-                    document.getElementById('consensusSignal').innerHTML = consensusHTML;
-                }
-                
-                document.getElementById('solBalance').textContent = data.sol_balance || '--';
-                document.getElementById('usdtBalance').textContent = data.usdt_balance || '--';
-                
-                if (data.trade_history && data.trade_history.length > 0) {
-                    let historyHTML = '<table><tr><th>Time</th><th>Action</th><th>SOL</th><th>USDT</th><th>Price</th></tr>';
-                    data.trade_history.slice(-10).reverse().forEach(trade => {
-                        const tradeClass = trade.action === 'BUY' ? 'trade-buy' : 'trade-sell';
-                        historyHTML += `<tr>
-                            <td>${new Date(trade.time).toLocaleString()}</td>
-                            <td class="${tradeClass}">${trade.action}</td>
-                            <td>${trade.sol_amount?.toFixed(4) || '0'} SOL</td>
-                            <td>$${trade.usdt_amount?.toFixed(2) || '0'}</td>
-                            <td>$${trade.price?.toFixed(2) || '0'}</td>
-                        </tr>`;
-                    });
-                    historyHTML += '</table>';
-                    document.getElementById('tradeHistory').innerHTML = historyHTML;
-                }
-            }
-        }
-
-        async function getBalance() {
-            const data = await apiCall('/api/balance');
-            
-            if (data.status === 'success') {
-                document.getElementById('solBalance').textContent = data.sol_balance;
-                document.getElementById('usdtBalance').textContent = data.usdt_balance;
-                document.getElementById('result').innerHTML = '<div style="color: green">✅ Balance updated</div>';
             }
         }
 
         async function manualBuy() {
             const amount = parseFloat(document.getElementById('manualTradeAmount').value);
             
-            if (amount < 0.1 || amount > 10) {
-                alert('Amount must be between 0.1 and 10 SOL');
+            if (amount < 0.1 || amount > 100) {
+                alert('Amount must be between 0.1 and 100 SOL');
                 return;
             }
             
-            if (!confirm(`Are you sure you want to manually BUY ${amount} SOL?`)) {
+            if (!confirm('Are you sure you want to manually BUY ' + amount + ' SOL?')) {
                 return;
             }
             
             const result = document.getElementById('result');
             result.innerHTML = '<div style="color: blue">⏳ Executing manual BUY...</div>';
             
-            const data = await apiCall(`/api/manual_buy?amount=${amount}`, 'POST');
+            const data = await apiCall('/api/manual_buy?amount=' + amount, 'POST');
             
             if (data.status === 'success') {
                 result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
@@ -439,19 +559,19 @@
         async function manualSell() {
             const amount = parseFloat(document.getElementById('manualTradeAmount').value);
             
-            if (amount < 0.1 || amount > 10) {
-                alert('Amount must be between 0.1 and 10 SOL');
+            if (amount < 0.1 || amount > 100) {
+                alert('Amount must be between 0.1 and 100 SOL');
                 return;
             }
             
-            if (!confirm(`Are you sure you want to manually SELL ${amount} SOL?`)) {
+            if (!confirm('Are you sure you want to manually SELL ' + amount + ' SOL?')) {
                 return;
             }
             
             const result = document.getElementById('result');
             result.innerHTML = '<div style="color: blue">⏳ Executing manual SELL...</div>';
             
-            const data = await apiCall(`/api/manual_sell?amount=${amount}`, 'POST');
+            const data = await apiCall('/api/manual_sell?amount=' + amount, 'POST');
             
             if (data.status === 'success') {
                 result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
@@ -464,8 +584,88 @@
             }
         }
 
+        async function refreshData() {
+            const data = await apiCall('/api/status');
+            
+            if (data.status === 'success') {
+                document.getElementById('botStatus').textContent = data.is_running ? 'RUNNING' : 'STOPPED';
+                document.getElementById('botStatus').className = 'value ' + (data.is_running ? 'status-running' : 'status-stopped');
+                
+                document.getElementById('position').textContent = data.last_position || 'NONE';
+                document.getElementById('lastTrade').textContent = data.last_trade_time ? 
+                    new Date(data.last_trade_time).toLocaleString() : 'Never';
+                document.getElementById('intervalDisplay').textContent = data.indicator_interval || '15m';
+                
+                document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.1) + ' SOL';
+                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
+                document.getElementById('checkInterval').value = data.check_interval || 900;
+                
+                if (data.signals && Object.keys(data.signals).length > 0) {
+                    document.getElementById('supertrendSignal').innerHTML = formatSignal(data.signals.supertrend);
+                    document.getElementById('macdSignal').innerHTML = formatSignal(data.signals.macd);
+                    document.getElementById('fantailSignal').innerHTML = formatSignal(data.signals.fantail_vma);
+                    
+                    let consensusHTML = '';
+                    if (data.signals.consensus === 'BUY') {
+                        consensusHTML = '<span class="signal-long">🚀 BUY</span>';
+                    } else if (data.signals.consensus === 'SELL') {
+                        consensusHTML = '<span class="signal-short">📉 SELL</span>';
+                    } else {
+                        consensusHTML = '<span class="signal-neutral">- NEUTRAL</span>';
+                    }
+                    document.getElementById('consensusSignal').innerHTML = consensusHTML;
+                }
+                
+                document.getElementById('solBalance').textContent = data.sol_balance || '--';
+                document.getElementById('usdtBalance').textContent = data.usdt_balance ? '$' + data.usdt_balance.toFixed(2) : '$--';
+                
+                if (data.signals && data.signals.price) {
+                    document.getElementById('solPrice').textContent = '$' + data.signals.price.toFixed(2);
+                }
+                
+                if (data.is_running) {
+                    document.getElementById('startButton').disabled = true;
+                    document.getElementById('stopButton').disabled = false;
+                } else {
+                    document.getElementById('startButton').disabled = false;
+                    document.getElementById('stopButton').disabled = true;
+                }
+                
+                if (data.trade_history && data.trade_history.length > 0) {
+                    const historyHTML = data.trade_history.slice(-10).reverse().map(trade => {
+                        const actionClass = trade.action.includes('BUY') ? 'trade-buy' : 'trade-sell';
+                        return `
+                            <div class="trade-item">
+                                <div class="trade-time">${new Date(trade.time).toLocaleString()}</div>
+                                <div class="trade-action ${actionClass}">${trade.action}</div>
+                                <div>${trade.sol_amount} SOL @ $${trade.price.toFixed(2)} = $${trade.usdt_amount.toFixed(2)}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    document.getElementById('tradeHistory').innerHTML = historyHTML;
+                } else {
+                    document.getElementById('tradeHistory').innerHTML = '<p style="text-align: center; color: #666;">No trades yet</p>';
+                }
+            }
+        }
+
+        async function getBalance() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: blue">Getting balance...</div>';
+            
+            const data = await apiCall('/api/balance');
+            
+            if (data.status === 'success') {
+                document.getElementById('solBalance').textContent = data.sol_balance + ' SOL';
+                document.getElementById('usdtBalance').textContent = '$' + parseFloat(data.usdt_balance).toFixed(2);
+                result.innerHTML = '<div style="color: green">✅ Balance updated</div>';
+            } else {
+                result.innerHTML = '<div style="color: red">❌ Failed to get balance</div>';
+            }
+        }
+
+        setInterval(refreshData, 5000);
         refreshData();
-        getBalance();
     </script>
 </body>
 </html>
