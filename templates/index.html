@@ -593,7 +593,16 @@
                 
                 document.getElementById('position').textContent = data.last_position || 'NONE';
                 document.getElementById('lastTrade').textContent = data.last_trade_time ? 
-                    new Date(data.last_trade_time).toLocaleString() : 'Never';
+                    new Date(data.last_trade_time).toLocaleString('en-US', {
+                        timeZone: 'America/New_York',
+                        month: '2-digit',
+                        day: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                    }) : 'Never';
                 document.getElementById('intervalDisplay').textContent = data.indicator_interval || '15m';
                 
                 document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.1) + ' SOL';
@@ -634,9 +643,20 @@
                 if (data.trade_history && data.trade_history.length > 0) {
                     const historyHTML = data.trade_history.slice(-10).reverse().map(trade => {
                         const actionClass = trade.action.includes('BUY') ? 'trade-buy' : 'trade-sell';
+                        const tradeDate = new Date(trade.time);
+                        const formattedTime = tradeDate.toLocaleString('en-US', {
+                            timeZone: 'America/New_York',
+                            month: '2-digit',
+                            day: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                        });
                         return `
                             <div class="trade-item">
-                                <div class="trade-time">${new Date(trade.time).toLocaleString()}</div>
+                                <div class="trade-time">${formattedTime}</div>
                                 <div class="trade-action ${actionClass}">${trade.action}</div>
                                 <div>${trade.sol_amount} SOL @ $${trade.price.toFixed(2)} = $${trade.usdt_amount.toFixed(2)}</div>
                             </div>
