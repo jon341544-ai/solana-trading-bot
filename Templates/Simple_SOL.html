@@ -1,128 +1,471 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>SOL Trading Bot</title>
+    <title>SOL Trading Bot - Solana</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .card { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
-        button { background: #9945FF; color: white; border: none; padding: 10px 15px; margin: 5px; border-radius: 3px; cursor: pointer; }
-        button:hover { background: #7d37d9; }
-        .error { color: red; }
-        .success { color: green; }
-        pre { background: #eee; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .card {
+            background: #fff;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        button {
+            background: #667eea;
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .start-button {
+            background: #28a745;
+            font-size: 16px;
+            padding: 15px 30px;
+        }
+        .start-button:hover {
+            background: #218838;
+        }
+        .stop-button {
+            background: #dc3545;
+            font-size: 16px;
+            padding: 15px 30px;
+        }
+        .stop-button:hover {
+            background: #c82333;
+        }
+        .status-running {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-stopped {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .signal-long {
+            color: #28a745;
+        }
+        .signal-short {
+            color: #dc3545;
+        }
+        .signal-neutral {
+            color: #6c757d;
+        }
+        input[type="number"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 150px;
+        }
+        select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 150px;
+        }
+        .settings {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        .trade-buy {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .trade-sell {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .setting-group {
+            margin-bottom: 15px;
+        }
+        .setting-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .highlight {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            border: 2px solid #ffc107;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
-    <h1>SOL Trading Bot</h1>
-    <h2>CoinCatch Spot Trading</h2>
+    <div class="header">
+        <h1>🤖 SOL Trading Bot</h1>
+        <p>Fixed SOL Amount Trading Mode</p>
+    </div>
     
-    <div class="card">
-        <strong>SOL Price:</strong> $<span id="solPrice">--</span>
+    <div class="highlight">
+        <strong>💡 MODE:</strong> Buy & Sell Fixed SOL Amount Each Trade<br>
+        Example: 0.1 SOL → Always buys/sells exactly 0.1 SOL
     </div>
     
     <div class="card">
-        <strong>USDT Balance:</strong> $<span id="usdtBalance">--</span>
-    </div>
-    
-    <div class="card">
-        <strong>SOL Balance:</strong> <span id="solBalance">--</span> SOL
+        <h3>Bot Status</h3>
+        <strong>Status:</strong> <span id="botStatus" class="status-stopped">STOPPED</span><br>
+        <strong>Position:</strong> <span id="currentPosition">NONE</span><br>
+        <strong>Last Trade:</strong> <span id="lastTrade">Never</span><br>
+        <strong>Interval:</strong> <span id="currentInterval">15m</span>
     </div>
 
     <div class="card">
-        <strong>Status:</strong> <span id="status">Loading...</span>
+        <h3>Market Data</h3>
+        <strong>SOL Price:</strong> $<span id="solPrice">--</span><br>
+        <strong>USDT:</strong> $<span id="usdtBalance">--</span><br>
+        <strong>SOL:</strong> <span id="solBalance">--</span> SOL<br>
+        <strong>Trade Amount:</strong> <span id="tradeAmount">0.1</span> SOL
     </div>
 
-    <div>
-        <button onclick="testConnection()">Test Connection</button>
-        <button onclick="refreshBalance()">Refresh Balance</button>
-        <button onclick="buySOL()">Buy $5 SOL</button>
-        <button onclick="debugInfo()">Debug</button>
+    <div class="card">
+        <h3>Signals (2 of 3 needed)</h3>
+        <table>
+            <tr>
+                <th>Indicator</th>
+                <th>Signal</th>
+            </tr>
+            <tr>
+                <td>Supertrend</td>
+                <td id="supertrendSignal">--</td>
+            </tr>
+            <tr>
+                <td>MACD</td>
+                <td id="macdSignal">--</td>
+            </tr>
+            <tr>
+                <td>FantailVMA</td>
+                <td id="fantailSignal">--</td>
+            </tr>
+            <tr style="background: #f8f9fa; font-weight: bold">
+                <td>CONSENSUS</td>
+                <td id="consensusSignal">--</td>
+            </tr>
+        </table>
     </div>
 
-    <div id="result" style="margin-top: 20px;"></div>
+    <div class="card settings">
+        <h3>⚙️ Settings</h3>
+        
+        <div class="setting-group">
+            <label><strong>Fixed SOL Amount:</strong></label>
+            <input type="number" id="solTradeAmount" value="0.1" min="0.1" max="10" step="0.1">
+            <div style="font-size: 12px; color: #666;">SOL to buy/sell each trade (min: 0.1)</div>
+        </div>
+
+        <div class="setting-group">
+            <label><strong>Check Interval (seconds):</strong></label>
+            <input type="number" id="checkInterval" value="900" min="60" step="60">
+        </div>
+
+        <div class="setting-group">
+            <label><strong>Timeframe:</strong></label>
+            <select id="indicatorInterval">
+                <option value="1m">1 Minute</option>
+                <option value="5m">5 Minutes</option>
+                <option value="15m" selected>15 Minutes</option>
+                <option value="30m">30 Minutes</option>
+                <option value="1H">1 Hour</option>
+                <option value="4H">4 Hours</option>
+                <option value="1D">1 Day</option>
+            </select>
+        </div>
+
+        <button onclick="updateSettings()">Update Settings</button>
+    </div>
+
+    <div class="card" style="text-align: center">
+        <button onclick="startBot()" id="startButton" class="start-button">▶️ START</button>
+        <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>⏹️ STOP</button>
+    </div>
+
+    <div class="card">
+        <h3>🎮 Manual Trading</h3>
+        <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 15px; border: 1px solid #ffc107;">
+            <strong>⚠️ Warning:</strong> Manual trades execute immediately and bypass automated signals
+        </div>
+        
+        <div class="setting-group">
+            <label><strong>Manual Trade Amount (SOL):</strong></label>
+            <input type="number" id="manualTradeAmount" value="0.1" min="0.1" max="10" step="0.1">
+            <div style="font-size: 12px; color: #666;">SOL amount for manual buy/sell (min: 0.1)</div>
+        </div>
+
+        <div style="text-align: center; margin-top: 15px;">
+            <button onclick="manualBuy()" style="background: #28a745; font-size: 14px; padding: 10px 20px;">
+                🛒 Manual BUY
+            </button>
+            <button onclick="manualSell()" style="background: #dc3545; font-size: 14px; padding: 10px 20px;">
+                💰 Manual SELL
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📊 Trade History</h3>
+        <div id="tradeHistory">No trades yet</div>
+    </div>
+
+    <div class="card">
+        <button onclick="refreshData()">🔄 Refresh</button>
+        <button onclick="getBalance()">💰 Balance</button>
+    </div>
+
+    <div id="result" style="margin-top: 20px"></div>
 
     <script>
-        async function apiCall(endpoint, method = 'GET') {
+        let refreshInterval;
+
+        async function apiCall(endpoint, msolod = 'GET') {
             try {
-                const response = await fetch(endpoint, { method });
+                const response = await fetch(endpoint, { msolod });
                 return await response.json();
             } catch (error) {
-                return { status: 'error', message: 'Network error: ' + error };
+                return { status: 'error', message: error.message };
             }
         }
 
-        function updateDisplay(data) {
-            if (data.sol_price) {
-                document.getElementById('solPrice').textContent = data.sol_price;
-            }
-            if (data.sol_balance) {
-                document.getElementById('solBalance').textContent = data.sol_balance;
-            }
-            if (data.usdt_balance) {
-                document.getElementById('usdtBalance').textContent = data.usdt_balance;
-            }
+        function formatSignal(value) {
+            if (value === 1) return '<span class="signal-long">🟢 LONG</span>';
+            if (value === -1) return '<span class="signal-short">🔴 SHORT</span>';
+            return '<span class="signal-neutral">⚪ NEUTRAL</span>';
         }
 
-        async function testConnection() {
+        async function startBot() {
             const result = document.getElementById('result');
-            result.innerHTML = 'Testing connection...';
+            result.innerHTML = 'Starting...';
             
-            const data = await apiCall('/api/test');
+            const data = await apiCall('/api/start_bot', 'POST');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div class="success">✅ ' + data.message + '</div>';
-                document.getElementById('status').textContent = 'Connected';
-                document.getElementById('status').style.color = 'green';
-                updateDisplay(data);
+                result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
+                document.getElementById('botStatus').textContent = 'RUNNING';
+                document.getElementById('botStatus').className = 'status-running';
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('stopButton').disabled = false;
+                
+                refreshInterval = setInterval(refreshData, 5000);
             } else {
-                result.innerHTML = '<div class="error">❌ ' + data.message + '</div>';
-                document.getElementById('status').textContent = 'Error';
-                document.getElementById('status').style.color = 'red';
-                updateDisplay(data);
+                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
             }
         }
 
-        async function refreshBalance() {
+        async function stopBot() {
             const result = document.getElementById('result');
-            result.innerHTML = 'Refreshing balance...';
+            result.innerHTML = 'Stopping...';
             
-            const data = await apiCall('/api/balance');
+            const data = await apiCall('/api/stop_bot', 'POST');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div class="success">✅ Balance updated</div>';
-                updateDisplay(data);
+                result.innerHTML = '<div style="color: orange">⏹️ ' + data.message + '</div>';
+                document.getElementById('botStatus').textContent = 'STOPPED';
+                document.getElementById('botStatus').className = 'status-stopped';
+                document.getElementById('startButton').disabled = false;
+                document.getElementById('stopButton').disabled = true;
+                
+                if (refreshInterval) clearInterval(refreshInterval);
             } else {
-                result.innerHTML = '<div class="error">❌ ' + data.message + '</div>';
+                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
             }
         }
 
-        async function buySOL() {
-            const result = document.getElementById('result');
-            result.innerHTML = 'Placing order...';
+        async function updateSettings() {
+            const solTradeAmount = parseFloat(document.getElementById('solTradeAmount').value);
+            const checkInterval = parseInt(document.getElementById('checkInterval').value);
+            const indicatorInterval = document.getElementById('indicatorInterval').value;
             
-            const data = await apiCall('/api/buy', 'POST');
+            if (solTradeAmount < 0.1 || solTradeAmount > 10) {
+                alert('SOL amount must be 0.1-10 SOL');
+                return;
+            }
+            
+            if (checkInterval < 60) {
+                alert('Min check interval is 60 sec');
+                return;
+            }
+            
+            const data = await apiCall(`/api/update_settings?sol_trade_amount=${solTradeAmount}&check_interval=${checkInterval}&indicator_interval=${indicatorInterval}`, 'POST');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div class="success">✅ ' + data.message + '</div>';
-                setTimeout(refreshBalance, 2000);
+                document.getElementById('result').innerHTML = '<div style="color: green">✅ Updated</div>';
+                document.getElementById('currentInterval').textContent = indicatorInterval;
+                document.getElementById('tradeAmount').textContent = solTradeAmount;
             } else {
-                result.innerHTML = '<div class="error">❌ ' + data.message + '</div>';
-                if (data.details) {
-                    result.innerHTML += '<div class="error">Details: ' + data.details + '</div>';
+                document.getElementById('result').innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function refreshData() {
+            const data = await apiCall('/api/status');
+            
+            if (data.status === 'success') {
+                if (data.is_running) {
+                    document.getElementById('botStatus').textContent = 'RUNNING';
+                    document.getElementById('botStatus').className = 'status-running';
+                    document.getElementById('startButton').disabled = true;
+                    document.getElementById('stopButton').disabled = false;
+                } else {
+                    document.getElementById('botStatus').textContent = 'STOPPED';
+                    document.getElementById('botStatus').className = 'status-stopped';
+                    document.getElementById('startButton').disabled = false;
+                    document.getElementById('stopButton').disabled = true;
+                }
+                
+                document.getElementById('currentPosition').textContent = data.last_position || 'NONE';
+                document.getElementById('lastTrade').textContent = data.last_trade_time || 'Never';
+                document.getElementById('currentInterval').textContent = data.indicator_interval || '15m';
+                document.getElementById('tradeAmount').textContent = data.sol_trade_amount || '0.1';
+                
+                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
+                document.getElementById('checkInterval').value = data.check_interval || 900;
+                document.getElementById('indicatorInterval').value = data.indicator_interval || '15m';
+                
+                if (data.signals) {
+                    document.getElementById('solPrice').textContent = data.signals.price.toFixed(2);
+                    document.getElementById('supertrendSignal').innerHTML = formatSignal(data.signals.supertrend);
+                    document.getElementById('macdSignal').innerHTML = formatSignal(data.signals.macd);
+                    document.getElementById('fantailSignal').innerHTML = formatSignal(data.signals.fantail_vma);
+                    
+                    let consensusHTML = data.signals.consensus;
+                    if (data.signals.consensus === 'BUY') {
+                        consensusHTML = '<span class="signal-long">🚀 BUY</span>';
+                    } else if (data.signals.consensus === 'SELL') {
+                        consensusHTML = '<span class="signal-short">📉 SELL</span>';
+                    } else {
+                        consensusHTML = '<span class="signal-neutral">⏸️ NEUTRAL</span>';
+                    }
+                    document.getElementById('consensusSignal').innerHTML = consensusHTML;
+                }
+                
+                document.getElementById('solBalance').textContent = data.sol_balance || '--';
+                document.getElementById('usdtBalance').textContent = data.usdt_balance || '--';
+                
+                if (data.trade_history && data.trade_history.length > 0) {
+                    let historyHTML = '<table><tr><th>Time</th><th>Action</th><th>SOL</th><th>USDT</th><th>Price</th></tr>';
+                    data.trade_history.slice(-10).reverse().forEach(trade => {
+                        const tradeClass = trade.action === 'BUY' ? 'trade-buy' : 'trade-sell';
+                        historyHTML += `<tr>
+                            <td>${new Date(trade.time).toLocaleString()}</td>
+                            <td class="${tradeClass}">${trade.action}</td>
+                            <td>${trade.sol_amount?.toFixed(4) || '0'} SOL</td>
+                            <td>$${trade.usdt_amount?.toFixed(2) || '0'}</td>
+                            <td>$${trade.price?.toFixed(2) || '0'}</td>
+                        </tr>`;
+                    });
+                    historyHTML += '</table>';
+                    document.getElementById('tradeHistory').innerHTML = historyHTML;
                 }
             }
         }
 
-        async function debugInfo() {
-            const result = document.getElementById('result');
-            result.innerHTML = 'Loading debug info...';
+        async function getBalance() {
+            const data = await apiCall('/api/balance');
             
-            const data = await apiCall('/api/debug');
-            result.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            if (data.status === 'success') {
+                document.getElementById('solBalance').textContent = data.sol_balance;
+                document.getElementById('usdtBalance').textContent = data.usdt_balance;
+                document.getElementById('result').innerHTML = '<div style="color: green">✅ Balance updated</div>';
+            }
         }
 
-        // Load initial data
-        testConnection();
+        async function manualBuy() {
+            const amount = parseFloat(document.getElementById('manualTradeAmount').value);
+            
+            if (amount < 0.1 || amount > 10) {
+                alert('Amount must be between 0.1 and 10 SOL');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to manually BUY ${amount} SOL?`)) {
+                return;
+            }
+            
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: blue">⏳ Executing manual BUY...</div>';
+            
+            const data = await apiCall(`/api/manual_buy?amount=${amount}`, 'POST');
+            
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
+                setTimeout(() => {
+                    refreshData();
+                    getBalance();
+                }, 2000);
+            } else {
+                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function manualSell() {
+            const amount = parseFloat(document.getElementById('manualTradeAmount').value);
+            
+            if (amount < 0.1 || amount > 10) {
+                alert('Amount must be between 0.1 and 10 SOL');
+                return;
+            }
+            
+            if (!confirm(`Are you sure you want to manually SELL ${amount} SOL?`)) {
+                return;
+            }
+            
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: blue">⏳ Executing manual SELL...</div>';
+            
+            const data = await apiCall(`/api/manual_sell?amount=${amount}`, 'POST');
+            
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
+                setTimeout(() => {
+                    refreshData();
+                    getBalance();
+                }, 2000);
+            } else {
+                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+            }
+        }
+
+        refreshData();
+        getBalance();
     </script>
 </body>
 </html>
