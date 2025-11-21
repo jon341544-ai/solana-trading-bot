@@ -19,7 +19,7 @@
         }
         
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
         }
         
@@ -121,10 +121,10 @@
         .signal-long { color: #28a745; font-weight: bold; }
         .signal-short { color: #dc3545; font-weight: bold; }
         .signal-neutral { color: #6c757d; font-weight: bold; }
-        .signal-strong { color: #28a745; font-weight: bold; }
-        .signal-weak { color: #dc3545; font-weight: bold; }
-        .signal-pass { color: #28a745; font-weight: bold; }
-        .signal-block { color: #dc3545; font-weight: bold; }
+        .signal-strong { color: #28a745; }
+        .signal-weak { color: #dc3545; }
+        .signal-pass { color: #28a745; }
+        .signal-block { color: #dc3545; }
         
         .form-group {
             margin-bottom: 20px;
@@ -304,38 +304,46 @@
         .trade-buy { color: #28a745; }
         .trade-sell { color: #dc3545; }
         
-        .adx-info {
-            background: #e8f5e8;
-            border-left: 4px solid #28a745;
-            padding: 12px;
-            margin: 10px 0;
-            border-radius: 6px;
-            font-size: 0.9em;
-        }
-        
-        .settings-grid {
+        .performance-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
+            margin-top: 15px;
         }
         
-        @media (max-width: 768px) {
-            .settings-grid {
-                grid-template-columns: 1fr;
-            }
+        .performance-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            text-align: center;
         }
+        
+        .performance-item .label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .performance-item .value {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .positive { color: #28a745; }
+        .negative { color: #dc3545; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🤖 SOL Trading Bot</h1>
-            <p>Fixed SOL Amount Trading Mode with ADX Trend Filter</p>
+            <p>Fixed SOL Amount Trading Mode</p>
         </div>
         
         <div class="mode-info">
-            <h3>💡 MODE: Buy & Sell Fixed SOL Amount + ADX Trend Filter</h3>
-            <p>Example: 0.1 SOL → Always buys/sells exactly 0.1 SOL, but ONLY when ADX > 25 (strong trend)</p>
+            <h3>💡 MODE: Buy & Sell Fixed SOL Amount Each Trade</h3>
+            <p>Example: 0.1 SOL → Always buys/sells exactly 0.1 SOL</p>
+            <p><strong>Strategy:</strong> 2 of 3 indicators must agree + ADX Trend Filter</p>
         </div>
         
         <div class="card">
@@ -361,7 +369,7 @@
         </div>
         
         <div class="card">
-            <h2>Market Data</h2>
+            <h2>Market Data & Performance</h2>
             <div class="status-grid">
                 <div class="status-item">
                     <label>SOL Price:</label>
@@ -378,6 +386,25 @@
                 <div class="status-item">
                     <label>Trade Amount:</label>
                     <div class="value" id="tradeAmountDisplay">0.1 SOL</div>
+                </div>
+            </div>
+            
+            <div class="performance-grid">
+                <div class="performance-item">
+                    <div class="label">24h P&L</div>
+                    <div class="value" id="dailyPnl">$--</div>
+                </div>
+                <div class="performance-item">
+                    <div class="label">7d P&L</div>
+                    <div class="value" id="weeklyPnl">$--</div>
+                </div>
+                <div class="performance-item">
+                    <div class="label">Total P&L</div>
+                    <div class="value" id="totalPnl">$--</div>
+                </div>
+                <div class="performance-item">
+                    <div class="label">Total P&L %</div>
+                    <div class="value" id="totalPnlPercent">--%</div>
                 </div>
             </div>
         </div>
@@ -418,46 +445,41 @@
                     </tr>
                 </tbody>
             </table>
-            <div class="adx-info">
-                <strong>ADX Filter:</strong> Only trades when ADX ≥ 25 (strong trend). Prevents trades in choppy markets.
-            </div>
         </div>
         
         <div class="card">
             <h2>⚙ Settings</h2>
             
-            <div class="settings-grid">
-                <div class="form-group">
-                    <label>Fixed SOL Amount:</label>
-                    <input type="number" id="solTradeAmount" value="0.1" min="0.1" max="100" step="0.1">
-                    <small>SOL to buy/sell each trade (min: 0.1)</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>ADX Threshold:</label>
-                    <input type="number" id="adxThreshold" value="25" min="10" max="50" step="1">
-                    <small>Minimum ADX for trading (10-50)</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Check Interval (seconds):</label>
-                    <input type="number" id="checkInterval" value="900" min="60" step="60">
-                    <small>How often to check signals (min: 60)</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Timeframe:</label>
-                    <select id="indicatorInterval">
-                        <option value="1m">1 Minute</option>
-                        <option value="5m">5 Minutes</option>
-                        <option value="15m" selected>15 Minutes</option>
-                        <option value="30m">30 Minutes</option>
-                        <option value="1H">1 Hour</option>
-                        <option value="4H">4 Hours</option>
-                        <option value="1D">1 Day</option>
-                    </select>
-                    <small>Candle timeframe for indicators</small>
-                </div>
+            <div class="form-group">
+                <label>Fixed SOL Amount:</label>
+                <input type="number" id="solTradeAmount" value="0.1" min="0.1" max="100" step="0.1">
+                <small>SOL to buy/sell each trade (min: 0.1)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Check Interval (seconds):</label>
+                <input type="number" id="checkInterval" value="900" min="60" step="60">
+                <small>How often to check signals (min: 60)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Timeframe:</label>
+                <select id="indicatorInterval">
+                    <option value="1m">1 Minute</option>
+                    <option value="5m">5 Minutes</option>
+                    <option value="15m" selected>15 Minutes</option>
+                    <option value="30m">30 Minutes</option>
+                    <option value="1H">1 Hour</option>
+                    <option value="4H">4 Hours</option>
+                    <option value="1D">1 Day</option>
+                </select>
+                <small>Candle timeframe for indicators</small>
+            </div>
+            
+            <div class="form-group">
+                <label>ADX Threshold:</label>
+                <input type="number" id="adxThreshold" value="25" min="10" max="50" step="1">
+                <small>Minimum ADX for trading (10-50, higher = stronger trend required)</small>
             </div>
             
             <button onclick="updateSettings()" class="update-button">Update Settings</button>
@@ -465,8 +487,8 @@
         
         <div class="card">
             <div class="button-group">
-                <button onclick="startBot()" id="startButton" class="start-button">▶ START BOT</button>
-                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP BOT</button>
+                <button onclick="startBot()" id="startButton" class="start-button">▶ START</button>
+                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP</button>
             </div>
         </div>
         
@@ -474,7 +496,7 @@
             <h2>🎮 Manual Trading</h2>
             
             <div class="warning-box">
-                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals & ADX filter
+                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals
             </div>
             
             <div class="form-group">
@@ -498,8 +520,8 @@
         
         <div class="card">
             <div class="button-group">
-                <button onclick="refreshData()" class="refresh-button">🔄 Refresh Data</button>
-                <button onclick="getBalance()" class="balance-button">💰 Check Balance</button>
+                <button onclick="refreshData()" class="refresh-button">🔄 Refresh</button>
+                <button onclick="getBalance()" class="balance-button">💰 Balance</button>
             </div>
             <div id="result"></div>
         </div>
@@ -522,19 +544,23 @@
             return '<span class="signal-neutral">⚪ NEUTRAL</span>';
         }
 
-        function formatTrendStrength(value) {
-            if (value === 'STRONG') return '<span class="signal-strong">🟢 STRONG</span>';
-            return '<span class="signal-weak">🔴 WEAK</span>';
+        function formatPnl(value) {
+            const numValue = parseFloat(value);
+            if (numValue > 0) return `<span class="positive">+$${numValue.toFixed(2)}</span>`;
+            if (numValue < 0) return `<span class="negative">-$${Math.abs(numValue).toFixed(2)}</span>`;
+            return `$${numValue.toFixed(2)}`;
         }
 
-        function formatAdxFilter(value) {
-            if (value === 'PASS') return '<span class="signal-pass">✅ PASS</span>';
-            return '<span class="signal-block">❌ BLOCK</span>';
+        function formatPnlPercent(value) {
+            const numValue = parseFloat(value);
+            if (numValue > 0) return `<span class="positive">+${numValue.toFixed(2)}%</span>`;
+            if (numValue < 0) return `<span class="negative">${numValue.toFixed(2)}%</span>`;
+            return `${numValue.toFixed(2)}%`;
         }
 
         async function startBot() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Starting bot with ADX filter...</div>';
+            result.innerHTML = '<div style="color: blue">Starting...</div>';
             
             const data = await apiCall('/api/start_bot', 'POST');
             
@@ -550,7 +576,7 @@
 
         async function stopBot() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Stopping bot...</div>';
+            result.innerHTML = '<div style="color: blue">Stopping...</div>';
             
             const data = await apiCall('/api/stop_bot', 'POST');
             
@@ -576,7 +602,7 @@
             );
             
             if (data.status === 'success') {
-                document.getElementById('result').innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
+                document.getElementById('result').innerHTML = '<div style="color: green">✅ Updated</div>';
                 setTimeout(refreshData, 500);
             } else {
                 document.getElementById('result').innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
@@ -591,7 +617,7 @@
                 return;
             }
             
-            if (!confirm('Are you sure you want to manually BUY ' + amount + ' SOL?\n\nThis bypasses the ADX filter and automated signals.')) {
+            if (!confirm('Are you sure you want to manually BUY ' + amount + ' SOL?')) {
                 return;
             }
             
@@ -619,7 +645,7 @@
                 return;
             }
             
-            if (!confirm('Are you sure you want to manually SELL ' + amount + ' SOL?\n\nThis bypasses the ADX filter and automated signals.')) {
+            if (!confirm('Are you sure you want to manually SELL ' + amount + ' SOL?')) {
                 return;
             }
             
@@ -662,35 +688,39 @@
                 document.getElementById('intervalDisplay').textContent = data.indicator_interval || '15m';
                 
                 // Market data
-                if (data.signals && data.signals.price) {
-                    document.getElementById('solPrice').textContent = '$' + data.signals.price.toFixed(2);
-                }
-                document.getElementById('usdtBalance').textContent = '$' + (data.usdt_balance || 0).toFixed(2);
-                document.getElementById('solBalance').textContent = (data.sol_balance || 0).toFixed(4) + ' SOL';
                 document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.1) + ' SOL';
+                document.getElementById('solBalance').textContent = (data.sol_balance || 0).toFixed(4) + ' SOL';
+                document.getElementById('usdtBalance').textContent = '$' + (data.usdt_balance || 0).toFixed(2);
                 
-                // Signals display
+                // Performance data
+                if (data.performance_data) {
+                    document.getElementById('dailyPnl').innerHTML = formatPnl(data.performance_data.daily_pnl || 0);
+                    document.getElementById('weeklyPnl').innerHTML = formatPnl(data.performance_data.weekly_pnl || 0);
+                    document.getElementById('totalPnl').innerHTML = formatPnl(data.performance_data.total_pnl || 0);
+                    document.getElementById('totalPnlPercent').innerHTML = formatPnlPercent(data.performance_data.total_pnl_percentage || 0);
+                }
+                
+                // Signals
                 if (data.signals) {
                     document.getElementById('supertrendSignal').innerHTML = formatSignal(data.signals.supertrend);
                     document.getElementById('macdSignal').innerHTML = formatSignal(data.signals.macd);
                     document.getElementById('fantailSignal').innerHTML = formatSignal(data.signals.fantail_vma);
                     
-                    if (data.signals.adx !== undefined) {
-                        document.getElementById('adxStrength').innerHTML = 
-                            data.signals.adx.toFixed(2) + ' - ' + formatTrendStrength(data.signals.trend_strength);
-                    }
+                    // ADX information
+                    const adxValue = data.signals.adx || 0;
+                    document.getElementById('adxStrength').innerHTML = 
+                        `<span class="${adxValue >= (data.adx_threshold || 25) ? 'signal-strong' : 'signal-weak'}">${adxValue.toFixed(2)} (${data.signals.trend_strength || 'WEAK'})</span>`;
                     
-                    if (data.signals.adx_filter) {
-                        document.getElementById('adxFilter').innerHTML = formatAdxFilter(data.signals.adx_filter);
-                    }
+                    document.getElementById('adxFilter').innerHTML = 
+                        `<span class="${data.signals.adx_filter === 'PASS' ? 'signal-pass' : 'signal-block'}">${data.signals.adx_filter || 'BLOCK'}</span>`;
                     
                     document.getElementById('consensusSignal').innerHTML = 
-                        data.signals.consensus ? data.signals.consensus.replace('NEUTRAL', '<span class="signal-neutral">NEUTRAL</span>')
-                            .replace('BUY', '<span class="signal-long">🟢 BUY</span>')
-                            .replace('SELL', '<span class="signal-short">🔴 SELL</span>') : '--';
+                        `<span class="${data.signals.consensus === 'BUY' ? 'signal-long' : data.signals.consensus === 'SELL' ? 'signal-short' : 'signal-neutral'}">${data.signals.consensus || 'NEUTRAL'}</span>`;
+                    
+                    document.getElementById('solPrice').textContent = '$' + (data.signals.price || 0).toFixed(2);
                 }
                 
-                // Update settings form
+                // Settings form values
                 document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
                 document.getElementById('checkInterval').value = data.check_interval || 900;
                 document.getElementById('indicatorInterval').value = data.indicator_interval || '15m';
@@ -701,16 +731,23 @@
                 if (data.trade_history && data.trade_history.length > 0) {
                     tradeHistory.innerHTML = '';
                     data.trade_history.slice().reverse().forEach(trade => {
-                        const tradeDiv = document.createElement('div');
-                        tradeDiv.className = 'trade-item';
-                        tradeDiv.innerHTML = `
-                            <div class="trade-time">${new Date(trade.time).toLocaleString()}</div>
+                        const tradeItem = document.createElement('div');
+                        tradeItem.className = 'trade-item';
+                        tradeItem.innerHTML = `
+                            <div class="trade-time">${new Date(trade.time).toLocaleString('en-US', { 
+                                timeZone: 'America/New_York',
+                                month: '2-digit',
+                                day: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true 
+                            })}</div>
                             <div class="trade-action ${trade.action.includes('BUY') ? 'trade-buy' : 'trade-sell'}">
                                 ${trade.action} - ${trade.sol_amount} SOL @ $${trade.price.toFixed(2)}
                             </div>
-                            <div>Value: $${trade.usdt_amount.toFixed(2)}</div>
                         `;
-                        tradeHistory.appendChild(tradeDiv);
+                        tradeHistory.appendChild(tradeItem);
                     });
                 } else {
                     tradeHistory.innerHTML = '<p style="text-align: center; color: #666;">No trades yet</p>';
@@ -719,17 +756,20 @@
                 // Button states
                 document.getElementById('startButton').disabled = data.is_running;
                 document.getElementById('stopButton').disabled = !data.is_running;
+                
+            } else {
+                document.getElementById('result').innerHTML = '<div style="color: red">❌ Failed to get status</div>';
             }
         }
 
         async function getBalance() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">⏳ Checking balance...</div>';
+            result.innerHTML = '<div style="color: blue">Getting balance...</div>';
             
             const data = await apiCall('/api/balance');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div style="color: green">✅ Balance: ' + data.sol_balance + ' SOL, $' + data.usdt_balance + ' USDT</div>';
+                result.innerHTML = '<div style="color: green">✅ Balance updated</div>';
                 setTimeout(refreshData, 500);
             } else {
                 result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
@@ -739,8 +779,8 @@
         // Initial load
         document.addEventListener('DOMContentLoaded', function() {
             refreshData();
-            // Auto-refresh every 10 seconds
-            setInterval(refreshData, 10000);
+            // Auto-refresh every 30 seconds
+            setInterval(refreshData, 30000);
         });
     </script>
 </body>
