@@ -19,7 +19,7 @@
         }
         
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
         }
         
@@ -121,6 +121,10 @@
         .signal-long { color: #28a745; font-weight: bold; }
         .signal-short { color: #dc3545; font-weight: bold; }
         .signal-neutral { color: #6c757d; font-weight: bold; }
+        .signal-strong { color: #28a745; font-weight: bold; }
+        .signal-weak { color: #dc3545; font-weight: bold; }
+        .signal-pass { color: #28a745; font-weight: bold; }
+        .signal-block { color: #dc3545; font-weight: bold; }
         
         .form-group {
             margin-bottom: 20px;
@@ -299,18 +303,39 @@
         
         .trade-buy { color: #28a745; }
         .trade-sell { color: #dc3545; }
+        
+        .adx-info {
+            background: #e8f5e8;
+            border-left: 4px solid #28a745;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🤖 SOL Trading Bot</h1>
-            <p>Fixed SOL Amount Trading Mode</p>
+            <p>Fixed SOL Amount Trading Mode with ADX Trend Filter</p>
         </div>
         
         <div class="mode-info">
-            <h3>💡 MODE: Buy & Sell Fixed SOL Amount Each Trade</h3>
-            <p>Example: 0.1 SOL → Always buys/sells exactly 0.1 SOL</p>
+            <h3>💡 MODE: Buy & Sell Fixed SOL Amount + ADX Trend Filter</h3>
+            <p>Example: 0.1 SOL → Always buys/sells exactly 0.1 SOL, but ONLY when ADX > 25 (strong trend)</p>
         </div>
         
         <div class="card">
@@ -358,7 +383,7 @@
         </div>
         
         <div class="card">
-            <h2>Signals (2 of 3 needed)</h2>
+            <h2>Signals (3 Indicators + ADX Filter)</h2>
             <table class="signal-table">
                 <thead>
                     <tr>
@@ -376,44 +401,63 @@
                         <td id="macdSignal">--</td>
                     </tr>
                     <tr>
-                        <td>FantailVMA</td>
+                        <td>Fantail VMA</td>
                         <td id="fantailSignal">--</td>
                     </tr>
+                    <tr>
+                        <td>ADX Trend Strength</td>
+                        <td id="adxStrength">--</td>
+                    </tr>
+                    <tr>
+                        <td>ADX Filter</td>
+                        <td id="adxFilter">--</td>
+                    </tr>
                     <tr style="font-weight: bold; background: #f8f9fa;">
-                        <td>CONSENSUS</td>
+                        <td>FINAL DECISION</td>
                         <td id="consensusSignal">--</td>
                     </tr>
                 </tbody>
             </table>
+            <div class="adx-info">
+                <strong>ADX Filter:</strong> Only trades when ADX ≥ 25 (strong trend). Prevents trades in choppy markets.
+            </div>
         </div>
         
         <div class="card">
             <h2>⚙ Settings</h2>
             
-            <div class="form-group">
-                <label>Fixed SOL Amount:</label>
-                <input type="number" id="solTradeAmount" value="0.1" min="0.1" max="100" step="0.1">
-                <small>SOL to buy/sell each trade (min: 0.1)</small>
-            </div>
-            
-            <div class="form-group">
-                <label>Check Interval (seconds):</label>
-                <input type="number" id="checkInterval" value="900" min="60" step="60">
-                <small>How often to check signals (min: 60)</small>
-            </div>
-            
-            <div class="form-group">
-                <label>Timeframe:</label>
-                <select id="indicatorInterval">
-                    <option value="1m">1 Minute</option>
-                    <option value="5m">5 Minutes</option>
-                    <option value="15m" selected>15 Minutes</option>
-                    <option value="30m">30 Minutes</option>
-                    <option value="1H">1 Hour</option>
-                    <option value="4H">4 Hours</option>
-                    <option value="1D">1 Day</option>
-                </select>
-                <small>Candle timeframe for indicators</small>
+            <div class="settings-grid">
+                <div class="form-group">
+                    <label>Fixed SOL Amount:</label>
+                    <input type="number" id="solTradeAmount" value="0.1" min="0.1" max="100" step="0.1">
+                    <small>SOL to buy/sell each trade (min: 0.1)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>ADX Threshold:</label>
+                    <input type="number" id="adxThreshold" value="25" min="10" max="50" step="1">
+                    <small>Minimum ADX for trading (10-50)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Check Interval (seconds):</label>
+                    <input type="number" id="checkInterval" value="900" min="60" step="60">
+                    <small>How often to check signals (min: 60)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Timeframe:</label>
+                    <select id="indicatorInterval">
+                        <option value="1m">1 Minute</option>
+                        <option value="5m">5 Minutes</option>
+                        <option value="15m" selected>15 Minutes</option>
+                        <option value="30m">30 Minutes</option>
+                        <option value="1H">1 Hour</option>
+                        <option value="4H">4 Hours</option>
+                        <option value="1D">1 Day</option>
+                    </select>
+                    <small>Candle timeframe for indicators</small>
+                </div>
             </div>
             
             <button onclick="updateSettings()" class="update-button">Update Settings</button>
@@ -421,8 +465,8 @@
         
         <div class="card">
             <div class="button-group">
-                <button onclick="startBot()" id="startButton" class="start-button">▶ START</button>
-                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP</button>
+                <button onclick="startBot()" id="startButton" class="start-button">▶ START BOT</button>
+                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP BOT</button>
             </div>
         </div>
         
@@ -430,7 +474,7 @@
             <h2>🎮 Manual Trading</h2>
             
             <div class="warning-box">
-                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals
+                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals & ADX filter
             </div>
             
             <div class="form-group">
@@ -454,8 +498,8 @@
         
         <div class="card">
             <div class="button-group">
-                <button onclick="refreshData()" class="refresh-button">🔄 Refresh</button>
-                <button onclick="getBalance()" class="balance-button">💰 Balance</button>
+                <button onclick="refreshData()" class="refresh-button">🔄 Refresh Data</button>
+                <button onclick="getBalance()" class="balance-button">💰 Check Balance</button>
             </div>
             <div id="result"></div>
         </div>
@@ -478,9 +522,19 @@
             return '<span class="signal-neutral">⚪ NEUTRAL</span>';
         }
 
+        function formatTrendStrength(value) {
+            if (value === 'STRONG') return '<span class="signal-strong">🟢 STRONG</span>';
+            return '<span class="signal-weak">🔴 WEAK</span>';
+        }
+
+        function formatAdxFilter(value) {
+            if (value === 'PASS') return '<span class="signal-pass">✅ PASS</span>';
+            return '<span class="signal-block">❌ BLOCK</span>';
+        }
+
         async function startBot() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Starting...</div>';
+            result.innerHTML = '<div style="color: blue">Starting bot with ADX filter...</div>';
             
             const data = await apiCall('/api/start_bot', 'POST');
             
@@ -496,7 +550,7 @@
 
         async function stopBot() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Stopping...</div>';
+            result.innerHTML = '<div style="color: blue">Stopping bot...</div>';
             
             const data = await apiCall('/api/stop_bot', 'POST');
             
@@ -514,14 +568,15 @@
             const solAmount = document.getElementById('solTradeAmount').value;
             const interval = document.getElementById('checkInterval').value;
             const timeframe = document.getElementById('indicatorInterval').value;
+            const adxThreshold = document.getElementById('adxThreshold').value;
             
             const data = await apiCall(
-                `/api/update_settings?sol_trade_amount=${solAmount}&check_interval=${interval}&indicator_interval=${timeframe}`,
+                `/api/update_settings?sol_trade_amount=${solAmount}&check_interval=${interval}&indicator_interval=${timeframe}&adx_threshold=${adxThreshold}`,
                 'POST'
             );
             
             if (data.status === 'success') {
-                document.getElementById('result').innerHTML = '<div style="color: green">✅ Updated</div>';
+                document.getElementById('result').innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
                 setTimeout(refreshData, 500);
             } else {
                 document.getElementById('result').innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
@@ -536,7 +591,7 @@
                 return;
             }
             
-            if (!confirm('Are you sure you want to manually BUY ' + amount + ' SOL?')) {
+            if (!confirm('Are you sure you want to manually BUY ' + amount + ' SOL?\n\nThis bypasses the ADX filter and automated signals.')) {
                 return;
             }
             
@@ -564,7 +619,7 @@
                 return;
             }
             
-            if (!confirm('Are you sure you want to manually SELL ' + amount + ' SOL?')) {
+            if (!confirm('Are you sure you want to manually SELL ' + amount + ' SOL?\n\nThis bypasses the ADX filter and automated signals.')) {
                 return;
             }
             
@@ -588,6 +643,7 @@
             const data = await apiCall('/api/status');
             
             if (data.status === 'success') {
+                // Bot status
                 document.getElementById('botStatus').textContent = data.is_running ? 'RUNNING' : 'STOPPED';
                 document.getElementById('botStatus').className = 'value ' + (data.is_running ? 'status-running' : 'status-stopped');
                 
@@ -605,87 +661,87 @@
                     }) : 'Never';
                 document.getElementById('intervalDisplay').textContent = data.indicator_interval || '15m';
                 
+                // Market data
+                if (data.signals && data.signals.price) {
+                    document.getElementById('solPrice').textContent = '$' + data.signals.price.toFixed(2);
+                }
+                document.getElementById('usdtBalance').textContent = '$' + (data.usdt_balance || 0).toFixed(2);
+                document.getElementById('solBalance').textContent = (data.sol_balance || 0).toFixed(4) + ' SOL';
                 document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.1) + ' SOL';
-                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
-                document.getElementById('checkInterval').value = data.check_interval || 900;
                 
-                if (data.signals && Object.keys(data.signals).length > 0) {
+                // Signals display
+                if (data.signals) {
                     document.getElementById('supertrendSignal').innerHTML = formatSignal(data.signals.supertrend);
                     document.getElementById('macdSignal').innerHTML = formatSignal(data.signals.macd);
                     document.getElementById('fantailSignal').innerHTML = formatSignal(data.signals.fantail_vma);
                     
-                    let consensusHTML = '';
-                    if (data.signals.consensus === 'BUY') {
-                        consensusHTML = '<span class="signal-long">🚀 BUY</span>';
-                    } else if (data.signals.consensus === 'SELL') {
-                        consensusHTML = '<span class="signal-short">📉 SELL</span>';
-                    } else {
-                        consensusHTML = '<span class="signal-neutral">- NEUTRAL</span>';
+                    if (data.signals.adx !== undefined) {
+                        document.getElementById('adxStrength').innerHTML = 
+                            data.signals.adx.toFixed(2) + ' - ' + formatTrendStrength(data.signals.trend_strength);
                     }
-                    document.getElementById('consensusSignal').innerHTML = consensusHTML;
+                    
+                    if (data.signals.adx_filter) {
+                        document.getElementById('adxFilter').innerHTML = formatAdxFilter(data.signals.adx_filter);
+                    }
+                    
+                    document.getElementById('consensusSignal').innerHTML = 
+                        data.signals.consensus ? data.signals.consensus.replace('NEUTRAL', '<span class="signal-neutral">NEUTRAL</span>')
+                            .replace('BUY', '<span class="signal-long">🟢 BUY</span>')
+                            .replace('SELL', '<span class="signal-short">🔴 SELL</span>') : '--';
                 }
                 
-                document.getElementById('solBalance').textContent = data.sol_balance || '--';
-                document.getElementById('usdtBalance').textContent = data.usdt_balance ? '$' + data.usdt_balance.toFixed(2) : '$--';
+                // Update settings form
+                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
+                document.getElementById('checkInterval').value = data.check_interval || 900;
+                document.getElementById('indicatorInterval').value = data.indicator_interval || '15m';
+                document.getElementById('adxThreshold').value = data.adx_threshold || 25;
                 
-                if (data.signals && data.signals.price) {
-                    document.getElementById('solPrice').textContent = '$' + data.signals.price.toFixed(2);
-                }
-                
-                if (data.is_running) {
-                    document.getElementById('startButton').disabled = true;
-                    document.getElementById('stopButton').disabled = false;
-                } else {
-                    document.getElementById('startButton').disabled = false;
-                    document.getElementById('stopButton').disabled = true;
-                }
-                
+                // Trade history
+                const tradeHistory = document.getElementById('tradeHistory');
                 if (data.trade_history && data.trade_history.length > 0) {
-                    const historyHTML = data.trade_history.slice(-10).reverse().map(trade => {
-                        const actionClass = trade.action.includes('BUY') ? 'trade-buy' : 'trade-sell';
-                        const tradeDate = new Date(trade.time);
-                        const formattedTime = tradeDate.toLocaleString('en-US', {
-                            timeZone: 'America/New_York',
-                            month: '2-digit',
-                            day: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: true
-                        });
-                        return `
-                            <div class="trade-item">
-                                <div class="trade-time">${formattedTime}</div>
-                                <div class="trade-action ${actionClass}">${trade.action}</div>
-                                <div>${trade.sol_amount} SOL @ $${trade.price.toFixed(2)} = $${trade.usdt_amount.toFixed(2)}</div>
+                    tradeHistory.innerHTML = '';
+                    data.trade_history.slice().reverse().forEach(trade => {
+                        const tradeDiv = document.createElement('div');
+                        tradeDiv.className = 'trade-item';
+                        tradeDiv.innerHTML = `
+                            <div class="trade-time">${new Date(trade.time).toLocaleString()}</div>
+                            <div class="trade-action ${trade.action.includes('BUY') ? 'trade-buy' : 'trade-sell'}">
+                                ${trade.action} - ${trade.sol_amount} SOL @ $${trade.price.toFixed(2)}
                             </div>
+                            <div>Value: $${trade.usdt_amount.toFixed(2)}</div>
                         `;
-                    }).join('');
-                    document.getElementById('tradeHistory').innerHTML = historyHTML;
+                        tradeHistory.appendChild(tradeDiv);
+                    });
                 } else {
-                    document.getElementById('tradeHistory').innerHTML = '<p style="text-align: center; color: #666;">No trades yet</p>';
+                    tradeHistory.innerHTML = '<p style="text-align: center; color: #666;">No trades yet</p>';
                 }
+                
+                // Button states
+                document.getElementById('startButton').disabled = data.is_running;
+                document.getElementById('stopButton').disabled = !data.is_running;
             }
         }
 
         async function getBalance() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Getting balance...</div>';
+            result.innerHTML = '<div style="color: blue">⏳ Checking balance...</div>';
             
             const data = await apiCall('/api/balance');
             
             if (data.status === 'success') {
-                document.getElementById('solBalance').textContent = data.sol_balance + ' SOL';
-                document.getElementById('usdtBalance').textContent = '$' + parseFloat(data.usdt_balance).toFixed(2);
-                result.innerHTML = '<div style="color: green">✅ Balance updated</div>';
+                result.innerHTML = '<div style="color: green">✅ Balance: ' + data.sol_balance + ' SOL, $' + data.usdt_balance + ' USDT</div>';
+                setTimeout(refreshData, 500);
             } else {
-                result.innerHTML = '<div style="color: red">❌ Failed to get balance</div>';
+                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
             }
         }
 
-        setInterval(refreshData, 5000);
-        refreshData();
+        // Initial load
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshData();
+            // Auto-refresh every 10 seconds
+            setInterval(refreshData, 10000);
+        });
     </script>
 </body>
 </html>
