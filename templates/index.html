@@ -331,6 +331,18 @@
         
         .positive { color: #28a745; }
         .negative { color: #dc3545; }
+        
+        .safety-features {
+            background: #e7f3ff;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        .safety-features strong {
+            color: #0c5460;
+        }
     </style>
 </head>
 <body>
@@ -344,6 +356,13 @@
             <h3>💡 MODE: Buy & Sell Fixed SOL Amount Each Trade</h3>
             <p>Example: 0.1 SOL → Always buys/sells exactly 0.1 SOL</p>
             <p><strong>Strategy:</strong> 2 of 3 indicators must agree + ADX Trend Filter</p>
+        </div>
+
+        <div class="safety-features">
+            <h3>🛡️ NEW SAFETY FEATURES</h3>
+            <p><strong>Emergency Exit:</strong> Auto-exits if indicators fail 3 times</p>
+            <p><strong>4-Hour Limit:</strong> Auto-exits any position held longer than 4 hours</p>
+            <p><strong>Better Debugging:</strong> Detailed indicator logging</p>
         </div>
         
         <div class="card">
