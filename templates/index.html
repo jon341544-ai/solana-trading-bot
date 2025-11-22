@@ -559,6 +559,12 @@
                 <input type="number" id="trailingStop" value="8" min="3" max="20" step="1">
                 <small>Trailing stop loss percentage (3-20%)</small>
             </div>
+
+            <div class="form-group">
+                <label>Check Interval (seconds):</label>
+                <input type="number" id="checkInterval" value="300" min="60" step="30">
+                <small>How often to check signals (60-1800 seconds)</small>
+            </div>
             
             <button onclick="updateSettings()" class="update-button" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white; width: 100%;">Update Aggressive Settings</button>
         </div>
@@ -703,9 +709,10 @@
             const riskMultiplier = document.getElementById('riskMultiplier').value;
             const dailyLoss = document.getElementById('dailyLossLimit').value;
             const trailingStop = document.getElementById('trailingStop').value;
+            const checkInterval = document.getElementById('checkInterval').value;
             
             const data = await apiCall(
-                `/api/update_settings?base_trade_amount=${baseAmount}&risk_multiplier=${riskMultiplier}&daily_loss_limit=${dailyLoss}&trailing_stop=${trailingStop}`,
+                `/api/update_settings?base_trade_amount=${baseAmount}&risk_multiplier=${riskMultiplier}&daily_loss_limit=${dailyLoss}&trailing_stop=${trailingStop}&check_interval=${checkInterval}`,
                 'POST'
             );
             
@@ -768,18 +775,19 @@
                 document.getElementById('position').textContent = data.last_position || 'NONE';
                 
                 // Market data
-                document.getElementById('solPrice').textContent = '$' + (data.current_sol_price || 0).toFixed(2);
+                document.getElementById('solPrice').textContent = '$' + (data.signals?.price || 0).toFixed(2);
                 document.getElementById('solBalance').textContent = (data.sol_balance || 0).toFixed(4) + ' SOL';
                 document.getElementById('usdtBalance').textContent = '$' + (data.usdt_balance || 0).toFixed(2);
-                document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.2) + ' SOL';
+                document.getElementById('tradeAmountDisplay').textContent = (data.base_trade_amount || 0.2) + ' SOL';
                 
                 // Performance data
                 if (data.performance_data) {
-                    document.getElementById('dailyPnl').innerHTML = formatPnl(data.performance_data.daily_pnl || 0);
+                    document.getElementById('dailyPnl').innerHTML = formatPnl(data.performance_data.total_pnl || 0);
                     document.getElementById('totalPnl').innerHTML = formatPnl(data.performance_data.total_pnl || 0);
                     document.getElementById('totalPnlPercent').innerHTML = formatPnlPercent(data.performance_data.total_pnl_percentage || 0);
                     document.getElementById('totalTrades').textContent = data.performance_data.total_trades || 0;
-                    document.getElementById('winRate').textContent = data.performance_data.win_rate ? (data.performance_data.win_rate * 100).toFixed(1) + '%' : '--%';
+                    document.getElementById('winRate').textContent = data.performance_data.winning_trades && data.performance_data.total_trades ? 
+                        ((data.performance_data.winning_trades / data.performance_data.total_trades) * 100).toFixed(1) + '%' : '0%';
                     document.getElementById('currentStreak').textContent = data.performance_data.current_streak || 0;
                 }
                 
@@ -794,10 +802,11 @@
                 }
                 
                 // Settings form values
-                document.getElementById('baseTradeAmount').value = data.sol_trade_amount || 0.2;
+                document.getElementById('baseTradeAmount').value = data.base_trade_amount || 0.2;
                 document.getElementById('riskMultiplier').value = data.risk_multiplier || 1.5;
                 document.getElementById('dailyLossLimit').value = data.daily_loss_limit || 15;
                 document.getElementById('trailingStop').value = data.trailing_stop || 8;
+                document.getElementById('checkInterval').value = data.check_interval || 300;
                 
                 // Trade history
                 const tradeHistory = document.getElementById('tradeHistory');
