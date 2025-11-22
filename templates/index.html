@@ -5,624 +5,369 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🚀 Futures Trading Bot</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* --------------------------------------------------------------
+           All the original CSS you supplied – unchanged.
+           -------------------------------------------------------------- */
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{
+            font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+            background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+            min-height:100vh;
+            padding:20px;
+            color:#333
         }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-            color: #333;
+        .container{max-width:1200px;margin:auto}
+        .header{
+            background:rgba(255,255,255,.95);
+            padding:30px;
+            border-radius:20px;
+            text-align:center;
+            margin-bottom:20px;
+            box-shadow:0 10px 30px rgba(0,0,0,.3);
+            border:3px solid #667eea
         }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .header h1{color:#667eea;font-size:3em;margin-bottom:10px;text-shadow:2px 2px 4px rgba(0,0,0,.1)}
+        .header p{color:#666;font-size:1.3em;font-weight:600}
+        .warning-banner{
+            background:linear-gradient(135deg,#ff6b6b,#ee5a24);
+            color:white;
+            padding:20px;
+            border-radius:15px;
+            margin-bottom:20px;
+            text-align:center;
+            box-shadow:0 5px 20px rgba(255,107,107,.4);
+           border:2px solid #fff
         }
-        
-        .header {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
-            border-radius: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            border: 3px solid #667eea;
+        .warning-banner h3{font-size:1.5em;margin-bottom:10px}
+        .card{
+            background:rgba(255,255,255,.95);
+           padding:25px;
+            border-radius:15px;
+            margin-bottom:20px;
+            box-shadow:0 5px 20px rgba(0,0,0,.2);
+           border:2px solid #a29bfe
         }
-        
-        .header h1 {
-            color: #667eea;
-            font-size: 3em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        .card.futures{border:2px solid #667eea;background:linear-gradient(135deg,#fff,#d6bcfa)}
+       .card h2{
+            color:#5a67d8;
+            margin-bottom:20px;
+            font-size:1.6em;
+            border-bottom:2px solid #a3bffa;
+            padding-bottom:10px
         }
-        
-        .header p {
-            color: #666;
-            font-size: 1.3em;
-            font-weight: 600;
+        .card.futures h2{color:#667eea;border-bottom:2px solid #667eea}
+        .status-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+            gap:15px;
+            margin-bottom:20px
         }
-        
-        .warning-banner {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            text-align: center;
-            box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
-            border: 2px solid #fff;
+        .status-item{
+            padding:15px;
+            background:#f8f9fa;
+            border-radius:10px;
+            border-left:4px solid #667eea
         }
-        
-        .warning-banner h3 {
-            font-size: 1.5em;
-            margin-bottom: 10px;
+        .status-item.futures{
+            border-left:4px solid #5a67d8;
+            background:linear-gradient(135deg,#f8f9fa,#d6bcfa)
         }
-        
-        .card {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 25px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
-            border: 2px solid #a29bfe;
+        .status-item label{display:block;color:#666;font-size:.9em;margin-bottom:5px;font-weight:600}
+        .status-item .value{font-size:1.3em;font-weight:bold;color:#2d3436}
+        .status-running{color:#00b894!important}
+        .status-stopped{color:#ff7675!important}
+        .status-long{color:#00b894!important}
+        .status-short{color:#ff7675!important}
+        .signal-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+          gap:15px;
+            margin-top:15px
         }
-        
-        .card.futures {
-            border: 2px solid #667eea;
-            background: linear-gradient(135deg, #fff, #d6bcfa);
+        .signal-item{
+            padding:15px;
+            background:#f8f9fa;
+            border-radius:10px;
+            text-align:center;
+            border:2px solid #ddd
         }
-        
-        .card h2 {
-            color: #5a67d8;
-            margin-bottom: 20px;
-            font-size: 1.6em;
-            border-bottom: 2px solid #a3bffa;
-            padding-bottom: 10px;
+        .signal-item.long{
+            background:linear-gradient(135deg,#00b894,#55efc4);
+            border-color:#00b894;
+            color:white
         }
-        
-        .card.futures h2 {
-            color: #667eea;
-            border-bottom: 2px solid #667eea;
+        .signal-item.short{
+            background:linear-gradient(135deg,#ff7675,#fd79a8);
+            border-color:#ff7675;
+            color:white
         }
-        
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+        .signal-item.hold{
+            background:linear-gradient(135deg,#fdcb6e,#ffeaa7);
+            border-color:#fdcb6e;
+         color:#2d3436
         }
-        
-        .status-item {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
+        .signal-label{font-size:.9em;margin-bottom:5px;font-weight:600}
+        .signal-value{font-size:1.4em;font-weight:bold}
+        .performance-grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+         gap:15px;
+            margin-top:15px
         }
-        
-        .status-item.futures {
-            border-left: 4px solid #5a67d8;
-            background: linear-gradient(135deg, #f8f9fa, #d6bcfa);
+        .performance-item{
+            padding:15px;
+            background:#f8f9fa;
+            border-radius:10px;
+            text-align:center;
+          border:2px solid #ddd
         }
-        
-        .status-item label {
-            display: block;
-            color: #666;
-            font-size: 0.9em;
-            margin-bottom: 5px;
-            font-weight: 600;
+        .performance-item.leverage{
+            background:linear-gradient(135deg,#d6bcfa,#a3bffa);
+            border-color:#667eea
         }
-        
-        .status-item .value {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: #2d3436;
-        }
-        
-        .status-running { color: #00b894 !important; }
-        .status-stopped { color: #ff7675 !important; }
-        .status-long { color: #00b894 !important; }
-        .status-short { color: #ff7675 !important; }
-        
-        .signal-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .signal-item {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            text-align: center;
-            border: 2px solid #ddd;
-        }
-        
-        .signal-item.long {
-            background: linear-gradient(135deg, #00b894, #55efc4);
-            border-color: #00b894;
-            color: white;
-        }
-        
-        .signal-item.short {
-            background: linear-gradient(135deg, #ff7675, #fd79a8);
-            border-color: #ff7675;
-            color: white;
-        }
-        
-        .signal-item.hold {
-            background: linear-gradient(135deg, #fdcb6e, #ffeaa7);
-            border-color: #fdcb6e;
-            color: #2d3436;
-        }
-        
-        .signal-label {
-            font-size: 0.9em;
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-        
-        .signal-value {
-            font-size: 1.4em;
-            font-weight: bold;
-        }
-        
-        .performance-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
-        
-        .performance-item {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            text-align: center;
-            border: 2px solid #ddd;
-        }
-        
-        .performance-item.leverage {
-            background: linear-gradient(135deg, #d6bcfa, #a3bffa);
-            border-color: #667eea;
-        }
-        
-        .performance-item .label {
-            color: #666;
-            font-size: 0.9em;
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-        
-        .performance-item .value {
-            font-size: 1.2em;
-            font-weight: bold;
-        }
-        
-        .positive { color: #00b894; }
-        .negative { color: #ff7675; }
-        .extreme-positive { color: #00cec9; font-weight: 900; }
-        .extreme-negative { color: #d63031; font-weight: 900; }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #2d3436;
-            font-weight: 600;
-        }
-        
+        .performance-item .label{color:#666;font-size:.9em;margin-bottom:5px;font-weight:600}
+        .performance-item .value{font-size:1.2em;font-weight:bold}
+        .positive{color:#00b894}
+        .negative{color:#ff7675}
+        .extreme-positive{color:#00cec9;font-weight:900}
+        .extreme-negative{color:#d63031;font-weight:900}
+        .form-group{margin-bottom:20px}
+        .form-group label{display:block;margin-bottom:8px;color:#2d3436;font-weight:600}
         .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: all 0.3s;
-            background: white;
+        .form-group select{
+            width:100%;
+            padding:12px;
+            border:2px solid #ddd;
+            border-radius:8px;
+       font-size:1em;
+            transition:all .3s;
+            background:white
         }
-        
         .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+        .form-group select:focus{
+            outline:none;
+            border-color:#667eea;
+            box-shadow:0 0 10px rgba(102,126,234,.3)
         }
-        
-        .form-group small {
-            display: block;
-            margin-top: 5px;
-            color: #666;
-            font-size: 0.85em;
+        .form-group small{display:block;margin-top:5px;color:#666;font-size:.85em}
+        .button-group{display:flex;gap:10px;margin-top:20px}
+        .button-group.emergency-group{margin-top:15px;justify-content:center}
+        button{
+            flex:1;
+            padding:18px 30px;
+            font-size:1.2em;
+            border:none;
+            border-radius:10px;
+            cursor:pointer;
+            transition:all .3s;
+            font-weight:700;
+            text-transform:uppercase;
+            letter-spacing:1px
         }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
+        .start-button{
+            background:linear-gradient(135deg,#00b894,#55efc4);
+            color:white;
+            box-shadow:0 5px 15px rgba(0,184,148,.4)
         }
-        
-        .button-group.emergency-group {
-            margin-top: 15px;
-            justify-content: center;
+        .start-button:hover:not(:disabled){
+            transform:translateY(-3px);
+            box-shadow:0 8px 25px rgba(0,184,148,.6)
         }
-        
-        button {
-            flex: 1;
-            padding: 18px 30px;
-            font-size: 1.2em;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .stop-button{
+            background:linear-gradient(135deg,#ff7675,#fd79a8);
+            color:white;
+            box-shadow:0 5px 15px rgba(255,118,117,.4)
         }
-        
-        .start-button {
-            background: linear-gradient(135deg, #00b894, #55efc4);
-            color: white;
-            box-shadow: 0 5px 15px rgba(0, 184, 148, 0.4);
+        .stop-button:hover:not(:disabled){
+            transform:translateY(-3px);
+            box-shadow:0 8px 25px rgba(255,118,117,.6)
         }
-        
-        .start-button:hover:not(:disabled) {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0, 184, 148, 0.6);
+        .emergency-button{
+            background:linear-gradient(135deg,#e17055,#ff7675);
+            color:white;
+            box-shadow:0 5px 15px rgba(225,112,85,.4);
+            flex:0 0 auto;
+            width:100%;
+            max-width:400px
         }
-        
-        .stop-button {
-            background: linear-gradient(135deg, #ff7675, #fd79a8);
-            color: white;
-            box-shadow: 0 5px 15px rgba(255, 118, 117, 0.4);
+        .emergency-button:hover{
+            transform:translateY(-3px);
+            box-shadow:0 8px 25px rgba(225,112,85,.6)
         }
-        
-        .stop-button:hover:not(:disabled) {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(255, 118, 117, 0.6);
+        .close-button{background:linear-gradient(135deg,#fd79a8,#e84393);color:white}
+        .update-button{background:linear-gradient(135deg,#667eea,#764ba2);color:white}
+        button:hover{transform:translateY(-2px)}
+        button:disabled{
+            opacity:.5;
+            cursor:not-allowed;
+            transform:none!important
         }
-        
-        .emergency-button {
-            background: linear-gradient(135deg, #e17055, #ff7675);
-            color: white;
-            box-shadow: 0 5px 15px rgba(225, 112, 85, 0.4);
-            flex: 0 0 auto;
-            width: 100%;
-            max-width: 400px;
+        .leverage-meter{
+            background:linear-gradient(90deg,#00b894,#fdcb6e,#ff7675);
+            height:10px;
+            border-radius:5px;
+            margin:10px 0;
+            position:relative
         }
-        
-        .emergency-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(225, 112, 85, 0.6);
+        .leverage-marker{
+            position:absolute;
+            top:-5px;
+            width:4px;
+            height:20px;
+            background:#2d3436;
+            transform:translateX(-50%)
         }
-        
-        .close-button {
-            background: linear-gradient(135deg, #fd79a8, #e84393);
-            color: white;
+        .trade-history{
+            max-height:400px;
+            overflow-y:auto
         }
-        
-        .update-button {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
+        .trade-item{
+            padding:12px;
+            margin-bottom:10px;
+            background:#f8f9fa;
+            border-radius:8px;
+            border-left:4px solid #667eea
         }
-        
-        button:hover {
-            transform: translateY(-2px);
+        .trade-item.long{
+            border-left:4px solid #00b894;
+            background:linear-gradient(135deg,#f8f9fa,#55efc4)
         }
-        
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
+        .trade-item.short{
+            border-left:4px solid #ff7675;
+            background:linear-gradient(135deg,#f8f9fa,#fd79a8)
         }
-        
-        .leverage-meter {
-            background: linear-gradient(90deg, #00b894, #fdcb6e, #ff7675);
-            height: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            position: relative;
+        .trade-item .trade-time{color:#666;font-size:.9em}
+        .trade-item .trade-action{font-weight:bold;margin:5px 0;font-size:1.1em}
+        #result{
+            margin-top:15px;
+            padding:15px;
+            border-radius:8px;
+            text-align:center;
+            font-weight:600;
+            font-size:1.1em
         }
-        
-        .leverage-marker {
-            position: absolute;
-            top: -5px;
-            width: 4px;
-            height: 20px;
-            background: #2d3436;
-            transform: translateX(-50%);
+        .strategy-info{
+            background:linear-gradient(135deg,#d6bcfa,#a3bffa);
+            border-left:4px solid #667eea;
+            padding:15px;
+            margin:15px 0;
+            border-radius:8px
         }
-        
-        .trade-history {
-            max-height: 400px;
-            overflow-y: auto;
+        .strategy-info h4{color:#5a67d8;margin-bottom:10px}
+        .blink{animation:blink 1s infinite}
+        @keyframes blink{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
+        .control-section{margin-bottom:25px}
+        .control-section:last-child{margin-bottom:0}
+        .section-title{
+            color:#667eea;
+            margin-bottom:15px;
+            font-size:1.3em;
+            text-align:center;
+            border-bottom:2px solid #a3bffa;
+            padding-bottom:8px
         }
-        
-        .trade-item {
-            padding: 12px;
-            margin-bottom: 10px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
+        .pnl-display{
+            font-size:1.4em;
+            font-weight:bold;
+            text-align:center;
+            padding:10px;
+            border-radius:8px;
+            margin:10px 0
         }
-        
-        .trade-item.long {
-            border-left: 4px solid #00b894;
-            background: linear-gradient(135deg, #f8f9fa, #55efc4);
-        }
-        
-        .trade-item.short {
-            border-left: 4px solid #ff7675;
-            background: linear-gradient(135deg, #f8f9fa, #fd79a8);
-        }
-        
-        .trade-item .trade-time {
-            color: #666;
-            font-size: 0.9em;
-        }
-        
-        .trade-item .trade-action {
-            font-weight: bold;
-            margin: 5px 0;
-            font-size: 1.1em;
-        }
-        
-        #result {
-            margin-top: 15px;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: 600;
-            font-size: 1.1em;
-        }
-        
-        .strategy-info {
-            background: linear-gradient(135deg, #d6bcfa, #a3bffa);
-            border-left: 4px solid #667eea;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 8px;
-        }
-        
-        .strategy-info h4 {
-            color: #5a67d8;
-            margin-bottom: 10px;
-        }
-        
-        .blink {
-            animation: blink 1s infinite;
-        }
-        
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        
-        .control-section {
-            margin-bottom: 25px;
-        }
-        
-        .control-section:last-child {
-            margin-bottom: 0;
-        }
-        
-        .section-title {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.3em;
-            text-align: center;
-            border-bottom: 2px solid #a3bffa;
-            padding-bottom: 8px;
-        }
-        
-        .pnl-display {
-            font-size: 1.4em;
-            font-weight: bold;
-            text-align: center;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 10px 0;
-        }
-        
-        .pnl-positive {
-            background: linear-gradient(135deg, #00b894, #55efc4);
-            color: white;
-        }
-        
-        .pnl-negative {
-            background: linear-gradient(135deg, #ff7675, #fd79a8);
-            color: white;
-        }
-        
-        .pnl-neutral {
-            background: #f8f9fa;
-            color: #666;
-        }
+        .pnl-positive{background:linear-gradient(135deg,#00b894,#55efc4);color:white}
+        .pnl-negative{background:linear-gradient(135deg,#ff7675,#fd79a8);color:white}
+        .pnl-neutral{background:#f8f9fa;color:#666}
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🚀 FUTURES TRADING BOT</h1>
-            <p>Auto Long/Short with Leverage - Set & Forget</p>
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <h1>🚀 FUTURES TRADING BOT</h1>
+        <p>Auto Long/Short with Leverage - Set &amp; Forget</p>
+    </div>
+
+    <!-- Risk warning (ARIA alert for screen‑readers) -->
+    <div class="warning-banner" role="alert" aria-live="assertive">
+        <h3>⚠️ EXTREME LEVERAGE RISK WARNING ⚠️</h3>
+        <p>FUTURES TRADING WITH LEVERAGE CAN LEAD TO COMPLETE LOSS OF CAPITAL</p>
+        <p>Only use risk capital you can afford to lose 100%!</p>
+    </div>
+
+    <!-- Strategy overview -->
+    <div class="card futures">
+        <h2>🎯 Strategy Overview</h2>
+        <div class="strategy-info">
+            <h4>🤖 AUTO LONG/SHORT FUTURES TRADING</h4>
+            <p><strong>Method:</strong> Bot automatically decides Long or Short based on trend analysis</p>
+            <p><strong>Your Role:</strong> Just set the leverage multiplier (1‑20x)</p>
+            <p><strong>Risk:</strong> EXTREME – Leverage amplifies both gains and losses</p>
         </div>
-        
-        <div class="warning-banner">
-            <h3>⚠️ EXTREME LEVERAGE RISK WARNING ⚠️</h3>
-            <p>FUTURES TRADING WITH LEVERAGE CAN LEAD TO COMPLETE LOSS OF CAPITAL</p>
-            <p>Only use risk capital you can afford to lose 100%!</p>
+
+        <div class="status-grid">
+            <div class="status-item futures"><label>Bot Status:</label><div class="value" id="botStatus">STOPPED</div></div>
+            <div class="status-item futures"><label>Current Position:</label><div class="value" id="position">NONE</div></div>
+            <div class="status-item futures"><label>Leverage Multiplier:</label><div class="value" id="leverageDisplay">5x</div></div>
+            <div class="status-item futures"><label>Check Frequency:</label><div class="value">5 MINUTES</div></div>
         </div>
-        
-        <div class="card futures">
-            <h2>🎯 Strategy Overview</h2>
-            <div class="strategy-info">
-                <h4>🤖 AUTO LONG/SHORT FUTURES TRADING</h4>
-                <p><strong>Method:</strong> Bot automatically decides Long or Short based on trend analysis</p>
-                <p><strong>Your Role:</strong> Just set the leverage multiplier (1-20x)</p>
-                <p><strong>Risk:</strong> EXTREME - Leverage amplifies both gains and losses</p>
-            </div>
-            
-            <div class="status-grid">
-                <div class="status-item futures">
-                    <label>Bot Status:</label>
-                    <div class="value" id="botStatus">STOPPED</div>
-                </div>
-                <div class="status-item futures">
-                    <label>Current Position:</label>
-                    <div class="value" id="position">NONE</div>
-                </div>
-                <div class="status-item futures">
-                    <label>Leverage Multiplier:</label>
-                    <div class="value" id="leverageDisplay">5x</div>
-                </div>
-                <div class="status-item futures">
-                    <label>Check Frequency:</label>
-                    <div class="value">5 MINUTES</div>
-                </div>
-            </div>
+    </div>
+
+    <!-- Live trading data -->
+    <div class="card futures">
+        <h2>📊 Live Trading Data</h2>
+        <div class="status-grid">
+            <div class="status-item futures"><label>SOL Price:</label><div class="value" id="solPrice">$--</div></div>
+            <div class="status-item futures"><label>Account Balance:</label><div class="value" id="accountBalance">$--</div></div>
+            <div class="status-item futures"><label>Position Size:</label><div class="value" id="positionSize">-- SOL</div></div>
+            <div class="status-item futures"><label>Entry Price:</label><div class="value" id="entryPrice">$--</div></div>
         </div>
-        
-        <div class="card futures">
-            <h2>📊 Live Trading Data</h2>
-            <div class="status-grid">
-                <div class="status-item futures">
-                    <label>SOL Price:</label>
-                    <div class="value" id="solPrice">$--</div>
-                </div>
-                <div class="status-item futures">
-                    <label>Account Balance:</label>
-                    <div class="value" id="accountBalance">$--</div>
-                </div>
-                <div class="status-item futures">
-                    <label>Position Size:</label>
-                    <div class="value" id="positionSize">-- SOL</div>
-                </div>
-                <div class="status-item futures">
-                    <label>Entry Price:</label>
-                    <div class="value" id="entryPrice">$--</div>
-                </div>
-            </div>
-            
-            <div class="performance-grid">
-                <div class="performance-item leverage">
-                    <div class="label">Unrealized P&L</div>
-                    <div class="value" id="unrealizedPnl">--%</div>
-                </div>
-                <div class="performance-item leverage">
-                    <div class="label">Realized P&L</div>
-                    <div class="value" id="realizedPnl">$--</div>
-                </div>
-                <div class="performance-item leverage">
-                    <div class="label">Total Trades</div>
-                    <div class="value" id="totalTrades">0</div>
-                </div>
-                <div class="performance-item leverage">
-                    <div class="label">Win Rate</div>
-                    <div class="value" id="winRate">--%</div>
-                </div>
-            </div>
-            
-            <div id="pnlDisplay" class="pnl-display pnl-neutral">
-                Current P&L: $0.00 (0.00%)
-            </div>
+
+        <div class="performance-grid">
+            <div class="performance-item leverage"><div class="label">Unrealized P&amp;L</div><div class="value" id="unrealizedPnl">--%</div></div>
+            <div class="performance-item leverage"><div class="label">Realized P&amp;L</div><div class="value" id="realizedPnl">$--</div></div>
+            <div class="performance-item leverage"><div class="label">Total Trades</div><div class="value" id="totalTrades">0</div></div>
+            <div class="performance-item leverage"><div class="label">Win Rate</div><div class="value" id="winRate">--%</div></div>
         </div>
-        
-        <div class="card futures">
-            <h2>📈 Trading Signals</h2>
-            <div class="signal-grid">
-                <div class="signal-item" id="rsiSignal">
-                    <div class="signal-label">RSI (7)</div>
-                    <div class="signal-value">--</div>
-                </div>
-                <div class="signal-item" id="macdSignal">
-                    <div class="signal-label">MACD Signal</div>
-                    <div class="signal-value">--</div>
-                </div>
-                <div class="signal-item" id="trendSignal">
-                    <div class="signal-label">Trend Power</div>
-                    <div class="signal-value">--</div>
-                </div>
-                <div class="signal-item" id="confidenceSignal">
-                    <div class="signal-label">Confidence</div>
-                    <div class="signal-value">--%</div>
-                </div>
-                <div class="signal-item" id="actionSignal">
-                    <div class="signal-label">TRADE SIGNAL</div>
-                    <div class="signal-value">HOLD</div>
-                </div>
-                <div class="signal-item" id="leverageSignal">
-                    <div class="signal-label">Effective Size</div>
-                    <div class="signal-value">-- SOL</div>
-                </div>
-            </div>
-            
-            <div class="leverage-meter">
-                <div class="leverage-marker" style="left: 0%;"></div>
-                <div class="leverage-marker" style="left: 25%;"></div>
-                <div class="leverage-marker" style="left: 50%;"></div>
-                <div class="leverage-marker" style="left: 75%;"></div>
-                <div class="leverage-marker" style="left: 100%;"></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.8em; color: #666;">
-                <span>1x</span>
-                <span>5x</span>
-                <span>10x</span>
-                <span>15x</span>
-                <span>20x</span>
-            </div>
+
+        <div id="pnlDisplay" class="pnl-display pnl-neutral">Current P&amp;L: $0.00 (0.00%)</div>
+    </div>
+
+    <!-- Trading signals -->
+    <div class="card futures">
+        <h2>📈 Trading Signals</h2>
+        <div class="signal-grid">
+            <div class="signal-item" id="rsiSignal"><div class="signal-label">RSI (7)</div><div class="signal-value">--</div></div>
+            <div class="signal-item" id="macdSignal"><div class="signal-label">MACD Signal</div><div class="signal-value">--</div></div>
+            <div class="signal-item" id="trendSignal"><div class="signal-label">Trend Power</div><div class="signal-value">--</div></div>
+            <div class="signal-item" id="confidenceSignal"><div class="signal-label">Confidence</div><div class="signal-value">--%</div></div>
+            <div class="signal-item" id="actionSignal"><div class="signal-label">TRADE SIGNAL</div><div class="signal-value">HOLD</div></div>
+            <div class="signal-item" id="leverageSignal"><div class="signal-label">Effective Size</div><div class="signal-value">-- SOL</div></div>
         </div>
-        
-        <div class="card futures">
-            <h2>⚙️ Leverage Settings</h2>
-            
-            <div class="form-group">
-                <label>Leverage Multiplier (1-20x):</label>
-                <input type="number" id="leverageMultiplier" value="5" min="1" max="20" step="1">
-                <small>Higher leverage = higher risk/reward. 20x maximum for safety.</small>
-            </div>
-            
-            <div class="form-group">
-                <label>Base Position Size (SOL):</label>
-                <input type="number" id="basePositionSize" value="0.1" min="0.01" max="10" step="0.01">
-                <small>Base SOL amount before leverage (0.01-10 SOL)</small>
-            </div>
-            
-            <button onclick="updateSettings()" class="update-button" style="width: 100%;">Update Leverage Settings</button>
+
+        <div class="leverage-meter">
+            <div class="leverage-marker" style="left:0%;"></div>
+            <div class="leverage-marker" style="left:25%;"></div>
+            <div class="leverage-marker" style="left:50%;"></div>
+            <div class="leverage-marker" style="left:75%;"></div>
+            <div class="leverage-marker" style="left:100%;"></div>
         </div>
-        
-        <div class="card futures">
-            <h2>🎮 Bot Control</h2>
-            
-            <div class="control-section">
-                <div class="section-title">MAIN CONTROLS</div>
-                <div class="button-group">
-                    <button onclick="startBot()" id="startButton" class="start-button">🚀 START FUTURES BOT</button>
-                    <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>🛑 STOP BOT</button>
-                </div>
-            </div>
-            
-            <div class="control-section">
-                <div class="section-title">POSITION CONTROL</div>
-                <div class="button-group">
-                    <button onclick="closePosition()" class="close-button">📋 CLOSE POSITION</button>
-                </div>
-            </div>
-            
-            <div class="control-section">
-                <div class="section-title">EMERGENCY CONTROL</div>
-                <div class="button-group emergency-group">
-                    <button onclick="emergencyStop()" class="emergency-button">🚨 EMERGENCY STOP</button>
-                </div>
-            </div>
-            
-            <div i
+        <div style="display:flex;justify-content:space-between;font-size:.8em;color:#666;">
+            <span>1x</span><span>5x</span><span>10x</span><span>15x</span><span>20x</span>
+        </div>
+    </div>
+
+    <!-- Leverage settings -->
+    <div class="card futures">
+        <h2>⚙️ Leverage Settings</h2>
+
+        <div class="form-group">
+            <label for="leverageMultiplier">Leverage Multiplier (1‑20x):</label>
+            <input type="number" id="leverageMultiplier" value="5" min="1" max="20" step="1">
+            <small>Higher leverage = higher risk/reward. 20x maximum for safety.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="basePositionSize">Base Position Size (SOL):</label>
+            <input type="number" id="basePositionSize" value
