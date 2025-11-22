@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Aggressive SOL Growth Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 3px solid #ff3838;
+        }
+        
+        .header h1 {
+            color: #ff3838;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+        
+        .warning-banner {
+            background: linear-gradient(135deg, #ff3838, #ff9f1a);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(255, 56, 56, 0.4);
+            border: 2px solid #fff;
+        }
+        
+        .warning-banner h3 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            border: 2px solid #ffa726;
+        }
+        
+        .card.aggressive {
+            border: 2px solid #ff3838;
+            background: linear-gradient(135deg, #fff, #ffeaa7);
+        }
+        
+        .card h2 {
+            color: #e17055;
+            margin-bottom: 20px;
+            font-size: 1.6em;
+            border-bottom: 2px solid #fab1a0;
+            padding-bottom: 10px;
+        }
+        
+        .card.aggressive h2 {
+            color: #ff3838;
+            border-bottom: 2px solid #ff7675;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #e17055;
+        }
+        
+        .status-item.aggressive {
+            border-left: 4px solid #ff3838;
+            background: linear-gradient(135deg, #f8f9fa, #ffeaa7);
+        }
+        
+        .status-item label {
+            display: block;
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .status-item .value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2d3436;
+        }
+        
+        .status-running { color: #00b894 !important; }
+        .status-stopped { color: #ff7675 !important; }
+        .status-high-risk { color: #e84393 !important; }
+        
+        .signal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .signal-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #ddd;
+        }
+        
+        .signal-item.strong-buy {
+            background: linear-gradient(135deg, #00b894, #55efc4);
+            border-color: #00b894;
+            color: white;
+        }
+        
+        .signal-item.strong-sell {
+            background: linear-gradient(135deg, #ff7675, #fd79a8);
+            border-color: #ff7675;
+            color: white;
+        }
+        
+        .signal-item.hold {
+            background: linear-gradient(135deg, #fdcb6e, #ffeaa7);
+            border-color: #fdcb6e;
+            color: #2d3436;
+        }
+        
+        .signal-label {
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .signal-value {
+            font-size: 1.4em;
+            font-weight: bold;
+        }
+        
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .performance-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #ddd;
+        }
+        
+        .performance-item.high-risk {
+            background: linear-gradient(135deg, #ffeaa7, #fdcb6e);
+            border-color: #e17055;
+        }
+        
+        .performance-item .label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .performance-item .value {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .positive { color: #00b894; }
+        .negative { color: #ff7675; }
+        .extreme-positive { color: #00cec9; font-weight: 900; }
+        .extreme-negative { color: #d63031; font-weight: 900; }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2d3436;
+            font-weight: 600;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+            background: white;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #ff7675;
+            box-shadow: 0 0 10px rgba(255, 118, 117, 0.3);
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 0.85em;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 18px 30px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .start-button {
+            background: linear-gradient(135deg, #00b894, #55efc4);
+            color: white;
+            box-shadow: 0 5px 15px rgba(0, 184, 148, 0.4);
+        }
+        
+        .start-button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 184, 148, 0.6);
+        }
+        
+        .stop-button {
+            background: linear-gradient(135deg, #ff7675, #fd79a8);
+            color: white;
+            box-shadow: 0 5px 15px rgba(255, 118, 117, 0.4);
+        }
+        
+        .stop-button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 118, 117, 0.6);
+        }
+        
+        .emergency-button {
+            background: linear-gradient(135deg, #e17055, #ff7675);
+            color: white;
+            box-shadow: 0 5px 15px rgba(225, 112, 85, 0.4);
+        }
+        
+        .emergency-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(225, 112, 85, 0.6);
+        }
+        
+        .buy-button {
+            background: linear-gradient(135deg, #00b894, #00cec9);
+            color: white;
+        }
+        
+        .sell-button {
+            background: linear-gradient(135deg, #ff7675, #e84393);
+            color: white;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .risk-meter {
+            background: linear-gradient(90deg, #00b894, #fdcb6e, #ff7675);
+            height: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            position: relative;
+        }
+        
+        .risk-marker {
+            position: absolute;
+            top: -5px;
+            width: 4px;
+            height: 20px;
+            background: #2d3436;
+            transform: translateX(-50%);
+        }
+        
+        .trade-history {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .trade-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #e17055;
+        }
+        
+        .trade-item.buy {
+            border-left: 4px solid #00b894;
+            background: linear-gradient(135deg, #f8f9fa, #55efc4);
+        }
+        
+        .trade-item.sell {
+            border-left: 4px solid #ff7675;
+            background: linear-gradient(135deg, #f8f9fa, #fd79a8);
+        }
+        
+        .trade-item .trade-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .trade-item .trade-action {
+            font-weight: bold;
+            margin: 5px 0;
+            font-size: 1.1em;
+        }
+        
+        #result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .strategy-info {
+            background: linear-gradient(135deg, #ffeaa7, #fdcb6e);
+            border-left: 4px solid #e17055;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        .strategy-info h4 {
+            color: #d63031;
+            margin-bottom: 10px;
+        }
+        
+        .blink {
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 AGGRESSIVE SOL GROWTH BOT</h1>
+            <p>High-Frequency Momentum Trading - Maximum Returns Strategy</p>
+        </div>
+        
+        <div class="warning-banner">
+            <h3>⚠️ EXTREME RISK WARNING ⚠️</h3>
+            <p>This is a HIGH-RISK strategy designed for maximum growth. Potential for 100% loss.</p>
+            <p>Only use capital you can afford to lose completely!</p>
+        </div>
+        
+        <div class="card aggressive">
+            <h2>🎯 Strategy Overview</h2>
+            <div class="strategy-info">
+                <h4>🚀 AGGRESSIVE MOMENTUM TRADING</h4>
+                <p><strong>Goal:</strong> Double capital in 3 months (300% annual return)</p>
+                <p><strong>Style:</strong> High-frequency, momentum-based entries</p>
+                <p><strong>Risk:</strong> EXTREME - Only for experienced traders</p>
+            </div>
+            
+            <div class="status-grid">
+                <div class="status-item aggressive">
+                    <label>Bot Status:</label>
+                    <div class="value" id="botStatus">STOPPED</div>
+                </div>
+                <div class="status-item aggressive">
+                    <label>Current Position:</label>
+                    <div class="value" id="position">NONE</div>
+                </div>
+                <div class="status-item aggressive">
+                    <label>Strategy Risk Level:</label>
+                    <div class="value status-high-risk">EXTREME 🚨</div>
+                </div>
+                <div class="status-item aggressive">
+                    <label>Check Frequency:</label>
+                    <div class="value">5 MINUTES</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card aggressive">
+            <h2>📊 Live Trading Data</h2>
+            <div class="status-grid">
+                <div class="status-item aggressive">
+                    <label>SOL Price:</label>
+                    <div class="value" id="solPrice">$--</div>
+                </div>
+                <div class="status-item aggressive">
+                    <label>USDT Balance:</label>
+                    <div class="value" id="usdtBalance">$--</div>
+                </div>
+                <div class="status-item aggressive">
+                    <label>SOL Balance:</label>
+                    <div class="value" id="solBalance">-- SOL</div>
+                </div>
+                <div class="status-item aggressive">
+                    <label>Current Trade Size:</label>
+                    <div class="value" id="tradeAmountDisplay">-- SOL</div>
+                </div>
+            </div>
+            
+            <div class="performance-grid">
+                <div class="performance-item high-risk">
+                    <div class="label">Today's P&L</div>
+                    <div class="value" id="dailyPnl">$--</div>
+                </div>
+                <div class="performance-item high-risk">
+                    <div class="label">Total P&L</div>
+                    <div class="value" id="totalPnl">$--</div>
+                </div>
+                <div class="performance-item high-risk">
+                    <div class="label">Total P&L %</div>
+                    <div class="value" id="totalPnlPercent">--%</div>
+                </div>
+                <div class="performance-item high-risk">
+                    <div class="label">Total Trades</div>
+                    <div class="value" id="totalTrades">0</div>
+                </div>
+                <div class="performance-item high-risk">
+                    <div class="label">Win Rate</div>
+                    <div class="value" id="winRate">--%</div>
+                </div>
+                <div class="performance-item high-risk">
+                    <div class="label">Current Streak</div>
+                    <div class="value" id="currentStreak">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card aggressive">
+            <h2>📈 Momentum Signals</h2>
+            <div class="signal-grid">
+                <div class="signal-item" id="rsiSignal">
+                    <div class="signal-label">RSI (7)</div>
+                    <div class="signal-value">--</div>
+                </div>
+                <div class="signal-item" id="macdSignal">
+                    <div class="signal-label">MACD Momentum</div>
+                    <div class="signal-value">--</div>
+                </div>
+                <div class="signal-item" id="volumeSignal">
+                    <div class="signal-label">Volume Strength</div>
+                    <div class="signal-value">--x</div>
+                </div>
+                <div class="signal-item" id="trendSignal">
+                    <div class="signal-label">Trend Power</div>
+                    <div class="signal-value">--</div>
+                </div>
+                <div class="signal-item" id="actionSignal">
+                    <div class="signal-label">TRADE SIGNAL</div>
+                    <div class="signal-value">HOLD</div>
+                </div>
+                <div class="signal-item" id="multiplierSignal">
+                    <div class="signal-label">Size Multiplier</div>
+                    <div class="signal-value">1.0x</div>
+                </div>
+            </div>
+            
+            <div class="risk-meter">
+                <div class="risk-marker" style="left: 20%;"></div>
+                <div class="risk-marker" style="left: 50%;"></div>
+                <div class="risk-marker" style="left: 80%;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.8em; color: #666;">
+                <span>Conservative</span>
+                <span>Moderate</span>
+                <span>Aggressive</span>
+                <span>EXTREME</span>
+            </div>
+        </div>
+        
+        <div class="card aggressive">
+            <h2>⚙️ Aggressive Settings</h2>
+            
+            <div class="form-group">
+                <label>Base Trade Amount (SOL):</label>
+                <input type="number" id="baseTradeAmount" value="0.2" min="0.1" max="10" step="0.1">
+                <small>Base SOL amount per trade (will be multiplied during strong signals)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Risk Multiplier:</label>
+                <input type="number" id="riskMultiplier" value="1.5" min="1" max="3" step="0.1">
+                <small>Maximum size multiplier during strong momentum (1.0-3.0x)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Daily Loss Limit (%):</label>
+                <input type="number" id="dailyLossLimit" value="15" min="5" max="50" step="1">
+                <small>Auto-stop if daily losses exceed this percentage (5-50%)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Trailing Stop (%):</label>
+                <input type="number" id="trailingStop" value="8" min="3" max="20" step="1">
+                <small>Trailing stop loss percentage (3-20%)</small>
+            </div>
+            
+            <button onclick="updateSettings()" class="update-button" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white; width: 100%;">Update Aggressive Settings</button>
+        </div>
+        
+        <div class="card aggressive">
+            <h2>🎮 Bot Control</h2>
+            <div class="button-group">
+                <button onclick="startBot()" id="startButton" class="start-button">🚀 START AGGRESSIVE BOT</button>
+                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>🛑 STOP BOT</button>
+                <button onclick="emergencyStop()" class="emergency-button">🚨 EMERGENCY STOP</button>
+            </div>
+            
+            <div class="button-group" style="margin-top: 15px;">
+                <button onclick="manualBuy()" class="buy-button">🛒 MANUAL BUY</button>
+                <button onclick="manualSell()" class="sell-button">💰 MANUAL SELL</button>
+            </div>
+            
+            <div id="result" style="margin-top: 15px;"></div>
+        </div>
+        
+        <div class="card aggressive">
+            <h2>📋 Live Trade History</h2>
+            <div class="trade-history" id="tradeHistory">
+                <p style="text-align: center; color: #666; padding: 20px;">No aggressive trades yet</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>🔄 System Controls</h2>
+            <div class="button-group">
+                <button onclick="refreshData()" class="refresh-button" style="background: linear-gradient(135deg, #00cec9, #81ecec); color: white;">🔄 Refresh Data</button>
+                <button onclick="getBalance()" class="balance-button" style="background: linear-gradient(135deg, #fd79a8, #fab1a0); color: white;">💰 Update Balance</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function apiCall(endpoint, method = 'GET') {
+            try {
+                const response = await fetch(endpoint, { method: method });
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                return { status: 'error', message: 'Network error' };
+            }
+        }
+
+        function formatPnl(value) {
+            const numValue = parseFloat(value);
+            if (numValue > 0) return `<span class="extreme-positive">+$${numValue.toFixed(2)}</span>`;
+            if (numValue < 0) return `<span class="extreme-negative">-$${Math.abs(numValue).toFixed(2)}</span>`;
+            return `$${numValue.toFixed(2)}`;
+        }
+
+        function formatPnlPercent(value) {
+            const numValue = parseFloat(value);
+            if (numValue > 0) return `<span class="extreme-positive">+${numValue.toFixed(2)}%</span>`;
+            if (numValue < 0) return `<span class="extreme-negative">${numValue.toFixed(2)}%</span>`;
+            return `${numValue.toFixed(2)}%`;
+        }
+
+        function updateSignalDisplay(signal, value, elementId) {
+            const element = document.getElementById(elementId);
+            element.className = 'signal-item';
+            
+            if (signal === 'BUY') {
+                element.classList.add('strong-buy');
+            } else if (signal === 'SELL') {
+                element.classList.add('strong-sell');
+            } else {
+                element.classList.add('hold');
+            }
+            
+            element.querySelector('.signal-value').textContent = value;
+        }
+
+        async function startBot() {
+            if (!confirm('🚨 WARNING: This is an EXTREMELY HIGH RISK strategy.\n\nYou could lose your entire investment.\n\nAre you absolutely sure you want to continue?')) {
+                return;
+            }
+            
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: #00b894; font-weight: bold;">🚀 Starting Aggressive Growth Bot...</div>';
+            
+            const data = await apiCall('/api/start_bot', 'POST');
+            
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: #00b894; font-weight: bold; animation: blink 1s infinite;">✅ ' + data.message + '</div>';
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('stopButton').disabled = false;
+                setTimeout(refreshData, 1000);
+            } else {
+                result.innerHTML = '<div style="color: #ff7675; font-weight: bold;">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function stopBot() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: #fdcb6e; font-weight: bold;">⏹️ Stopping Aggressive Bot...</div>';
+            
+            const data = await apiCall('/api/stop_bot', 'POST');
+            
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: #fdcb6e; font-weight: bold;">🛑 ' + data.message + '</div>';
+                document.getElementById('startButton').disabled = false;
+                document.getElementById('stopButton').disabled = true;
+                setTimeout(refreshData, 1000);
+            } else {
+                result.innerHTML = '<div style="color: #ff7675; font-weight: bold;">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function emergencyStop() {
+            if (!confirm('🚨 EMERGENCY STOP: This will immediately close all positions and stop the bot.\n\nAre you sure?')) {
+                return;
+            }
+            
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: #ff7675; font-weight: bold; animation: blink 0.5s infinite;">🚨 EMERGENCY STOP ACTIVATED...</div>';
+            
+            // First stop the bot
+            await apiCall('/api/stop_bot', 'POST');
+            
+            // Then close any open position
+            const status = await apiCall('/api/status');
+            if (status.status === 'success' && status.last_position) {
+                if (status.last_position === 'long') {
+                    await apiCall('/api/manual_sell?amount=' + status.sol_balance, 'POST');
+                } else if (status.last_position === 'short') {
+                    await apiCall('/api/manual_buy?amount=' + status.sol_balance, 'POST');
+                }
+            }
+            
+            result.innerHTML = '<div style="color: #ff7675; font-weight: bold;">✅ EMERGENCY STOP COMPLETE - All positions closed</div>';
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('stopButton').disabled = true;
+            setTimeout(refreshData, 1000);
+        }
+
+        async function updateSettings() {
+            const baseAmount = document.getElementById('baseTradeAmount').value;
+            const riskMultiplier = document.getElementById('riskMultiplier').value;
+            const dailyLoss = document.getElementById('dailyLossLimit').value;
+            const trailingStop = document.getElementById('trailingStop').value;
+            
+            const data = await apiCall(
+                `/api/update_settings?base_trade_amount=${baseAmount}&risk_multiplier=${riskMultiplier}&daily_loss_limit=${dailyLoss}&trailing_stop=${trailingStop}`,
+                'POST'
+            );
+            
+            if (data.status === 'success') {
+                document.getElementById('result').innerHTML = '<div style="color: #00b894; font-weight: bold;">✅ Aggressive Settings Updated</div>';
+                setTimeout(refreshData, 500);
+            } else {
+                document.getElementById('result').innerHTML = '<div style="color: #ff7675; font-weight: bold;">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function manualBuy() {
+            const amount = parseFloat(document.getElementById('baseTradeAmount').value);
+            
+            if (!confirm(`Execute manual BUY for ${amount} SOL?`)) {
+                return;
+            }
+            
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: #00b894; font-weight: bold;">🛒 Executing Manual BUY...</div>';
+            
+            const data = await apiCall('/api/manual_buy?amount=' + amount, 'POST');
+            
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: #00b894; font-weight: bold;">✅ ' + data.message + '</div>';
+                setTimeout(() => refreshData(), 2000);
+            } else {
+                result.innerHTML = '<div style="color: #ff7675; font-weight: bold;">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function manualSell() {
+            const amount = parseFloat(document.getElementById('baseTradeAmount').value);
+            
+            if (!confirm(`Execute manual SELL for ${amount} SOL?`)) {
+                return;
+            }
+            
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: #ff7675; font-weight: bold;">💰 Executing Manual SELL...</div>';
+            
+            const data = await apiCall('/api/manual_sell?amount=' + amount, 'POST');
+            
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: #ff7675; font-weight: bold;">✅ ' + data.message + '</div>';
+                setTimeout(() => refreshData(), 2000);
+            } else {
+                result.innerHTML = '<div style="color: #ff7675; font-weight: bold;">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function refreshData() {
+            const data = await apiCall('/api/status');
+            
+            if (data.status === 'success') {
+                // Bot status
+                document.getElementById('botStatus').textContent = data.is_running ? 'RUNNING 🚀' : 'STOPPED';
+                document.getElementById('botStatus').className = 'value ' + (data.is_running ? 'status-running' : 'status-stopped');
+                
+                document.getElementById('position').textContent = data.last_position || 'NONE';
+                
+                // Market data
+                document.getElementById('solPrice').textContent = '$' + (data.current_sol_price || 0).toFixed(2);
+                document.getElementById('solBalance').textContent = (data.sol_balance || 0).toFixed(4) + ' SOL';
+                document.getElementById('usdtBalance').textContent = '$' + (data.usdt_balance || 0).toFixed(2);
+                document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.2) + ' SOL';
+                
+                // Performance data
+                if (data.performance_data) {
+                    document.getElementById('dailyPnl').innerHTML = formatPnl(data.performance_data.daily_pnl || 0);
+                    document.getElementById('totalPnl').innerHTML = formatPnl(data.performance_data.total_pnl || 0);
+                    document.getElementById('totalPnlPercent').innerHTML = formatPnlPercent(data.performance_data.total_pnl_percentage || 0);
+                    document.getElementById('totalTrades').textContent = data.performance_data.total_trades || 0;
+                    document.getElementById('winRate').textContent = data.performance_data.win_rate ? (data.performance_data.win_rate * 100).toFixed(1) + '%' : '--%';
+                    document.getElementById('currentStreak').textContent = data.performance_data.current_streak || 0;
+                }
+                
+                // Signals
+                if (data.signals) {
+                    updateSignalDisplay(data.signals.action, data.signals.rsi?.toFixed(1) || '--', 'rsiSignal');
+                    updateSignalDisplay(data.signals.action, data.signals.macd || '--', 'macdSignal');
+                    updateSignalDisplay(data.signals.action, (data.signals.volume_strength || 0).toFixed(1) + 'x', 'volumeSignal');
+                    updateSignalDisplay(data.signals.action, (data.signals.trend_strength || 0).toFixed(2), 'trendSignal');
+                    updateSignalDisplay(data.signals.action, data.signals.action || 'HOLD', 'actionSignal');
+                    updateSignalDisplay(data.signals.action, (data.signals.trade_multiplier || 1.0).toFixed(1) + 'x', 'multiplierSignal');
+                }
+                
+                // Settings form values
+                document.getElementById('baseTradeAmount').value = data.sol_trade_amount || 0.2;
+                document.getElementById('riskMultiplier').value = data.risk_multiplier || 1.5;
+                document.getElementById('dailyLossLimit').value = data.daily_loss_limit || 15;
+                document.getElementById('trailingStop').value = data.trailing_stop || 8;
+                
+                // Trade history
+                const tradeHistory = document.getElementById('tradeHistory');
+                if (data.trade_history && data.trade_history.length > 0) {
+                    tradeHistory.innerHTML = '';
+                    data.trade_history.slice().reverse().forEach(trade => {
+                        const tradeItem = document.createElement('div');
+                        tradeItem.className = `trade-item ${trade.action.includes('BUY') ? 'buy' : 'sell'}`;
+                        tradeItem.innerHTML = `
+                            <div class="trade-time">${new Date(trade.time).toLocaleString('en-US', { 
+                                timeZone: 'America/New_York',
+                                month: '2-digit',
+                                day: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true 
+                            })}</div>
+                            <div class="trade-action">
+                                ${trade.action} - ${trade.sol_amount} SOL @ $${trade.price.toFixed(2)}
+                                ${trade.signals?.trade_multiplier ? `<br><small>Multiplier: ${trade.signals.trade_multiplier.toFixed(1)}x</small>` : ''}
+                            </div>
+                        `;
+                        tradeHistory.appendChild(tradeItem);
+                    });
+                } else {
+                    tradeHistory.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No aggressive trades yet</p>';
+                }
+                
+                // Button states
+                document.getElementById('startButton').disabled = data.is_running;
+                document.getElementById('stopButton').disabled = !data.is_running;
+                
+            } else {
+                document.getElementById('result').innerHTML = '<div style="color: #ff7675; font-weight: bold;">❌ Failed to get status</div>';
+            }
+        }
+
+        async function getBalance() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: #00cec9; font-weight: bold;">🔄 Updating balances...</div>';
+            
+            const data = await apiCall('/api/balance');
+            
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: #00cec9; font-weight: bold;">✅ Balances updated</div>';
+                setTimeout(refreshData, 500);
+            } else {
+                result.innerHTML = '<div style="color: #ff7675; font-weight: bold;">❌ ' + data.message + '</div>';
+            }
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshData();
+            // Auto-refresh every 10 seconds for aggressive trading
+            setInterval(refreshData, 10000);
+        });
+    </script>
+</body>
+</html>
