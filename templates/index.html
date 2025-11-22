@@ -250,6 +250,15 @@
             margin-top: 20px;
         }
         
+        .button-group.emergency-group {
+            margin-top: 15px;
+            justify-content: center;
+        }
+        
+        .button-group.manual-group {
+            margin-top: 15px;
+        }
+        
         button {
             flex: 1;
             padding: 18px 30px;
@@ -289,6 +298,9 @@
             background: linear-gradient(135deg, #e17055, #ff7675);
             color: white;
             box-shadow: 0 5px 15px rgba(225, 112, 85, 0.4);
+            flex: 0 0 auto;
+            width: 100%;
+            max-width: 400px;
         }
         
         .emergency-button:hover {
@@ -397,6 +409,23 @@
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
+        }
+        
+        .control-section {
+            margin-bottom: 25px;
+        }
+        
+        .control-section:last-child {
+            margin-bottom: 0;
+        }
+        
+        .section-title {
+            color: #ff3838;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            text-align: center;
+            border-bottom: 2px solid #ff7675;
+            padding-bottom: 8px;
         }
     </style>
 </head>
@@ -571,15 +600,28 @@
         
         <div class="card aggressive">
             <h2>🎮 Bot Control</h2>
-            <div class="button-group">
-                <button onclick="startBot()" id="startButton" class="start-button">🚀 START AGGRESSIVE BOT</button>
-                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>🛑 STOP BOT</button>
-                <button onclick="emergencyStop()" class="emergency-button">🚨 EMERGENCY STOP</button>
+            
+            <div class="control-section">
+                <div class="section-title">MAIN CONTROLS</div>
+                <div class="button-group">
+                    <button onclick="startBot()" id="startButton" class="start-button">🚀 START AGGRESSIVE BOT</button>
+                    <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>🛑 STOP BOT</button>
+                </div>
             </div>
             
-            <div class="button-group" style="margin-top: 15px;">
-                <button onclick="manualBuy()" class="buy-button">🛒 MANUAL BUY</button>
-                <button onclick="manualSell()" class="sell-button">💰 MANUAL SELL</button>
+            <div class="control-section">
+                <div class="section-title">EMERGENCY CONTROL</div>
+                <div class="button-group emergency-group">
+                    <button onclick="emergencyStop()" class="emergency-button">🚨 EMERGENCY STOP</button>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <div class="section-title">MANUAL TRADING</div>
+                <div class="button-group manual-group">
+                    <button onclick="manualBuy()" class="buy-button">🛒 MANUAL BUY</button>
+                    <button onclick="manualSell()" class="sell-button">💰 MANUAL SELL</button>
+                </div>
             </div>
             
             <div id="result" style="margin-top: 15px;"></div>
@@ -774,8 +816,19 @@
                 
                 document.getElementById('position').textContent = data.last_position || 'NONE';
                 
-                // Market data
-                document.getElementById('solPrice').textContent = '$' + (data.signals?.price || 0).toFixed(2);
+                // Market data - Always try to show price
+                let solPrice = 0;
+                if (data.signals && data.signals.price && data.signals.price > 0) {
+                    solPrice = data.signals.price;
+                } else {
+                    // If no price in signals, try to get it directly
+                    const priceData = await apiCall('/api/current_price');
+                    if (priceData.status === 'success' && priceData.price) {
+                        solPrice = priceData.price;
+                    }
+                }
+                document.getElementById('solPrice').textContent = '$' + solPrice.toFixed(2);
+                
                 document.getElementById('solBalance').textContent = (data.sol_balance || 0).toFixed(4) + ' SOL';
                 document.getElementById('usdtBalance').textContent = '$' + (data.usdt_balance || 0).toFixed(2);
                 document.getElementById('tradeAmountDisplay').textContent = (data.base_trade_amount || 0.2) + ' SOL';
