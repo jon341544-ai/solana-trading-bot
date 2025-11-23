@@ -12,17 +12,46 @@ from flask import Flask, jsonify, request, render_template
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import threading
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+
+# Fix for lowercase environment variables
+def fix_env_vars():
+    env_mapping = {
+        'coincatch_api_key': 'COINCATCH_API_KEY',
+        'coincatch_api_secret': 'COINCATCH_API_SECRET', 
+        'coincatch_passphrase': 'COINCATCH_PASSPHRASE'
+    }
+    
+    for lower_name, upper_name in env_mapping.items():
+        if lower_name in os.environ and upper_name not in os.environ:
+            os.environ[upper_name] = os.environ[lower_name]
+
+# Call this function before your Config class
+fix_env_vars()
 
 # AGGRESSIVE GROWTH CONFIGURATION
 class Config:
     def __init__(self):
-        self.api_key = os.environ.get('COINCATCH_API_KEY', '')
-        self.api_secret = os.environ.get('COINCATCH_API_SECRET', '') 
-        self.passphrase = os.environ.get('COINCATCH_PASSPHRASE', '')
-        self.base_url = "https://api.coincatch.com"
+        # Try multiple possible environment variable names
+        self.api_key = (os.environ.get('COINCATCH_API_KEY') or 
+                       os.environ.get('coincatch_api_key') or '')
+        self.api_secret = (os.environ.get('COINCATCH_API_SECRET') or 
+                          os.environ.get('coincatch_api_secret') or '')
+        self.passphrase = (os.environ.get('COINCATCH_PASSPHRASE') or 
+                          os.environ.get('coincatch_passphrase') or '')
+        
         self.is_configured = bool(self.api_key and self.api_secret and self.passphrase)
+        
+        if not self.is_configured:
+            print("❌ API credentials missing. Please check environment variables.")
+            print(f"   API Key set: {bool(self.api_key)}")
+            print(f"   API Secret set: {bool(self.api_secret)}")
+            print(f"   Passphrase set: {bool(self.passphrase)}")
+        else:
+            print("✅ API credentials configured successfully")
         
         self.timezone = ZoneInfo('America/New_York')
         
@@ -134,34 +163,37 @@ def make_api_request(method, endpoint, data=None):
         return {'error': f'Request failed: {str(e)}'}
 
 def get_current_sol_price():
-    """Get current SOL price directly from ticker API"""
+    """Get current SOL price with better error handling"""
     try:
-        ticker_result = make_api_request('GET', '/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL')
+        # Try multiple endpoints
+        endpoints = [
+            '/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL',
+            '/api/spot/v1/market/ticker?symbol=SOLUSDT',
+            '/api/v1/market/ticker?symbol=SOLUSDT_SPBL'
+        ]
         
-        if 'error' in ticker_result:
-            print(f"Failed to get SOL price: {ticker_result.get('message')}")
-            return None
+        for endpoint in endpoints:
+            result = make_api_request('GET', endpoint)
+            if 'error' not in result and result:
+                # Parse different response formats
+                if 'data' in result and isinstance(result['data'], dict):
+                    data = result['data']
+                    if 'lastPr' in data:
+                        return float(data['lastPr'])
+                    elif 'last' in data:
+                        return float(data['last'])
+                    elif 'close' in data:
+                        return float(data['close'])
+                elif 'last' in result:
+                    return float(result['last'])
+                elif 'close' in result:
+                    return float(result['close'])
         
-        # Handle different response formats
-        current_price = None
-        if isinstance(ticker_result, dict):
-            if 'data' in ticker_result:
-                data = ticker_result['data']
-                if isinstance(data, dict):
-                    current_price = data.get('close') or data.get('last') or data.get('price') or data.get('lastPr')
-                elif isinstance(data, list) and len(data) > 0:
-                    current_price = data[0].get('close') or data[0].get('last') or data[0].get('price')
-            else:
-                current_price = ticker_result.get('close') or ticker_result.get('last') or ticker_result.get('price')
+        print(f"Could not parse price from any endpoint")
+        return None
         
-        if current_price:
-            return float(current_price)
-        else:
-            print(f"Could not parse SOL price from response: {ticker_result}")
-            return None
-            
     except Exception as e:
-        print(f"Error getting current SOL price: {e}")
+        print(f"Error getting SOL price: {e}")
         return None
 
 def get_klines(interval='5m', limit=50):
@@ -735,6 +767,31 @@ def aggressive_trading_loop():
 def index():
     return render_template('index.html')
 
+@app.route('/api/test')
+def test_api():
+    """Test API connection and data flow"""
+    try:
+        # Test price
+        price = get_current_sol_price()
+        
+        # Test balances
+        sol_balance, usdt_balance = get_current_balances()
+        
+        # Test signals
+        signals = get_aggressive_signals()
+        
+        return jsonify({
+            'status': 'success',
+            'price': price,
+            'sol_balance': sol_balance,
+            'usdt_balance': usdt_balance,
+            'signals': signals,
+            'is_running': trading_state.is_running,
+            'api_configured': config.is_configured
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
+
 @app.route('/api/start_bot', methods=['POST'])
 def start_bot():
     if trading_state.is_running:
@@ -759,6 +816,14 @@ def stop_bot():
 
 @app.route('/api/status')
 def get_status():
+    print("🔍 Status endpoint called")  # Debug log
+    
+    # Force refresh balances
+    sol_balance, usdt_balance = get_current_balances()
+    current_price = get_current_sol_price()
+    
+    print(f"🔍 Price: {current_price}, SOL: {sol_balance}, USDT: {usdt_balance}")  # Debug log
+    
     signals = trading_state.last_signals or {}
     
     # Always try to get current price if signals don't have it
@@ -904,4 +969,5 @@ if __name__ == '__main__':
     print("⚠️  Potential for significant losses")
     print("="*70)
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
