@@ -5,12 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CoinCatch Futures Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .api-status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+        .status-live {
+            background: rgba(0, 200, 83, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+        .status-error {
+            background: rgba(255, 23, 68, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>CoinCatch Futures Dashboard</h1>
-            <p class="subtitle">Monitor your futures account balance and Bitcoin value in real-time</p>
+            <p class="subtitle">Live account data from CoinCatch API</p>
         </header>
         
         <div id="dataDisplay" class="data-display" style="display: none;">
@@ -18,6 +37,8 @@
                 <h2 class="card-title">
                     <i>📊</i> Account Overview
                 </h2>
+                
+                <div id="apiStatus" class="api-status"></div>
                 
                 <div class="balance-grid">
                     <div class="balance-card">
@@ -59,7 +80,7 @@
         </div>
         
         <div id="loading" class="loading">
-            <p>Loading account data from CoinCatch API...</p>
+            <p>Connecting to CoinCatch API...</p>
         </div>
         
         <div id="apiError" class="error" style="display: none;">
@@ -67,13 +88,13 @@
         </div>
 
         <div class="card" id="debugInfo" style="display: none; margin-top: 20px;">
-            <h3 class="card-title">Debug Information</h3>
+            <h3 class="card-title">API Response Details</h3>
             <div id="debugContent"></div>
         </div>
         
         <footer>
-            <p>This dashboard connects to the official CoinCatch API using environment variables.</p>
-            <p>Your API credentials are securely stored as environment variables.</p>
+            <p>This dashboard connects to the official CoinCatch API using your environment variables.</p>
+            <p>Your API credentials are securely stored and never exposed to the frontend.</p>
         </footer>
     </div>
 
@@ -84,6 +105,7 @@
             const dataDisplay = document.getElementById('dataDisplay');
             const loadingDiv = document.getElementById('loading');
             const apiErrorDiv = document.getElementById('apiError');
+            const apiStatusDiv = document.getElementById('apiStatus');
             const debugInfo = document.getElementById('debugInfo');
             const debugContent = document.getElementById('debugContent');
             
@@ -107,6 +129,7 @@
                 dataDisplay.style.display = 'none';
                 apiErrorDiv.style.display = 'none';
                 debugInfo.style.display = 'none';
+                apiStatusDiv.style.display = 'none';
                 
                 try {
                     const response = await fetch('/api/connect', {
@@ -114,19 +137,25 @@
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({}) // Empty body - server should use env vars
+                        body: JSON.stringify({}) // Empty body - server uses env vars
                     });
                     
                     const data = await response.json();
                     
                     if (response.ok) {
-                        updateDisplay(data);
-                        loadingDiv.style.display = 'none';
-                        dataDisplay.style.display = 'block';
-                        
-                        // Show note if using demo data
-                        if (data.note) {
-                            dataNoteEl.textContent = data.note;
+                        if (data.status === 'live') {
+                            updateDisplay(data);
+                            loadingDiv.style.display = 'none';
+                            dataDisplay.style.display = 'block';
+                            apiStatusDiv.textContent = '✅ Connected to CoinCatch API - Live Data';
+                            apiStatusDiv.className = 'api-status status-live';
+                            apiStatusDiv.style.display = 'block';
+                            
+                            if (data.note) {
+                                dataNoteEl.textContent = data.note;
+                            }
+                        } else {
+                            throw new Error(data.error || 'API returned error status');
                         }
                     } else {
                         throw new Error(data.error || 'Connection failed');
@@ -136,9 +165,6 @@
                     console.error('Error loading data:', error);
                     loadingDiv.style.display = 'none';
                     showError(error.message);
-                    
-                    // Show debug info on error
-                    await showDebugInfo();
                 }
             }
             
@@ -151,6 +177,17 @@
                 
                 const updateTime = new Date(data.timestamp).toLocaleString();
                 lastUpdateEl.textContent = updateTime;
+                
+                // Show raw data for debugging if present
+                if (data.raw_data) {
+                    debugContent.innerHTML = `
+                        <div style="font-family: monospace; background: var(--dark); padding: 15px; border-radius: 8px; font-size: 0.8rem; max-height: 200px; overflow-y: auto;">
+                            <strong>Raw API Response:</strong><br>
+                            ${JSON.stringify(data.raw_data, null, 2)}
+                        </div>
+                    `;
+                    debugInfo.style.display = 'block';
+                }
             }
             
             // Auto-refresh functionality
@@ -170,7 +207,7 @@
                         });
                         
                         const data = await response.json();
-                        if (response.ok) {
+                        if (response.ok && data.status === 'live') {
                             updateDisplay(data);
                         }
                     } catch (error) {
@@ -204,33 +241,16 @@
             // Show error message
             function showError(message) {
                 apiErrorDiv.innerHTML = `
-                    <strong>Error:</strong> ${message}
+                    <strong>CoinCatch API Error:</strong> ${message}
                     <br><br>
-                    <small>Please check that your environment variables are set correctly in Railway.</small>
+                    <small>Please check:</small>
+                    <ul style="text-align: left; margin: 10px 0;">
+                        <li>Your API credentials in Railway environment variables</li>
+                        <li>That your API key has proper permissions</li>
+                        <li>CoinCatch API status</li>
+                    </ul>
                 `;
                 apiErrorDiv.style.display = 'block';
-            }
-            
-            // Show debug information
-            async function showDebugInfo() {
-                try {
-                    const response = await fetch('/api/debug');
-                    const data = await response.json();
-                    
-                    debugContent.innerHTML = `
-                        <div style="font-family: monospace; background: var(--dark); padding: 15px; border-radius: 8px;">
-                            <strong>Environment Variables Status:</strong><br>
-                            COINCATCH_API_KEY: ${data.COINCATCH_API_KEY}<br>
-                            COINCATCH_API_SECRET: ${data.COINCATCH_API_SECRET}<br>
-                            COINCATCH_API_PASSPHRASE: ${data.COINCATCH_API_PASSPHRASE}<br>
-                            <br>
-                            <strong>All Required Set:</strong> ${data.all_required_set ? '✅ YES' : '❌ NO'}
-                        </div>
-                    `;
-                    debugInfo.style.display = 'block';
-                } catch (error) {
-                    console.error('Error fetching debug info:', error);
-                }
             }
             
             // Event listeners
