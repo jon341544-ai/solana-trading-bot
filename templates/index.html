@@ -23,6 +23,18 @@
             border: 1px solid var(--danger);
             color: var(--danger);
         }
+        .status-warning {
+            background: rgba(255, 152, 0, 0.1);
+            border: 1px solid var(--warning);
+            color: var(--warning);
+        }
+        .debug-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: var(--dark-light);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
     </style>
 </head>
 <body>
@@ -75,6 +87,9 @@
                     <button id="autoRefreshBtn" class="btn btn-secondary">
                         <i>⏱️</i> Auto Refresh: <span id="autoRefreshStatus">OFF</span>
                     </button>
+                    <button id="testEndpointsBtn" class="btn btn-secondary">
+                        <i>🔍</i> Test Endpoints
+                    </button>
                 </div>
             </div>
         </div>
@@ -87,14 +102,19 @@
             <!-- Error messages will appear here -->
         </div>
 
-        <div class="card" id="debugInfo" style="display: none; margin-top: 20px;">
-            <h3 class="card-title">API Response Details</h3>
+        <div class="debug-section" id="debugInfo" style="display: none;">
+            <h3 class="card-title">API Debug Information</h3>
             <div id="debugContent"></div>
+        </div>
+
+        <div class="debug-section" id="endpointTest" style="display: none;">
+            <h3 class="card-title">Endpoint Test Results</h3>
+            <div id="endpointResults"></div>
         </div>
         
         <footer>
             <p>This dashboard connects to the official CoinCatch API using your environment variables.</p>
-            <p>Your API credentials are securely stored and never exposed to the frontend.</p>
+            <p>If you're seeing errors, the API endpoints may need to be updated.</p>
         </footer>
     </div>
 
@@ -102,12 +122,15 @@
         document.addEventListener('DOMContentLoaded', function() {
             const refreshBtn = document.getElementById('refreshBtn');
             const autoRefreshBtn = document.getElementById('autoRefreshBtn');
+            const testEndpointsBtn = document.getElementById('testEndpointsBtn');
             const dataDisplay = document.getElementById('dataDisplay');
             const loadingDiv = document.getElementById('loading');
             const apiErrorDiv = document.getElementById('apiError');
             const apiStatusDiv = document.getElementById('apiStatus');
             const debugInfo = document.getElementById('debugInfo');
             const debugContent = document.getElementById('debugContent');
+            const endpointTest = document.getElementById('endpointTest');
+            const endpointResults = document.getElementById('endpointResults');
             
             const totalBalanceEl = document.getElementById('totalBalance');
             const availableBalanceEl = document.getElementById('availableBalance');
@@ -123,12 +146,13 @@
             // Automatically load data when page loads
             loadData();
             
-            // Load data from server (uses environment variables)
+            // Load data from server
             async function loadData() {
                 loadingDiv.style.display = 'block';
                 dataDisplay.style.display = 'none';
                 apiErrorDiv.style.display = 'none';
                 debugInfo.style.display = 'none';
+                endpointTest.style.display = 'none';
                 apiStatusDiv.style.display = 'none';
                 
                 try {
@@ -137,25 +161,31 @@
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({}) // Empty body - server uses env vars
+                        body: JSON.stringify({})
                     });
                     
                     const data = await response.json();
                     
                     if (response.ok) {
+                        updateDisplay(data);
+                        loadingDiv.style.display = 'none';
+                        dataDisplay.style.display = 'block';
+                        
+                        // Set status based on response
                         if (data.status === 'live') {
-                            updateDisplay(data);
-                            loadingDiv.style.display = 'none';
-                            dataDisplay.style.display = 'block';
                             apiStatusDiv.textContent = '✅ Connected to CoinCatch API - Live Data';
                             apiStatusDiv.className = 'api-status status-live';
-                            apiStatusDiv.style.display = 'block';
-                            
-                            if (data.note) {
-                                dataNoteEl.textContent = data.note;
-                            }
+                        } else if (data.status === 'public_only') {
+                            apiStatusDiv.textContent = '⚠️ Public API Accessible - Private API Failing';
+                            apiStatusDiv.className = 'api-status status-warning';
                         } else {
-                            throw new Error(data.error || 'API returned error status');
+                            apiStatusDiv.textContent = '❌ API Connection Issues';
+                            apiStatusDiv.className = 'api-status status-error';
+                        }
+                        apiStatusDiv.style.display = 'block';
+                        
+                        if (data.note) {
+                            dataNoteEl.textContent = data.note;
                         }
                     } else {
                         throw new Error(data.error || 'Connection failed');
@@ -178,15 +208,37 @@
                 const updateTime = new Date(data.timestamp).toLocaleString();
                 lastUpdateEl.textContent = updateTime;
                 
-                // Show raw data for debugging if present
-                if (data.raw_data) {
+                // Show debug info
+                if (data.raw_data || data.debug_info) {
                     debugContent.innerHTML = `
                         <div style="font-family: monospace; background: var(--dark); padding: 15px; border-radius: 8px; font-size: 0.8rem; max-height: 200px; overflow-y: auto;">
-                            <strong>Raw API Response:</strong><br>
-                            ${JSON.stringify(data.raw_data, null, 2)}
+                            <strong>API Response:</strong><br>
+                            ${JSON.stringify(data.raw_data || data.debug_info, null, 2)}
                         </div>
                     `;
                     debugInfo.style.display = 'block';
+                }
+            }
+            
+            // Test API endpoints
+            async function testEndpoints() {
+                try {
+                    const response = await fetch('/api/test-endpoints');
+                    const data = await response.json();
+                    
+                    let html = '<div style="font-family: monospace; background: var(--dark); padding: 15px; border-radius: 8px; font-size: 0.8rem;">';
+                    for (const [endpoint, result] of Object.entries(data)) {
+                        const status = result.status || result.error;
+                        const color = result.status === 200 ? 'green' : (result.status === 404 ? 'orange' : 'red');
+                        html += `<div style="margin: 5px 0;"><span style="color: ${color}">${endpoint}</span> → ${status}</div>`;
+                    }
+                    html += '</div>';
+                    
+                    endpointResults.innerHTML = html;
+                    endpointTest.style.display = 'block';
+                } catch (error) {
+                    endpointResults.innerHTML = `<div class="error">Error testing endpoints: ${error.message}</div>`;
+                    endpointTest.style.display = 'block';
                 }
             }
             
@@ -207,13 +259,13 @@
                         });
                         
                         const data = await response.json();
-                        if (response.ok && data.status === 'live') {
+                        if (response.ok) {
                             updateDisplay(data);
                         }
                     } catch (error) {
                         console.error('Auto-refresh error:', error);
                     }
-                }, 30000); // Refresh every 30 seconds
+                }, 30000);
             }
             
             function stopAutoRefresh() {
@@ -243,12 +295,15 @@
                 apiErrorDiv.innerHTML = `
                     <strong>CoinCatch API Error:</strong> ${message}
                     <br><br>
-                    <small>Please check:</small>
+                    <small>Possible issues:</small>
                     <ul style="text-align: left; margin: 10px 0;">
-                        <li>Your API credentials in Railway environment variables</li>
-                        <li>That your API key has proper permissions</li>
-                        <li>CoinCatch API status</li>
+                        <li>Incorrect API endpoints</li>
+                        <li>API key permissions</li>
+                        <li>API documentation may have changed</li>
                     </ul>
+                    <button onclick="testEndpoints()" class="btn" style="margin-top: 10px;">
+                        <i>🔍</i> Test API Endpoints
+                    </button>
                 `;
                 apiErrorDiv.style.display = 'block';
             }
@@ -256,6 +311,7 @@
             // Event listeners
             refreshBtn.addEventListener('click', loadData);
             autoRefreshBtn.addEventListener('click', toggleAutoRefresh);
+            testEndpointsBtn.addEventListener('click', testEndpoints);
         });
     </script>
 </body>
