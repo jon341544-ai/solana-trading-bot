@@ -21,59 +21,24 @@ class CoinCatchAPI:
         self.api_passphrase = api_passphrase or os.environ.get('COINCATCH_API_PASSPHRASE')
         self.base_url = "https://api.coincatch.com"
     
-    def generate_signature(self, timestamp, method, request_path, body=''):
-        """Generate signature for CoinCatch API - FIXED VERSION"""
-        # CoinCatch likely uses a specific format for the signature message
-        # Common patterns in crypto exchanges:
-        
-        # Pattern 1: timestamp + method + requestPath + body (if POST)
-        if method.upper() == 'POST' and body and body != '{}':
-            message = str(timestamp) + method.upper() + request_path + body
-        else:
-            message = str(timestamp) + method.upper() + request_path
-        
-        print(f"Signature message: '{message}'")
-        print(f"Message length: {len(message)}")
-        print(f"Using secret: {self.api_secret[:5]}...{self.api_secret[-3:]}")
-        
-        # Try different encoding approaches
-        try:
-            # Method 1: Standard HMAC-SHA256
-            signature = hmac.new(
-                self.api_secret.encode('utf-8'),
-                message.encode('utf-8'),
-                hashlib.sha256
-            ).hexdigest()
-            print(f"Method 1 (hex): {signature}")
-        except Exception as e:
-            print(f"Method 1 failed: {e}")
-            signature = ""
-        
-        # Also try base64 encoding (used by some exchanges)
-        try:
-            signature_b64 = hmac.new(
-                self.api_secret.encode('utf-8'),
-                message.encode('utf-8'),
-                hashlib.sha256
-            ).digest()
-            signature_b64 = base64.b64encode(signature_b64).decode()
-            print(f"Method 2 (base64): {signature_b64}")
-        except Exception as e:
-            print(f"Method 2 failed: {e}")
-            signature_b64 = ""
-        
-        # Return hex version by default, but we might need base64
+    def generate_signature_v1(self, timestamp, method, request_path, body=''):
+        """Version 1: timestamp + method + requestPath"""
+        message = timestamp + method + request_path
+        print(f"V1 Message: '{message}'")
+        signature = hmac.new(
+            self.api_secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
         return signature
     
     def generate_signature_v2(self, timestamp, method, request_path, body=''):
-        """Alternative signature method - some exchanges use base64"""
-        if method.upper() == 'POST' and body and body != '{}':
-            message = str(timestamp) + method.upper() + request_path + body
+        """Version 2: timestamp + method + requestPath + body (base64)"""
+        if body and body != '{}':
+            message = timestamp + method + request_path + body
         else:
-            message = str(timestamp) + method.upper() + request_path
-        
-        print(f"V2 Signature message: '{message}'")
-        
+            message = timestamp + method + request_path
+        print(f"V2 Message: '{message}'")
         signature = base64.b64encode(
             hmac.new(
                 self.api_secret.encode('utf-8'),
@@ -81,38 +46,114 @@ class CoinCatchAPI:
                 hashlib.sha256
             ).digest()
         ).decode()
-        
-        print(f"V2 Signature (base64): {signature}")
         return signature
     
     def generate_signature_v3(self, timestamp, method, request_path, body=''):
-        """Another common pattern: include query parameters in signature"""
-        # For GET requests with query parameters
-        if method.upper() == 'GET' and '?' in request_path:
-            path, query = request_path.split('?', 1)
-            message = str(timestamp) + method.upper() + path + '?' + query
-        elif method.upper() == 'POST' and body and body != '{}':
-            message = str(timestamp) + method.upper() + request_path + body
-        else:
-            message = str(timestamp) + method.upper() + request_path
-        
-        print(f"V3 Signature message: '{message}'")
-        
+        """Version 3: timestamp + method + requestPath (with query)"""
+        message = timestamp + method + request_path
+        print(f"V3 Message: '{message}'")
         signature = hmac.new(
             self.api_secret.encode('utf-8'),
             message.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
-        
-        print(f"V3 Signature (hex): {signature}")
         return signature
     
+    def generate_signature_v4(self, timestamp, method, request_path, body=''):
+        """Version 4: Like V3 but uppercase method"""
+        message = timestamp + method.upper() + request_path
+        print(f"V4 Message: '{message}'")
+        signature = hmac.new(
+            self.api_secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        return signature
+    
+    def generate_signature_v5(self, timestamp, method, request_path, body=''):
+        """Version 5: Like V2 but with hex instead of base64"""
+        if body and body != '{}':
+            message = timestamp + method + request_path + body
+        else:
+            message = timestamp + method + request_path
+        print(f"V5 Message: '{message}'")
+        signature = hmac.new(
+            self.api_secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        return signature
+    
+    def generate_signature_v6(self, timestamp, method, request_path, body=''):
+        """Version 6: Only timestamp + requestPath (no method)"""
+        message = timestamp + request_path
+        print(f"V6 Message: '{message}'")
+        signature = hmac.new(
+            self.api_secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        return signature
+    
+    def generate_signature_v7(self, timestamp, method, request_path, body=''):
+        """Version 7: requestPath + timestamp"""
+        message = request_path + timestamp
+        print(f"V7 Message: '{message}'")
+        signature = hmac.new(
+            self.api_secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        return signature
+    
+    def generate_signature_v8(self, timestamp, method, request_path, body=''):
+        """Version 8: Like V2 but with different body handling"""
+        # Some exchanges want the raw body string, not JSON
+        if body and body != '{}':
+            # Try with raw params instead of JSON
+            message = timestamp + method + request_path + body
+        else:
+            message = timestamp + method + request_path
+        print(f"V8 Message: '{message}'")
+        signature = base64.b64encode(
+            hmac.new(
+                self.api_secret.encode('utf-8'),
+                message.encode('utf-8'),
+                hashlib.sha256
+            ).digest()
+        ).decode()
+        return signature
+    
+    def generate_signature_v9(self, timestamp, method, request_path, body=''):
+        """Version 9: Passphrase included in signature"""
+        message = timestamp + method + request_path + self.api_passphrase
+        print(f"V9 Message: '{message}'")
+        signature = hmac.new(
+            self.api_secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        return signature
+    
+    def generate_signature_v10(self, timestamp, method, request_path, body=''):
+        """Version 10: Passphrase + base64"""
+        message = timestamp + method + request_path + self.api_passphrase
+        print(f"V10 Message: '{message}'")
+        signature = base64.b64encode(
+            hmac.new(
+                self.api_secret.encode('utf-8'),
+                message.encode('utf-8'),
+                hashlib.sha256
+            ).digest()
+        ).decode()
+        return signature
+
     def make_api_request(self, method, request_path, params=None, signature_version=1):
-        """Make API request with different signature methods"""
+        """Make API request with specific signature version"""
         try:
             timestamp = str(int(time.time() * 1000))
             
-            # Prepare body for POST or query string for GET
+            # Prepare body and query string
             body = ""
             query_string = ""
             
@@ -126,15 +167,22 @@ class CoinCatchAPI:
             
             request_path_with_query = request_path + query_string
             
-            # Generate signature based on version
-            if signature_version == 1:
-                signature = self.generate_signature(timestamp, method, request_path_with_query, body)
-            elif signature_version == 2:
-                signature = self.generate_signature_v2(timestamp, method, request_path_with_query, body)
-            elif signature_version == 3:
-                signature = self.generate_signature_v3(timestamp, method, request_path_with_query, body)
-            else:
-                signature = self.generate_signature(timestamp, method, request_path_with_query, body)
+            # Select signature method
+            signature_methods = {
+                1: self.generate_signature_v1,
+                2: self.generate_signature_v2,
+                3: self.generate_signature_v3,
+                4: self.generate_signature_v4,
+                5: self.generate_signature_v5,
+                6: self.generate_signature_v6,
+                7: self.generate_signature_v7,
+                8: self.generate_signature_v8,
+                9: self.generate_signature_v9,
+                10: self.generate_signature_v10,
+            }
+            
+            signature_func = signature_methods.get(signature_version, self.generate_signature_v1)
+            signature = signature_func(timestamp, method.upper(), request_path_with_query, body)
             
             headers = {
                 'ACCESS-KEY': self.api_key,
@@ -146,21 +194,16 @@ class CoinCatchAPI:
             
             url = f"{self.base_url}{request_path_with_query}"
             
-            print(f"=== API REQUEST (v{signature_version}) ===")
+            print(f"=== SIGNATURE V{signature_version} ===")
             print(f"URL: {url}")
-            print(f"Method: {method}")
-            print(f"Timestamp: {timestamp}")
             print(f"Signature: {signature}")
-            print(f"Body: {body}")
             
             if method.upper() == 'GET':
                 response = requests.get(url, headers=headers, timeout=10)
             else:
                 response = requests.post(url, headers=headers, data=body, timeout=10)
             
-            print(f"=== API RESPONSE ===")
-            print(f"Status: {response.status_code}")
-            print(f"Response: {response.text}")
+            print(f"Response: {response.status_code} - {response.text[:100]}")
             
             if response.status_code == 200:
                 return response.json()
@@ -174,69 +217,44 @@ class CoinCatchAPI:
             return {'error': {'code': 'EXCEPTION', 'msg': str(e)}}
     
     def get_account_balance(self):
-        """Get account balance - try different signature methods"""
-        print("=== GETTING ACCOUNT BALANCE ===")
+        """Try all signature versions to find the correct one"""
+        print("=== TESTING ALL SIGNATURE VERSIONS ===")
         
-        # Try each signature version
-        for signature_version in [1, 2, 3]:
-            print(f"Trying signature version {signature_version}")
-            
+        for version in range(1, 11):
+            print(f"\n--- Testing Signature Version {version} ---")
             result = self.make_api_request(
                 'GET', 
                 '/api/mix/v1/account/accounts', 
                 {'productType': 'umcbl'},
-                signature_version
+                version
             )
             
             if 'error' not in result:
-                print(f"SUCCESS with signature version {signature_version}")
+                print(f"🎉 SUCCESS with signature version {version}!")
                 return result
             
-            error_msg = str(result.get('error', {}))
-            print(f"Signature v{signature_version} failed: {error_msg}")
+            error_data = result.get('error', {})
+            error_msg = error_data.get('msg', str(error_data))
+            print(f"Version {version} failed: {error_msg}")
             
             # If we get a different error (not signature error), we might have the right signature
             if 'signature' not in error_msg.lower() and 'sign' not in error_msg.lower():
-                print(f"Different error - might be progress: {error_msg}")
-                return result
+                print(f"⚠️ Different error - might be progress: {error_msg}")
+                # Continue to see if we get a better result, but note this version
+                if '40009' not in str(error_data.get('code', '')):
+                    return result
         
-        return {'error': 'All signature methods failed'}
+        return {'error': 'All signature versions failed'}
     
     def get_btc_price(self):
-        """Get BTC price from public endpoints"""
+        """Get BTC price"""
         try:
-            endpoints = [
-                '/api/mix/v1/market/ticker?symbol=BTCUSDT',
-                '/api/v1/market/ticker?symbol=BTCUSDT',
-            ]
-            
-            for endpoint in endpoints:
-                try:
-                    path = endpoint.split('?')[0]
-                    params = urllib.parse.parse_qs(endpoint.split('?')[1]) if '?' in endpoint else None
-                    
-                    # Public endpoint, no authentication
-                    response = requests.get(f"{self.base_url}{endpoint}", timeout=5)
-                    if response.status_code == 200:
-                        data = response.json()
-                        print(f"BTC price response: {data}")
-                        
-                        # Extract price
-                        if 'data' in data and 'last' in data['data']:
-                            return float(data['data']['last'])
-                        elif 'last' in data:
-                            return float(data['last'])
-                except Exception as e:
-                    continue
-            
-            # Fallback
             response = requests.get(
                 'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd',
                 timeout=10
             )
             data = response.json()
             return data['bitcoin']['usd']
-            
         except:
             return 50000
 
@@ -259,7 +277,7 @@ def connect_api():
         # Get BTC price
         btc_price = client.get_btc_price()
         
-        # Try to get account data with different signature methods
+        # Try to get account data
         account_data = client.get_account_balance()
         
         if 'error' in account_data:
@@ -269,11 +287,11 @@ def connect_api():
                 'frozen_balance': 0,
                 'btc_price': btc_price,
                 'timestamp': datetime.now().isoformat(),
-                'status': 'signature_issue',
-                'note': 'BTC price is live, but signature authentication is failing',
+                'status': 'testing_signatures',
+                'note': 'Testing different signature methods. Check server logs for details.',
                 'debug_info': {
-                    'account_error': account_data['error'],
-                    'btc_price': btc_price
+                    'btc_price': btc_price,
+                    'signature_testing': 'in_progress'
                 }
             })
         
@@ -285,10 +303,11 @@ def connect_api():
             'btc_price': btc_price,
             'timestamp': datetime.now().isoformat(),
             'status': 'live',
-            'raw_data': account_data
+            'raw_data': account_data,
+            'note': 'Successfully connected with correct signature method!'
         }
         
-        # Extract balances from response
+        # Extract balances
         data = account_data.get('data', account_data)
         if isinstance(data, list) and len(data) > 0:
             account = data[0]
@@ -309,26 +328,27 @@ def connect_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/test-signatures')
-def test_signatures():
-    """Test different signature methods"""
+@app.route('/api/test-all-signatures')
+def test_all_signatures():
+    """Test all signature methods and return results"""
     api_key = os.environ.get('COINCATCH_API_KEY')
     api_secret = os.environ.get('COINCATCH_API_SECRET')
     api_passphrase = os.environ.get('COINCATCH_API_PASSPHRASE')
     
     if not api_key:
-        return jsonify({'error': 'API key not set'})
+        return jsonify({'error': 'API credentials not set'})
     
     client = CoinCatchAPI(api_key, api_secret, api_passphrase)
     
     results = {}
-    for version in [1, 2, 3]:
-        results[f'signature_v{version}'] = client.make_api_request(
+    for version in range(1, 11):
+        result = client.make_api_request(
             'GET', 
             '/api/mix/v1/account/accounts', 
             {'productType': 'umcbl'},
             version
         )
+        results[f'v{version}'] = result
     
     return jsonify(results)
 
