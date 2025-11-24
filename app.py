@@ -8,6 +8,7 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 import urllib.parse
+import base64
 
 load_dotenv()
 
@@ -23,18 +24,17 @@ class CoinCatchAPI:
     def generate_signature(self, timestamp, method, request_path, body=''):
         """Generate signature for CoinCatch API"""
         if body:
-            message = timestamp + method + request_path + body
+            message = str(timestamp) + str(method) + str(request_path) + str(body)
         else:
-            message = timestamp + method + request_path
+            message = str(timestamp) + str(method) + str(request_path)
             
-        print(f"Signing message: {message}")
+        print(f"Signature message length: {len(message)}")
         mac = hmac.new(
             bytes(self.api_secret, encoding='utf8'),
             bytes(message, encoding='utf-8'),
             digestmod='sha256'
         )
         signature = base64.b64encode(mac.digest()).decode()
-        print(f"Generated signature: {signature}")
         return signature
     
     def make_api_request(self, method, request_path, params=None):
@@ -45,10 +45,11 @@ class CoinCatchAPI:
             # Prepare query string for GET requests
             query_string = ""
             if params and method == 'GET':
-                query_string = '?' + urllib.parse.urlencode(params)
-                request_path_with_query = request_path + query_string
-            else:
-                request_path_with_query = request_path
+                # Filter out None values
+                clean_params = {k: v for k, v in params.items() if v is not None}
+                if clean_params:
+                    query_string = '?' + urllib.parse.urlencode(clean_params)
+            request_path_with_query = request_path + query_string
             
             body = ""
             if params and method == 'POST':
@@ -65,8 +66,13 @@ class CoinCatchAPI:
             }
             
             url = f"{self.base_url}{request_path_with_query}"
-            print(f"Making {method} request to: {url}")
-            print(f"Headers: { {k: '***' if 'KEY' in k or 'SIGN' in k or 'PASSPHRASE' in k else v for k, v in headers.items()} }")
+            print(f"=== API REQUEST ===")
+            print(f"URL: {url}")
+            print(f"Method: {method}")
+            print(f"Timestamp: {timestamp}")
+            print(f"Signature: {signature[:20]}...")
+            if params:
+                print(f"Params: {params}")
             if body:
                 print(f"Body: {body}")
             
@@ -75,61 +81,100 @@ class CoinCatchAPI:
             else:
                 response = requests.post(url, headers=headers, data=body, timeout=10)
             
-            print(f"Response Status: {response.status_code}")
-            print(f"Response Text: {response.text}")
+            print(f"=== API RESPONSE ===")
+            print(f"Status: {response.status_code}")
+            print(f"Headers: {dict(response.headers)}")
+            print(f"Response: {response.text}")
+            print(f"====================")
             
             if response.status_code == 200:
-                return response.json()
+                try:
+                    return response.json()
+                except json.JSONDecodeError:
+                    return {'data': response.text}
             else:
-                return {'error': f'{response.status_code} - {response.text}'}
+                # Try to parse error response
+                try:
+                    error_data = response.json()
+                    return {'error': error_data}
+                except:
+                    return {'error': {'code': response.status_code, 'msg': response.text}}
                 
         except Exception as e:
-            return {'error': f'Request failed: {str(e)}'}
+            print(f"=== API EXCEPTION ===")
+            print(f"Error: {str(e)}")
+            return {'error': {'code': 'EXCEPTION', 'msg': str(e)}}
     
     def get_account_balance(self):
         """Get futures account balance from CoinCatch API"""
-        try:
-            # Try the endpoint that returned 400 (which means it exists)
-            request_path = '/api/mix/v1/account/accounts'
+        print("=== GETTING ACCOUNT BALANCE ===")
+        
+        # Try different endpoints and parameter combinations
+        endpoints_to_try = [
+            # Endpoint with different parameters
+            ('/api/mix/v1/account/accounts', {'productType': 'umcbl'}),
+            ('/api/mix/v1/account/accounts', {'symbol': 'BTCUSDT_UMCBL'}),
+            ('/api/mix/v1/account/accounts', {'marginCoin': 'USDT'}),
+            ('/api/mix/v1/account/accounts', {'productType': 'USDT-MIX'}),
+            ('/api/mix/v1/account/accounts', {}),  # No params
             
-            # The 400 error suggests we might need parameters
-            # Try with different parameter combinations
-            param_combinations = [
-                {'productType': 'umcbl'},
-                {'symbol': 'BTCUSDT'},
-                {'marginCoin': 'USDT'},
-                {'productType': 'USDT-MIX'},
-                {}  # No parameters
-            ]
+            # Alternative endpoints
+            ('/api/v1/account', {}),
+            ('/api/v1/account/balance', {'currency': 'USDT'}),
+            ('/api/v1/user/balance', {}),
             
-            for params in param_combinations:
-                print(f"Trying with params: {params}")
-                result = self.make_api_request('GET', request_path, params)
-                
-                if 'error' not in result:
-                    return result
-                elif '400' not in result.get('error', ''):
-                    # If it's not a 400 error, return the error
-                    return result
+            # Mix endpoints from documentation
+            ('/api/mix/v1/account/account', {'symbol': 'BTCUSDT'}),
+            ('/api/mix/v1/account/account', {'productType': 'umcbl', 'marginCoin': 'USDT'}),
+        ]
+        
+        for endpoint, params in endpoints_to_try:
+            print(f"Trying endpoint: {endpoint} with params: {params}")
+            result = self.make_api_request('GET', endpoint, params)
             
-            # If all parameter combinations failed, return the last error
-            return result
-                
-        except Exception as e:
-            return {'error': f'Account balance request failed: {str(e)}'}
+            # If successful, return the result
+            if 'error' not in result:
+                print(f"SUCCESS with {endpoint}")
+                return result
+            
+            # If it's a 400 error, log it but continue trying
+            error_code = str(result.get('error', {}).get('code', ''))
+            if '400' in error_code:
+                print(f"400 error with {endpoint}: {result['error']}")
+                # Continue to next endpoint
+            else:
+                print(f"Other error with {endpoint}: {result['error']}")
+                # For non-400 errors, we might want to stop or continue based on the error
+        
+        # If all endpoints failed, return the last error
+        return result
     
     def get_btc_price(self):
         """Get current BTC price"""
         try:
-            # Try CoinCatch public ticker
-            response = requests.get(
-                f"{self.base_url}/api/mix/v1/market/ticker?symbol=BTCUSDT",
-                timeout=5
-            )
-            if response.status_code == 200:
-                data = response.json()
-                if 'data' in data and 'last' in data['data']:
-                    return float(data['data']['last'])
+            # Try CoinCatch public endpoints
+            public_endpoints = [
+                '/api/mix/v1/market/ticker?symbol=BTCUSDT',
+                '/api/v1/market/ticker?symbol=BTCUSDT',
+                '/api/spot/v1/market/ticker?symbol=BTCUSDT'
+            ]
+            
+            for endpoint in public_endpoints:
+                try:
+                    response = requests.get(f"{self.base_url}{endpoint}", timeout=5)
+                    if response.status_code == 200:
+                        data = response.json()
+                        print(f"BTC Price from {endpoint}: {data}")
+                        # Extract price from different response formats
+                        if 'data' in data and 'last' in data['data']:
+                            return float(data['data']['last'])
+                        elif 'last' in data:
+                            return float(data['last'])
+                        elif 'data' in data and isinstance(data['data'], dict) and 'last' in data['data']:
+                            return float(data['data']['last'])
+                except Exception as e:
+                    print(f"Failed to get BTC price from {endpoint}: {e}")
+                    continue
             
             # Fallback to CoinGecko
             response = requests.get(
@@ -138,19 +183,9 @@ class CoinCatchAPI:
             )
             data = response.json()
             return data['bitcoin']['usd']
-        except:
-            return 50000
-
-    def get_position_tier(self):
-        """Get position tier information"""
-        try:
-            request_path = '/api/mix/v1/account/position-tier'
-            params = {'productType': 'umcbl'}  # Common parameter for USDT-M futures
-            
-            result = self.make_api_request('GET', request_path, params)
-            return result
         except Exception as e:
-            return {'error': str(e)}
+            print(f"All BTC price methods failed: {e}")
+            return 50000
 
 @app.route('/')
 def index():
@@ -166,88 +201,69 @@ def connect_api():
         if not api_key or not api_secret or not api_passphrase:
             return jsonify({'error': 'API credentials not found in environment variables'}), 400
         
+        print("=== STARTING API CONNECTION ===")
         client = CoinCatchAPI(api_key, api_secret, api_passphrase)
         account_data = client.get_account_balance()
         btc_price = client.get_btc_price()
         
+        print(f"Account data result: {account_data}")
+        print(f"BTC price: {btc_price}")
+        
         # Check if we got an error from the API
         if 'error' in account_data:
-            # Try to get position tier as alternative
-            tier_data = client.get_position_tier()
-            
             return jsonify({
-                'error': f'Account API Error: {account_data["error"]}',
+                'error': f'API Error: {account_data["error"]}',
                 'btc_price': btc_price,
                 'timestamp': datetime.now().isoformat(),
                 'status': 'api_error',
-                'position_tier_data': tier_data,
-                'note': 'Account balance endpoint failing, but BTC price is live'
+                'note': 'Unable to fetch account data from CoinCatch API'
             }), 400
         
         # Process successful API response
-        # The actual structure will depend on CoinCatch's response
+        # This will need to be adjusted based on the actual API response format
+        response_data = {
+            'total_balance': 0,
+            'available_balance': 0,
+            'frozen_balance': 0,
+            'btc_price': btc_price,
+            'timestamp': datetime.now().isoformat(),
+            'status': 'live',
+            'note': 'BTC price is live, but account data format needs adjustment',
+            'raw_data': account_data
+        }
+        
+        # Try to extract balances from different response formats
         if 'data' in account_data:
-            accounts = account_data['data']
-            if isinstance(accounts, list) and len(accounts) > 0:
-                # Assuming first account is USDT account
-                account = accounts[0]
-                response_data = {
+            data = account_data['data']
+            if isinstance(data, list) and len(data) > 0:
+                # Multiple accounts
+                account = data[0]
+                response_data.update({
                     'total_balance': float(account.get('equity', account.get('marginBalance', 0))),
                     'available_balance': float(account.get('available', account.get('availableBalance', 0))),
-                    'frozen_balance': float(account.get('frozen', account.get('locked', 0))),
-                    'btc_price': btc_price,
-                    'timestamp': datetime.now().isoformat(),
-                    'status': 'live',
-                    'note': 'Live data from CoinCatch API',
-                    'raw_data': account_data
-                }
-            else:
-                response_data = {
-                    'total_balance': 0,
-                    'available_balance': 0,
-                    'frozen_balance': 0,
-                    'btc_price': btc_price,
-                    'timestamp': datetime.now().isoformat(),
-                    'status': 'no_accounts',
-                    'note': 'No accounts found in API response',
-                    'raw_data': account_data
-                }
+                    'frozen_balance': float(account.get('frozen', account.get('locked', 0)))
+                })
+            elif isinstance(data, dict):
+                # Single account
+                response_data.update({
+                    'total_balance': float(data.get('equity', data.get('marginBalance', 0))),
+                    'available_balance': float(data.get('available', data.get('availableBalance', 0))),
+                    'frozen_balance': float(data.get('frozen', data.get('locked', 0)))
+                })
         else:
-            # Direct account data (not wrapped in 'data')
-            response_data = {
+            # Direct response
+            response_data.update({
                 'total_balance': float(account_data.get('equity', account_data.get('marginBalance', 0))),
                 'available_balance': float(account_data.get('available', account_data.get('availableBalance', 0))),
-                'frozen_balance': float(account_data.get('frozen', account_data.get('locked', 0))),
-                'btc_price': btc_price,
-                'timestamp': datetime.now().isoformat(),
-                'status': 'live',
-                'note': 'Live data from CoinCatch API',
-                'raw_data': account_data
-            }
+                'frozen_balance': float(account_data.get('frozen', account_data.get('locked', 0)))
+            })
         
         return jsonify(response_data)
         
     except Exception as e:
+        print(f"=== CONNECT API EXCEPTION ===")
+        print(f"Error: {str(e)}")
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
-
-@app.route('/api/position-tier')
-def get_position_tier():
-    """Get position tier information"""
-    try:
-        api_key = os.environ.get('COINCATCH_API_KEY')
-        api_secret = os.environ.get('COINCATCH_API_SECRET')
-        api_passphrase = os.environ.get('COINCATCH_API_PASSPHRASE')
-        
-        if not api_key or not api_secret or not api_passphrase:
-            return jsonify({'error': 'API credentials not found'}), 400
-        
-        client = CoinCatchAPI(api_key, api_secret, api_passphrase)
-        tier_data = client.get_position_tier()
-        
-        return jsonify(tier_data)
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/debug')
 def debug_env():
@@ -255,7 +271,6 @@ def debug_env():
         'COINCATCH_API_KEY': 'SET' if os.environ.get('COINCATCH_API_KEY') else 'MISSING',
         'COINCATCH_API_SECRET': 'SET' if os.environ.get('COINCATCH_API_SECRET') else 'MISSING',
         'COINCATCH_API_PASSPHRASE': 'SET' if os.environ.get('COINCATCH_API_PASSPHRASE') else 'MISSING',
-        'api_base_url': 'https://api.coincatch.com'
     }
     return jsonify(env_vars)
 
