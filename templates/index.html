@@ -13,7 +13,7 @@
             <p class="subtitle">Monitor your futures account balance and Bitcoin value in real-time</p>
         </header>
         
-        <div id="dataDisplay" class="data-display">
+        <div id="dataDisplay" class="data-display" style="display: none;">
             <div class="card">
                 <h2 class="card-title">
                     <i>📊</i> Account Overview
@@ -43,6 +43,8 @@
                 
                 <div class="last-update">
                     Last updated: <span id="lastUpdate">--</span>
+                    <br>
+                    <small id="dataNote" style="color: var(--text-secondary);"></small>
                 </div>
                 
                 <div style="margin-top: 20px; text-align: center;">
@@ -57,11 +59,16 @@
         </div>
         
         <div id="loading" class="loading">
-            <p>Loading account data...</p>
+            <p>Loading account data from CoinCatch API...</p>
         </div>
         
         <div id="apiError" class="error" style="display: none;">
-            Unable to connect to CoinCatch API. Please check your environment variables.
+            <!-- Error messages will appear here -->
+        </div>
+
+        <div class="card" id="debugInfo" style="display: none; margin-top: 20px;">
+            <h3 class="card-title">Debug Information</h3>
+            <div id="debugContent"></div>
         </div>
         
         <footer>
@@ -77,12 +84,15 @@
             const dataDisplay = document.getElementById('dataDisplay');
             const loadingDiv = document.getElementById('loading');
             const apiErrorDiv = document.getElementById('apiError');
+            const debugInfo = document.getElementById('debugInfo');
+            const debugContent = document.getElementById('debugContent');
             
             const totalBalanceEl = document.getElementById('totalBalance');
             const availableBalanceEl = document.getElementById('availableBalance');
             const frozenBalanceEl = document.getElementById('frozenBalance');
             const btcPriceEl = document.getElementById('btcPrice');
             const lastUpdateEl = document.getElementById('lastUpdate');
+            const dataNoteEl = document.getElementById('dataNote');
             const autoRefreshStatusEl = document.getElementById('autoRefreshStatus');
             
             let autoRefreshInterval = null;
@@ -96,6 +106,7 @@
                 loadingDiv.style.display = 'block';
                 dataDisplay.style.display = 'none';
                 apiErrorDiv.style.display = 'none';
+                debugInfo.style.display = 'none';
                 
                 try {
                     const response = await fetch('/api/connect', {
@@ -103,12 +114,7 @@
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({
-                            // Empty credentials - server will use environment variables
-                            api_key: '',
-                            api_secret: '', 
-                            api_passphrase: ''
-                        })
+                        body: JSON.stringify({}) // Empty body - server should use env vars
                     });
                     
                     const data = await response.json();
@@ -117,6 +123,11 @@
                         updateDisplay(data);
                         loadingDiv.style.display = 'none';
                         dataDisplay.style.display = 'block';
+                        
+                        // Show note if using demo data
+                        if (data.note) {
+                            dataNoteEl.textContent = data.note;
+                        }
                     } else {
                         throw new Error(data.error || 'Connection failed');
                     }
@@ -125,6 +136,9 @@
                     console.error('Error loading data:', error);
                     loadingDiv.style.display = 'none';
                     showError(error.message);
+                    
+                    // Show debug info on error
+                    await showDebugInfo();
                 }
             }
             
@@ -152,11 +166,7 @@
                             headers: {
                                 'Content-Type': 'application/json',
                             },
-                            body: JSON.stringify({
-                                api_key: '',
-                                api_secret: '',
-                                api_passphrase: ''
-                            })
+                            body: JSON.stringify({})
                         });
                         
                         const data = await response.json();
@@ -193,8 +203,34 @@
             
             // Show error message
             function showError(message) {
-                apiErrorDiv.textContent = message;
+                apiErrorDiv.innerHTML = `
+                    <strong>Error:</strong> ${message}
+                    <br><br>
+                    <small>Please check that your environment variables are set correctly in Railway.</small>
+                `;
                 apiErrorDiv.style.display = 'block';
+            }
+            
+            // Show debug information
+            async function showDebugInfo() {
+                try {
+                    const response = await fetch('/api/debug');
+                    const data = await response.json();
+                    
+                    debugContent.innerHTML = `
+                        <div style="font-family: monospace; background: var(--dark); padding: 15px; border-radius: 8px;">
+                            <strong>Environment Variables Status:</strong><br>
+                            COINCATCH_API_KEY: ${data.COINCATCH_API_KEY}<br>
+                            COINCATCH_API_SECRET: ${data.COINCATCH_API_SECRET}<br>
+                            COINCATCH_API_PASSPHRASE: ${data.COINCATCH_API_PASSPHRASE}<br>
+                            <br>
+                            <strong>All Required Set:</strong> ${data.all_required_set ? '✅ YES' : '❌ NO'}
+                        </div>
+                    `;
+                    debugInfo.style.display = 'block';
+                } catch (error) {
+                    console.error('Error fetching debug info:', error);
+                }
             }
             
             // Event listeners
