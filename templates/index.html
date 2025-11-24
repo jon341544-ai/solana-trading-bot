@@ -13,34 +13,6 @@
             <p class="subtitle">Monitor your futures account balance and Bitcoin value in real-time</p>
         </header>
         
-        <div class="card api-setup">
-            <h2 class="card-title">
-                <i>🔑</i> API Configuration
-            </h2>
-            <div class="input-group">
-                <label for="apiKey">CoinCatch API Key</label>
-                <input type="text" id="apiKey" placeholder="Enter your CoinCatch API Key">
-            </div>
-            
-            <div class="input-group">
-                <label for="apiSecret">CoinCatch API Secret</label>
-                <input type="password" id="apiSecret" placeholder="Enter your CoinCatch API Secret">
-            </div>
-
-            <div class="input-group">
-                <label for="apiPassphrase">CoinCatch API Passphrase</label>
-                <input type="password" id="apiPassphrase" placeholder="Enter your CoinCatch API Passphrase">
-            </div>
-            
-            <button id="connectBtn" class="btn">
-                <i>🔗</i> Connect to CoinCatch
-            </button>
-            
-            <div id="apiError" class="error" style="display: none;">
-                Unable to connect to CoinCatch API. Please check your API credentials and try again.
-            </div>
-        </div>
-        
         <div id="dataDisplay" class="data-display">
             <div class="card">
                 <h2 class="card-title">
@@ -84,22 +56,22 @@
             </div>
         </div>
         
-        <div id="loading" class="loading" style="display: none;">
-            <p>Connecting to CoinCatch API and fetching data...</p>
+        <div id="loading" class="loading">
+            <p>Loading account data...</p>
+        </div>
+        
+        <div id="apiError" class="error" style="display: none;">
+            Unable to connect to CoinCatch API. Please check your environment variables.
         </div>
         
         <footer>
-            <p>This dashboard connects to the official CoinCatch API to display your account information.</p>
-            <p>Your API credentials are processed securely through the backend and are not stored.</p>
+            <p>This dashboard connects to the official CoinCatch API using environment variables.</p>
+            <p>Your API credentials are securely stored as environment variables.</p>
         </footer>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const apiKeyInput = document.getElementById('apiKey');
-            const apiSecretInput = document.getElementById('apiSecret');
-            const apiPassphraseInput = document.getElementById('apiPassphrase');
-            const connectBtn = document.getElementById('connectBtn');
             const refreshBtn = document.getElementById('refreshBtn');
             const autoRefreshBtn = document.getElementById('autoRefreshBtn');
             const dataDisplay = document.getElementById('dataDisplay');
@@ -116,23 +88,14 @@
             let autoRefreshInterval = null;
             let isAutoRefreshOn = false;
             
-            // Connect to CoinCatch API
-            async function connectToCoinCatch() {
-                const apiKey = apiKeyInput.value.trim();
-                const apiSecret = apiSecretInput.value.trim();
-                const apiPassphrase = apiPassphraseInput.value.trim();
-                
-                if (!apiKey || !apiSecret || !apiPassphrase) {
-                    showError('Please enter API Key, Secret, and Passphrase');
-                    return;
-                }
-                
-                // Show loading state
+            // Automatically load data when page loads
+            loadData();
+            
+            // Load data from server (uses environment variables)
+            async function loadData() {
                 loadingDiv.style.display = 'block';
                 dataDisplay.style.display = 'none';
                 apiErrorDiv.style.display = 'none';
-                connectBtn.disabled = true;
-                connectBtn.innerHTML = '<i>⏳</i> Connecting...';
                 
                 try {
                     const response = await fetch('/api/connect', {
@@ -141,38 +104,27 @@
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            api_key: apiKey,
-                            api_secret: apiSecret,
-                            api_passphrase: apiPassphrase
+                            // Empty credentials - server will use environment variables
+                            api_key: '',
+                            api_secret: '', 
+                            api_passphrase: ''
                         })
                     });
                     
                     const data = await response.json();
                     
                     if (response.ok) {
-                        // Update UI with data
                         updateDisplay(data);
-                        
-                        // Show data display
                         loadingDiv.style.display = 'none';
                         dataDisplay.style.display = 'block';
-                        connectBtn.innerHTML = '<i>✅</i> Connected';
-                        
-                        // Start auto-refresh if enabled
-                        if (isAutoRefreshOn) {
-                            startAutoRefresh(apiKey, apiSecret, apiPassphrase);
-                        }
                     } else {
                         throw new Error(data.error || 'Connection failed');
                     }
                     
                 } catch (error) {
-                    console.error('Error connecting to CoinCatch:', error);
+                    console.error('Error loading data:', error);
                     loadingDiv.style.display = 'none';
                     showError(error.message);
-                    connectBtn.innerHTML = '<i>❌</i> Connection Failed';
-                } finally {
-                    connectBtn.disabled = false;
                 }
             }
             
@@ -188,7 +140,7 @@
             }
             
             // Auto-refresh functionality
-            function startAutoRefresh(apiKey, apiSecret, apiPassphrase) {
+            function startAutoRefresh() {
                 if (autoRefreshInterval) {
                     clearInterval(autoRefreshInterval);
                 }
@@ -201,9 +153,9 @@
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                                api_key: apiKey,
-                                api_secret: apiSecret,
-                                api_passphrase: apiPassphrase
+                                api_key: '',
+                                api_secret: '',
+                                api_passphrase: ''
                             })
                         });
                         
@@ -226,21 +178,12 @@
             
             // Toggle auto-refresh
             function toggleAutoRefresh() {
-                const apiKey = apiKeyInput.value.trim();
-                const apiSecret = apiSecretInput.value.trim();
-                const apiPassphrase = apiPassphraseInput.value.trim();
-                
-                if (!apiKey || !apiSecret || !apiPassphrase) {
-                    showError('Please connect first before enabling auto-refresh');
-                    return;
-                }
-                
                 isAutoRefreshOn = !isAutoRefreshOn;
                 
                 if (isAutoRefreshOn) {
                     autoRefreshStatusEl.textContent = 'ON';
                     autoRefreshBtn.classList.add('btn-active');
-                    startAutoRefresh(apiKey, apiSecret, apiPassphrase);
+                    startAutoRefresh();
                 } else {
                     autoRefreshStatusEl.textContent = 'OFF';
                     autoRefreshBtn.classList.remove('btn-active');
@@ -255,8 +198,7 @@
             }
             
             // Event listeners
-            connectBtn.addEventListener('click', connectToCoinCatch);
-            refreshBtn.addEventListener('click', connectToCoinCatch);
+            refreshBtn.addEventListener('click', loadData);
             autoRefreshBtn.addEventListener('click', toggleAutoRefresh);
         });
     </script>
