@@ -8,7 +8,7 @@ import json
 import pandas as pd
 import numpy as np
 import math
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import threading
@@ -623,7 +623,162 @@ def extract_balances(balance_data):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Serve the HTML directly since templates might not be set up
+    html_content = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SOL Trading Bot</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #00ffbd 0%, #00a8ff 100%); min-height: 100vh; padding: 20px; }
+            .container { max-width: 800px; margin: 0 auto; }
+            .header { background: white; padding: 30px; border-radius: 15px; text-align: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+            .header h1 { color: #00a8ff; font-size: 2.5em; margin-bottom: 10px; }
+            .card { background: white; padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+            .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+            .status-item { padding: 15px; background: #f8f9fa; border-radius: 10px; }
+            .status-item label { display: block; color: #666; font-size: 0.9em; margin-bottom: 5px; }
+            .status-item .value { font-size: 1.3em; font-weight: bold; color: #333; }
+            .status-running { color: #28a745 !important; }
+            .status-stopped { color: #dc3545 !important; }
+            button { padding: 15px 30px; font-size: 1.1em; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; font-weight: 600; margin: 5px; }
+            .start-button { background: #28a745; color: white; }
+            .stop-button { background: #dc3545; color: white; }
+            .refresh-button { background: #6c757d; color: white; }
+            button:hover { transform: translateY(-2px); }
+            button:disabled { opacity: 0.5; cursor: not-allowed; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🪙 SOL Trading Bot</h1>
+                <p>MACD Only Strategy - Status: <span id="status">Loading...</span></p>
+            </div>
+            
+            <div class="card">
+                <h2>Bot Status</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <label>Status:</label>
+                        <div class="value" id="botStatus">LOADING</div>
+                    </div>
+                    <div class="status-item">
+                        <label>Position:</label>
+                        <div class="value" id="position">--</div>
+                    </div>
+                    <div class="status-item">
+                        <label>Last Trade:</label>
+                        <div class="value" id="lastTrade">--</div>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="startBot()" id="startButton" class="start-button">▶ START BOT</button>
+                    <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP BOT</button>
+                    <button onclick="refreshData()" class="refresh-button">🔄 Refresh</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Account Balance</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <label>SOL Balance:</label>
+                        <div class="value" id="solBalance">-- SOL</div>
+                    </div>
+                    <div class="status-item">
+                        <label>USDT Balance:</label>
+                        <div class="value" id="usdtBalance">$--</div>
+                    </div>
+                    <div class="status-item">
+                        <label>SOL Price:</label>
+                        <div class="value" id="solPrice">$--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="result" style="margin-top: 20px; padding: 15px; border-radius: 8px; text-align: center;"></div>
+        </div>
+
+        <script>
+            async function apiCall(endpoint, method = 'GET') {
+                try {
+                    const response = await fetch(endpoint, { method: method });
+                    return await response.json();
+                } catch (error) {
+                    console.error('API call failed:', error);
+                    return { status: 'error', message: 'Network error' };
+                }
+            }
+
+            async function startBot() {
+                const result = document.getElementById('result');
+                result.innerHTML = '<div style="color: blue">Starting SOL Bot...</div>';
+                
+                const data = await apiCall('/api/start_bot', 'POST');
+                
+                if (data.status === 'success') {
+                    result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
+                    setTimeout(refreshData, 1000);
+                } else {
+                    result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+                }
+            }
+
+            async function stopBot() {
+                const result = document.getElementById('result');
+                result.innerHTML = '<div style="color: blue">Stopping Bot...</div>';
+                
+                const data = await apiCall('/api/stop_bot', 'POST');
+                
+                if (data.status === 'success') {
+                    result.innerHTML = '<div style="color: orange">■ ' + data.message + '</div>';
+                    setTimeout(refreshData, 1000);
+                } else {
+                    result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+                }
+            }
+
+            async function refreshData() {
+                const data = await apiCall('/api/status');
+                
+                if (data.status === 'success') {
+                    document.getElementById('botStatus').textContent = data.is_running ? 'RUNNING' : 'STOPPED';
+                    document.getElementById('botStatus').className = 'value ' + (data.is_running ? 'status-running' : 'status-stopped');
+                    
+                    document.getElementById('position').textContent = data.last_position || 'NONE';
+                    document.getElementById('lastTrade').textContent = data.last_trade_time ? 
+                        new Date(data.last_trade_time).toLocaleString() : 'Never';
+                    
+                    document.getElementById('solBalance').textContent = data.sol_balance ? data.sol_balance.toFixed(4) + ' SOL' : '-- SOL';
+                    document.getElementById('usdtBalance').textContent = data.usdt_balance ? '$' + data.usdt_balance.toFixed(2) : '$--';
+                    
+                    if (data.signals && data.signals.price) {
+                        document.getElementById('solPrice').textContent = '$' + data.signals.price.toFixed(2);
+                    }
+                    
+                    if (data.is_running) {
+                        document.getElementById('startButton').disabled = true;
+                        document.getElementById('stopButton').disabled = false;
+                    } else {
+                        document.getElementById('startButton').disabled = false;
+                        document.getElementById('stopButton').disabled = true;
+                    }
+                }
+            }
+
+            // Refresh data every 5 seconds
+            setInterval(refreshData, 5000);
+            refreshData();
+        </script>
+    </body>
+    </html>
+    """
+    return html_content
 
 @app.route('/api/start_bot',methods=['POST'])
 def start_bot():
@@ -717,219 +872,6 @@ def get_balance():
     except Exception as e:
         return jsonify({'status':'error','message':str(e)})
 
-@app.route('/api/manual_buy',methods=['POST'])
-def manual_buy():
-    """Execute manual buy order with specified amount (percentage or fixed)"""
-    try:
-        percentage = request.args.get('percentage')
-        sol_amount = request.args.get('sol_amount')
-        
-        sol_balance, usdt_balance = get_current_balances()
-        
-        # Try to get price with better error handling
-        ticker_result = make_api_request('GET', '/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL')
-        
-        if 'error' in ticker_result:
-            return jsonify({'status':'error','message':'Failed to get price'})
-        
-        current_price = None
-        if isinstance(ticker_result, dict):
-            if 'data' in ticker_result:
-                data = ticker_result['data']
-                if isinstance(data, dict):
-                    current_price = data.get('close') or data.get('last') or data.get('price') or data.get('lastPr')
-                elif isinstance(data, list) and len(data) > 0:
-                    current_price = data[0].get('close') or data[0].get('last') or data[0].get('price')
-            else:
-                current_price = ticker_result.get('close') or ticker_result.get('last') or ticker_result.get('price')
-        
-        if not current_price:
-            return jsonify({'status':'error','message':'Could not get current price'})
-        
-        current_price = float(current_price)
-        
-        if percentage:
-            percentage = int(percentage)
-            if percentage < 1 or percentage > 100:
-                return jsonify({'status':'error','message':'Percentage must be 1-100'})
-            
-            usdt_to_spend = usdt_balance * (percentage / 100.0)
-            sol_amount_to_buy = usdt_to_spend / current_price
-            
-            if usdt_balance < usdt_to_spend:
-                return jsonify({'status':'error','message':f'Insufficient USDT: Need ${usdt_to_spend:.2f}, have ${usdt_balance:.2f}'})
-            
-            log_message = f'Manual BUY of {percentage}% of USDT (${usdt_to_spend:.2f})'
-            
-        elif sol_amount:
-            sol_amount_to_buy = float(sol_amount)
-            if sol_amount_to_buy < 0.01 or sol_amount_to_buy > 1000:
-                return jsonify({'status':'error','message':'SOL amount must be 0.01-1000 SOL'})
-            
-            usdt_to_spend = sol_amount_to_buy * current_price
-            
-            if usdt_balance < usdt_to_spend:
-                return jsonify({'status':'error','message':f'Insufficient USDT: Need ${usdt_to_spend:.2f}, have ${usdt_balance:.2f}'})
-            
-            log_message = f'Manual BUY of {sol_amount_to_buy} SOL'
-            
-        else:
-            return jsonify({'status':'error','message':'Missing percentage or sol_amount parameter'})
-            
-        sol_amount_rounded = round(sol_amount_to_buy, 4)
-        
-        order_data={
-            "symbol":"SOLUSDT_SPBL",
-            "side":"buy",
-            "orderType":"market",
-            "quantity":str(sol_amount_rounded),
-            "force":"normal"
-        }
-        
-        print(f"\n{'='*60}")
-        print(f"MANUAL BUY ORDER")
-        print(f"Amount: {sol_amount_rounded:.4f} SOL")
-        print(f"Cost: ${usdt_to_spend:.2f} USDT")
-        print(f"Price: ${current_price:.2f}")
-        print(f"{'='*60}\n")
-        
-        result=make_api_request('POST','/api/spot/v1/trade/orders',order_data)
-        
-        if 'error' in result:
-            limit_price=round(current_price*1.005,2)
-            limit_order_data={
-                "symbol":"SOLUSDT_SPBL",
-                "side":"buy",
-                "orderType":"limit",
-                "price":str(limit_price),
-                "quantity":str(sol_amount_rounded),
-                "force":"normal"
-            }
-            result=make_api_request('POST','/api/spot/v1/trade/orders',limit_order_data)
-            
-            if 'error' in result:
-                return jsonify({'status':'error','message':f"Buy failed: {result.get('message')}"})
-        
-        print(f"✅ MANUAL BUY SUCCESSFUL")
-        time.sleep(1)
-        get_current_balances()
-        
-        trading_state.trade_history.append({
-            'time':get_ny_time().isoformat(),
-            'action':'MANUAL BUY',
-            'sol_amount':sol_amount_rounded,
-            'usdt_amount':sol_amount_rounded * current_price,
-            'price':current_price,
-            'interval':'manual',
-            'signals':{}
-        })
-        
-        return jsonify({'status':'success','message':f'{log_message} successful: {sol_amount_rounded:.4f} SOL for ${usdt_to_spend:.2f}'})
-        
-    except Exception as e:
-        return jsonify({'status':'error','message':str(e)})
-
-@app.route('/api/manual_sell',methods=['POST'])
-def manual_sell():
-    """Execute manual sell order with specified amount (percentage or fixed)"""
-    try:
-        percentage = request.args.get('percentage')
-        sol_amount = request.args.get('sol_amount')
-        
-        sol_balance, usdt_balance = get_current_balances()
-        
-        # Try to get price with better error handling
-        ticker_result = make_api_request('GET', '/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL')
-        
-        if 'error' in ticker_result:
-            return jsonify({'status':'error','message':'Failed to get price'})
-        
-        data=ticker_result.get('data',{})
-        price_field=data.get('close') or data.get('last') or data.get('price')
-        if not price_field:
-            return jsonify({'status':'error','message':'Could not get current price'})
-        
-        current_price=float(price_field)
-        
-        if percentage:
-            percentage = int(percentage)
-            if percentage < 1 or percentage > 100:
-                return jsonify({'status':'error','message':'Percentage must be 1-100'})
-            
-            sol_amount_to_sell = sol_balance * (percentage / 100.0)
-            
-            if sol_balance < sol_amount_to_sell:
-                return jsonify({'status':'error','message':f'Insufficient SOL: Need {sol_amount_to_sell:.4f} SOL, have {sol_balance:.4f} SOL'})
-            
-            log_message = f'Manual SELL of {percentage}% of SOL ({sol_amount_to_sell:.4f} SOL)'
-            
-        elif sol_amount:
-            sol_amount_to_sell = float(sol_amount)
-            if sol_amount_to_sell < 0.01 or sol_amount_to_sell > 1000:
-                return jsonify({'status':'error','message':'SOL amount must be 0.01-1000 SOL'})
-            
-            if sol_balance < sol_amount_to_sell:
-                return jsonify({'status':'error','message':f'Insufficient SOL: Need {sol_amount_to_sell} SOL, have {sol_balance} SOL'})
-            
-            log_message = f'Manual SELL of {sol_amount_to_sell} SOL'
-            
-        else:
-            return jsonify({'status':'error','message':'Missing percentage or sol_amount parameter'})
-            
-        sol_amount_rounded=round(sol_amount_to_sell,4)
-        expected_usdt=sol_amount_rounded*current_price
-        
-        order_data={
-            "symbol":"SOLUSDT_SPBL",
-            "side":"sell",
-            "orderType":"market",
-            "quantity":str(sol_amount_rounded),
-            "force":"normal"
-        }
-        
-        print(f"\n{'='*60}")
-        print(f"MANUAL SELL ORDER")
-        print(f"Amount: {sol_amount_rounded:.4f} SOL")
-        print(f"Expected: ${expected_usdt:.2f} USDT")
-        print(f"Price: ${current_price:.2f}")
-        print(f"{'='*60}\n")
-        
-        result=make_api_request('POST','/api/spot/v1/trade/orders',order_data)
-        
-        if 'error' in result:
-            limit_price=round(current_price*0.995,2)
-            limit_order_data={
-                "symbol":"SOLUSDT_SPBL",
-                "side":"sell",
-                "orderType":"limit",
-                "price":str(limit_price),
-                "quantity":str(sol_amount_rounded),
-                "force":"normal"
-            }
-            result=make_api_request('POST','/api/spot/v1/trade/orders',limit_order_data)
-            
-            if 'error' in result:
-                return jsonify({'status':'error','message':f"Sell failed: {result.get('message')}"})
-        
-        print(f"✅ MANUAL SELL SUCCESSFUL")
-        time.sleep(1)
-        get_current_balances()
-        
-        trading_state.trade_history.append({
-            'time':get_ny_time().isoformat(),
-            'action':'MANUAL SELL',
-            'sol_amount':sol_amount_rounded,
-            'usdt_amount':expected_usdt,
-            'price':current_price,
-            'interval':'manual',
-            'signals':{}
-        })
-        
-        return jsonify({'status':'success','message':f'{log_message} successful: {sol_amount_rounded:.4f} SOL for ${expected_usdt:.2f}'})
-        
-    except Exception as e:
-        return jsonify({'status':'error','message':str(e)})
-
 if __name__=='__main__':
     print("\n"+"="*60)
     print("SOLANA TRADING BOT - MACD ONLY STRATEGY")
@@ -942,10 +884,11 @@ if __name__=='__main__':
     print(f"MACD Settings: Fast={config.macd_fast}, Slow={config.macd_slow}, Signal={config.macd_signal}")
     print(f"Interval: {config.indicator_interval}")
     print(f"Check: {config.check_interval} seconds")
-    print("\nAPI Keys from environment variables:")
-    print("- COINCATCH_API_KEY")
-    print("- COINCATCH_API_SECRET") 
-    print("- COINCATCH_PASSPHRASE")
+    print("\nAPI Configuration Check:")
+    print(f"- COINCATCH_API_KEY: {'✅ SET' if config.api_key else '❌ MISSING'}")
+    print(f"- COINCATCH_API_SECRET: {'✅ SET' if config.api_secret else '❌ MISSING'}") 
+    print(f"- COINCATCH_PASSPHRASE: {'✅ SET' if config.passphrase else '❌ MISSING'}")
+    print(f"- API Configured: {'✅ YES' if config.is_configured else '❌ NO'}")
     print("\nStarting server...")
     print("="*60+"\n")
     
