@@ -3,316 +3,809 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CoinCatch Futures Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>SOL Trading Bot</title>
     <style>
-        .api-status {
-            padding: 10px;
-            border-radius: 8px;
-            margin: 10px 0;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #00ffbd 0%, #00a8ff 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
             text-align: center;
-            font-weight: bold;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
-        .status-live {
-            background: rgba(0, 200, 83, 0.1);
-            border: 1px solid var(--success);
-            color: var(--success);
+        
+        .header h1 {
+            color: #00a8ff;
+            font-size: 2.5em;
+            margin-bottom: 10px;
         }
-        .status-error {
-            background: rgba(255, 23, 68, 0.1);
-            border: 1px solid var(--danger);
-            color: var(--danger);
+        
+        .header p {
+            color: #666;
+            font-size: 1.2em;
         }
-        .status-warning {
-            background: rgba(255, 152, 0, 0.1);
-            border: 1px solid var(--warning);
-            color: var(--warning);
-        }
-        .debug-section {
-            margin-top: 20px;
+        
+        .mode-info {
+            background: #e6f7ff;
+            border-left: 4px solid #00a8ff;
             padding: 15px;
-            background: var(--dark-light);
+            margin: 20px 0;
             border-radius: 8px;
-            border: 1px solid var(--border);
+        }
+        
+        .mode-info h3 {
+            color: #0077b6;
+            margin-bottom: 10px;
+        }
+        
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .status-item label {
+            display: block;
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        
+        .status-item .value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-running { color: #28a745 !important; }
+        .status-stopped { color: #dc3545 !important; }
+        
+        .signal-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .signal-table th,
+        .signal-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .signal-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .signal-strong-buy { color: #28a745; font-weight: bold; }
+        .signal-strong-sell { color: #dc3545; font-weight: bold; }
+        .signal-weak-buy { color: #ffc107; font-weight: bold; }
+        .signal-weak-sell { color: #fd7e14; font-weight: bold; }
+        .signal-neutral { color: #6c757d; font-weight: bold; }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #00a8ff;
+        }
+        
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        .start-button {
+            background: #28a745;
+            color: white;
+        }
+        
+        .start-button:hover:not(:disabled) {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .stop-button {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .stop-button:hover:not(:disabled) {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+        
+        .update-button {
+            background: #00a8ff;
+            color: white;
+        }
+        
+        .update-button:hover {
+            background: #0097e6;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 168, 255, 0.3);
+        }
+        
+        .buy-button {
+            background: #28a745;
+            color: white;
+        }
+        
+        .buy-button:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .sell-button {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .sell-button:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
+        }
+        
+        .balance-button {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .balance-button:hover {
+            background: #138496;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(23, 162, 184, 0.3);
+        }
+        
+        .refresh-button {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .refresh-button:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        
+        .warning-box strong {
+            color: #856404;
+        }
+        
+        #result {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .trade-history {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .trade-item {
+            padding: 12px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #00a8ff;
+        }
+        
+        .trade-item .trade-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .trade-item .trade-action {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .trade-buy { color: #28a745; }
+        .trade-sell { color: #dc3545; }
+        
+        .macd-settings {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .macd-setting-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .macd-setting-group label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .macd-setting-group input {
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>CoinCatch Futures Dashboard</h1>
-            <p class="subtitle">Live account data from CoinCatch API</p>
-        </header>
+        <div class="header">
+            <h1>🪙 SOL Trading Bot</h1>
+            <p>MACD Only Strategy</p>
+        </div>
         
-        <div id="dataDisplay" class="data-display" style="display: none;">
-            <div class="card">
-                <h2 class="card-title">
-                    <i>📊</i> Account Overview
-                </h2>
-                
-                <div id="apiStatus" class="api-status"></div>
-                
-                <div class="balance-grid">
-                    <div class="balance-card">
-                        <div class="balance-label">Total Balance (USDT)</div>
-                        <div class="balance-value" id="totalBalance">--</div>
-                    </div>
-                    
-                    <div class="balance-card">
-                        <div class="balance-label">Available Balance (USDT)</div>
-                        <div class="balance-value" id="availableBalance">--</div>
-                    </div>
-                    
-                    <div class="balance-card">
-                        <div class="balance-label">Frozen Balance (USDT)</div>
-                        <div class="balance-value" id="frozenBalance">--</div>
-                    </div>
-                    
-                    <div class="balance-card btc-price">
-                        <div class="balance-label">Bitcoin Price (USDT)</div>
-                        <div class="balance-value" id="btcPrice">--</div>
-                    </div>
+        <div class="mode-info">
+            <h3>💡 STRATEGY: MACD Only - Strong Crossovers</h3>
+            <p>Only trades on strong MACD crossovers with confirming histogram</p>
+        </div>
+        
+        <div class="card">
+            <h2>Bot Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>Status:</label>
+                    <div class="value" id="botStatus">STOPPED</div>
                 </div>
-                
-                <div class="last-update">
-                    Last updated: <span id="lastUpdate">--</span>
-                    <br>
-                    <small id="dataNote" style="color: var(--text-secondary);"></small>
+                <div class="status-item">
+                    <label>Position:</label>
+                    <div class="value" id="position">NONE</div>
                 </div>
-                
-                <div style="margin-top: 20px; text-align: center;">
-                    <button id="refreshBtn" class="btn">
-                        <i>🔄</i> Refresh Data
-                    </button>
-                    <button id="autoRefreshBtn" class="btn btn-secondary">
-                        <i>⏱️</i> Auto Refresh: <span id="autoRefreshStatus">OFF</span>
-                    </button>
-                    <button id="testEndpointsBtn" class="btn btn-secondary">
-                        <i>🔍</i> Test Endpoints
-                    </button>
+                <div class="status-item">
+                    <label>Last Trade:</label>
+                    <div class="value" id="lastTrade">Never</div>
+                </div>
+                <div class="status-item">
+                    <label>Interval:</label>
+                    <div class="value" id="intervalDisplay">15m</div>
                 </div>
             </div>
         </div>
         
-        <div id="loading" class="loading">
-            <p>Connecting to CoinCatch API...</p>
+        <div class="card">
+            <h2>Market Data</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>SOL Price:</label>
+                    <div class="value" id="solPrice">$--</div>
+                </div>
+                <div class="status-item">
+                    <label>USDT:</label>
+                    <div class="value" id="usdtBalance">$--</div>
+                </div>
+                <div class="status-item">
+                    <label>SOL:</label>
+                    <div class="value" id="solBalance">-- SOL</div>
+                </div>
+                <div class="status-item">
+                    <label>Trade Amount:</label>
+                    <div class="value" id="tradeAmountDisplay">50%</div>
+                </div>
+            </div>
         </div>
         
-        <div id="apiError" class="error" style="display: none;">
-            <!-- Error messages will appear here -->
-        </div>
-
-        <div class="debug-section" id="debugInfo" style="display: none;">
-            <h3 class="card-title">API Debug Information</h3>
-            <div id="debugContent"></div>
-        </div>
-
-        <div class="debug-section" id="endpointTest" style="display: none;">
-            <h3 class="card-title">Endpoint Test Results</h3>
-            <div id="endpointResults"></div>
+        <div class="card">
+            <h2>MACD Signal</h2>
+            <table class="signal-table">
+                <thead>
+                    <tr>
+                        <th>Indicator</th>
+                        <th>Signal</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>MACD</td>
+                        <td id="macdSignal">--</td>
+                        <td id="macdAction">--</td>
+                    </tr>
+                    <tr style="font-weight: bold; background: #f8f9fa;">
+                        <td>TRADING SIGNAL</td>
+                        <td colspan="2" id="consensusSignal">--</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
         
-        <footer>
-            <p>This dashboard connects to the official CoinCatch API using your environment variables.</p>
-            <p>If you're seeing errors, the API endpoints may need to be updated.</p>
-        </footer>
+        <div class="card">
+            <h2>⚙ Settings</h2>
+            <div class="form-group">
+                <label>Trade Amount Type:</label>
+                <select id="tradeAmountType" onchange="toggleTradeAmountInput()">
+                    <option value="percentage" selected>Percentage of Balance</option>
+                    <option value="fixed">Fixed SOL Amount</option>
+                </select>
+                <small>Choose between a percentage of your balance or a fixed SOL amount.</small>
+            </div>
+            
+            <div class="form-group" id="percentageTradeGroup">
+                <label>Trade Percentage:</label>
+                <input type="number" id="tradePercentage" value="50" min="1" max="100" step="1">
+                <small>Percentage of available USDT (for BUY) or SOL (for SELL) to trade (1-100%).</small>
+            </div>
+            
+            <div class="form-group" id="fixedTradeGroup" style="display:none;">
+                <label>Fixed SOL Amount:</label>
+                <input type="number" id="solTradeAmount" value="0.1" min="0.01" max="1000" step="0.01">
+                <small>SOL to buy/sell each trade (min: 0.01)</small>
+            </div>
+            
+            <div class="form-group" id="manualTradeGroup">
+                <label>Manual Trade Amount:</label>
+                <input type="number" id="manualTradeAmount" value="50" min="1" max="100" step="1">
+                <small>Percentage of available balance for manual buy/sell (1-100%).</small>
+            </div>
+            
+            <div class="form-group" id="manualFixedTradeGroup" style="display:none;">
+                <label>Manual Trade Amount (SOL):</label>
+                <input type="number" id="manualFixedTradeAmount" value="0.1" min="0.01" max="1000" step="0.01">
+                <small>SOL amount for manual buy/sell (min: 0.01)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Check Interval (seconds):</label>
+                <input type="number" id="checkInterval" value="900" min="60" step="60">
+                <small>How often to check signals (min: 60)</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Timeframe:</label>
+                <select id="indicatorInterval">
+                    <option value="1m">1 Minute</option>
+                    <option value="5m">5 Minutes</option>
+                    <option value="15m" selected>15 Minutes</option>
+                    <option value="30m">30 Minutes</option>
+                    <option value="1H">1 Hour</option>
+                    <option value="4H">4 Hours</option>
+                    <option value="1D">1 Day</option>
+                </select>
+                <small>Candle timeframe for MACD calculation</small>
+            </div>
+            
+            <button onclick="updateSettings()" class="update-button">Update Settings</button>
+        </div>
+        
+        <div class="card">
+            <div class="button-group">
+                <button onclick="startBot()" id="startButton" class="start-button">▶ START BOT</button>
+                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP BOT</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>🎮 Manual Trading</h2>
+            
+            <div class="warning-box">
+                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals
+            </div>
+            
+            <div class="button-group">
+                <button onclick="manualBuy()" class="buy-button">🛒 Manual BUY</button>
+                <button onclick="manualSell()" class="sell-button">💰 Manual SELL</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📊 Trade History</h2>
+            <div class="trade-history" id="tradeHistory">
+                <p style="text-align: center; color: #666;">No trades yet</p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="button-group">
+                <button onclick="refreshData()" class="refresh-button">🔄 Refresh</button>
+                <button onclick="getBalance()" class="balance-button">💰 Balance</button>
+            </div>
+            <div id="result"></div>
+        </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const refreshBtn = document.getElementById('refreshBtn');
-            const autoRefreshBtn = document.getElementById('autoRefreshBtn');
-            const testEndpointsBtn = document.getElementById('testEndpointsBtn');
-            const dataDisplay = document.getElementById('dataDisplay');
-            const loadingDiv = document.getElementById('loading');
-            const apiErrorDiv = document.getElementById('apiError');
-            const apiStatusDiv = document.getElementById('apiStatus');
-            const debugInfo = document.getElementById('debugInfo');
-            const debugContent = document.getElementById('debugContent');
-            const endpointTest = document.getElementById('endpointTest');
-            const endpointResults = document.getElementById('endpointResults');
+        async function apiCall(endpoint, method = 'GET') {
+            try {
+                const response = await fetch(endpoint, { method: method });
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                return { status: 'error', message: 'Network error' };
+            }
+        }
+
+        function formatMACDSignal(value) {
+            if (value === 1) return '<span class="signal-strong-buy">🟢 STRONG BUY</span>';
+            if (value === -1) return '<span class="signal-strong-sell">🔴 STRONG SELL</span>';
+            if (value === 0.5) return '<span class="signal-weak-buy">🟡 WEAK BUY</span>';
+            if (value === -0.5) return '<span class="signal-weak-sell">🟠 WEAK SELL</span>';
+            return '<span class="signal-neutral">⚪ NEUTRAL</span>';
+        }
+
+        function formatMACDAction(value) {
+            if (value === 1) return '<span style="color: #28a745; font-weight: bold;">TRADE - BUY</span>';
+            if (value === -1) return '<span style="color: #dc3545; font-weight: bold;">TRADE - SELL</span>';
+            if (value === 0.5) return '<span style="color: #ffc107;">Watch - Possible Buy</span>';
+            if (value === -0.5) return '<span style="color: #fd7e14;">Watch - Possible Sell</span>';
+            return '<span style="color: #6c757d;">Wait</span>';
+        }
+
+        async function startBot() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: blue">Starting SOL Bot...</div>';
             
-            const totalBalanceEl = document.getElementById('totalBalance');
-            const availableBalanceEl = document.getElementById('availableBalance');
-            const frozenBalanceEl = document.getElementById('frozenBalance');
-            const btcPriceEl = document.getElementById('btcPrice');
-            const lastUpdateEl = document.getElementById('lastUpdate');
-            const dataNoteEl = document.getElementById('dataNote');
-            const autoRefreshStatusEl = document.getElementById('autoRefreshStatus');
+            const data = await apiCall('/api/start_bot', 'POST');
             
-            let autoRefreshInterval = null;
-            let isAutoRefreshOn = false;
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
+                document.getElementById('startButton').disabled = true;
+                document.getElementById('stopButton').disabled = false;
+                setTimeout(refreshData, 1000);
+            } else {
+                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function stopBot() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: blue">Stopping Bot...</div>';
             
-            // Automatically load data when page loads
-            loadData();
+            const data = await apiCall('/api/stop_bot', 'POST');
             
-            // Load data from server
-            async function loadData() {
-                loadingDiv.style.display = 'block';
-                dataDisplay.style.display = 'none';
-                apiErrorDiv.style.display = 'none';
-                debugInfo.style.display = 'none';
-                endpointTest.style.display = 'none';
-                apiStatusDiv.style.display = 'none';
-                
-                try {
-                    const response = await fetch('/api/connect', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({})
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (response.ok) {
-                        updateDisplay(data);
-                        loadingDiv.style.display = 'none';
-                        dataDisplay.style.display = 'block';
-                        
-                        // Set status based on response
-                        if (data.status === 'live') {
-                            apiStatusDiv.textContent = '✅ Connected to CoinCatch API - Live Data';
-                            apiStatusDiv.className = 'api-status status-live';
-                        } else if (data.status === 'public_only') {
-                            apiStatusDiv.textContent = '⚠️ Public API Accessible - Private API Failing';
-                            apiStatusDiv.className = 'api-status status-warning';
-                        } else {
-                            apiStatusDiv.textContent = '❌ API Connection Issues';
-                            apiStatusDiv.className = 'api-status status-error';
-                        }
-                        apiStatusDiv.style.display = 'block';
-                        
-                        if (data.note) {
-                            dataNoteEl.textContent = data.note;
-                        }
-                    } else {
-                        throw new Error(data.error || 'Connection failed');
-                    }
-                    
-                } catch (error) {
-                    console.error('Error loading data:', error);
-                    loadingDiv.style.display = 'none';
-                    showError(error.message);
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: orange">■ ' + data.message + '</div>';
+                document.getElementById('startButton').disabled = false;
+                document.getElementById('stopButton').disabled = true;
+                setTimeout(refreshData, 1000);
+            } else {
+                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function updateSettings() {
+            const tradeType = document.getElementById('tradeAmountType').value;
+            const tradePercentage = document.getElementById('tradePercentage').value;
+            const solAmount = document.getElementById('solTradeAmount').value;
+            const interval = document.getElementById('checkInterval').value;
+            const timeframe = document.getElementById('indicatorInterval').value;
+            
+            const data = await apiCall(
+                `/api/update_settings?trade_type=${tradeType}&trade_percentage=${tradePercentage}&sol_trade_amount=${solAmount}&check_interval=${interval}&indicator_interval=${timeframe}`,
+                'POST'
+            );
+            
+            if (data.status === 'success') {
+                document.getElementById('result').innerHTML = '<div style="color: green">✅ Settings Updated</div>';
+                setTimeout(refreshData, 500);
+            } else {
+                document.getElementById('result').innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function manualBuy() {
+            const tradeType = document.getElementById('tradeAmountType').value;
+            let amount;
+            let queryParam;
+            let confirmMessage;
+            
+            if (tradeType === 'percentage') {
+                amount = parseFloat(document.getElementById('manualTradeAmount').value);
+                if (amount < 1 || amount > 100) {
+                    alert('Percentage must be between 1 and 100.');
+                    return;
                 }
+                queryParam = `percentage=${amount}`;
+                confirmMessage = `Are you sure you want to manually BUY ${amount}% of your available USDT?`;
+            } else {
+                amount = parseFloat(document.getElementById('manualFixedTradeAmount').value);
+                if (amount < 0.01 || amount > 1000) {
+                    alert('Fixed SOL amount must be between 0.01 and 1000 SOL.');
+                    return;
+                }
+                queryParam = `sol_amount=${amount}`;
+                confirmMessage = `Are you sure you want to manually BUY ${amount} SOL?`;
             }
             
-            // Update the display with account data
-            function updateDisplay(data) {
-                totalBalanceEl.textContent = `${parseFloat(data.total_balance).toLocaleString()} USDT`;
-                availableBalanceEl.textContent = `${parseFloat(data.available_balance).toLocaleString()} USDT`;
-                frozenBalanceEl.textContent = `${parseFloat(data.frozen_balance).toLocaleString()} USDT`;
-                btcPriceEl.textContent = `${parseFloat(data.btc_price).toLocaleString()} USDT`;
-                
-                const updateTime = new Date(data.timestamp).toLocaleString();
-                lastUpdateEl.textContent = updateTime;
-                
-                // Show debug info
-                if (data.raw_data || data.debug_info) {
-                    debugContent.innerHTML = `
-                        <div style="font-family: monospace; background: var(--dark); padding: 15px; border-radius: 8px; font-size: 0.8rem; max-height: 200px; overflow-y: auto;">
-                            <strong>API Response:</strong><br>
-                            ${JSON.stringify(data.raw_data || data.debug_info, null, 2)}
-                        </div>
-                    `;
-                    debugInfo.style.display = 'block';
-                }
+            if (!confirm(confirmMessage)) {
+                return;
             }
             
-            // Test API endpoints
-            async function testEndpoints() {
-                try {
-                    const response = await fetch('/api/test-endpoints');
-                    const data = await response.json();
-                    
-                    let html = '<div style="font-family: monospace; background: var(--dark); padding: 15px; border-radius: 8px; font-size: 0.8rem;">';
-                    for (const [endpoint, result] of Object.entries(data)) {
-                        const status = result.status || result.error;
-                        const color = result.status === 200 ? 'green' : (result.status === 404 ? 'orange' : 'red');
-                        html += `<div style="margin: 5px 0;"><span style="color: ${color}">${endpoint}</span> → ${status}</div>`;
-                    }
-                    html += '</div>';
-                    
-                    endpointResults.innerHTML = html;
-                    endpointTest.style.display = 'block';
-                } catch (error) {
-                    endpointResults.innerHTML = `<div class="error">Error testing endpoints: ${error.message}</div>`;
-                    endpointTest.style.display = 'block';
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: blue">⏳ Executing manual BUY...</div>';
+            
+            const data = await apiCall('/api/manual_buy?' + queryParam, 'POST');
+            
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
+                setTimeout(() => {
+                    refreshData();
+                    getBalance();
+                }, 2000);
+            } else {
+                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function manualSell() {
+            const tradeType = document.getElementById('tradeAmountType').value;
+            let amount;
+            let queryParam;
+            let confirmMessage;
+            
+            if (tradeType === 'percentage') {
+                amount = parseFloat(document.getElementById('manualTradeAmount').value);
+                if (amount < 1 || amount > 100) {
+                    alert('Percentage must be between 1 and 100.');
+                    return;
                 }
+                queryParam = `percentage=${amount}`;
+                confirmMessage = `Are you sure you want to manually SELL ${amount}% of your available SOL?`;
+            } else {
+                amount = parseFloat(document.getElementById('manualFixedTradeAmount').value);
+                if (amount < 0.01 || amount > 1000) {
+                    alert('Fixed SOL amount must be between 0.01 and 1000 SOL.');
+                    return;
+                }
+                queryParam = `sol_amount=${amount}`;
+                confirmMessage = `Are you sure you want to manually SELL ${amount} SOL?`;
             }
             
-            // Auto-refresh functionality
-            function startAutoRefresh() {
-                if (autoRefreshInterval) {
-                    clearInterval(autoRefreshInterval);
-                }
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: blue">⏳ Executing manual SELL...</div>';
+            
+            const data = await apiCall('/api/manual_sell?' + queryParam, 'POST');
+            
+            if (data.status === 'success') {
+                result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
+                setTimeout(() => {
+                    refreshData();
+                    getBalance();
+                }, 2000);
+            } else {
+                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+            }
+        }
+
+        async function refreshData() {
+            const data = await apiCall('/api/status');
+            
+            if (data.status === 'success') {
+                document.getElementById('botStatus').textContent = data.is_running ? 'RUNNING' : 'STOPPED';
+                document.getElementById('botStatus').className = 'value ' + (data.is_running ? 'status-running' : 'status-stopped');
                 
-                autoRefreshInterval = setInterval(async () => {
-                    try {
-                        const response = await fetch('/api/connect', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({})
-                        });
-                        
-                        const data = await response.json();
-                        if (response.ok) {
-                            updateDisplay(data);
-                        }
-                    } catch (error) {
-                        console.error('Auto-refresh error:', error);
-                    }
-                }, 30000);
-            }
-            
-            function stopAutoRefresh() {
-                if (autoRefreshInterval) {
-                    clearInterval(autoRefreshInterval);
-                    autoRefreshInterval = null;
-                }
-            }
-            
-            // Toggle auto-refresh
-            function toggleAutoRefresh() {
-                isAutoRefreshOn = !isAutoRefreshOn;
+                document.getElementById('position').textContent = data.last_position || 'NONE';
+                document.getElementById('lastTrade').textContent = data.last_trade_time ? 
+                    new Date(data.last_trade_time).toLocaleString('en-US', {
+                        timeZone: 'America/New_York',
+                        month: '2-digit',
+                        day: '2-digit', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                    }) : 'Never';
+                document.getElementById('intervalDisplay').textContent = data.indicator_interval || '15m';
                 
-                if (isAutoRefreshOn) {
-                    autoRefreshStatusEl.textContent = 'ON';
-                    autoRefreshBtn.classList.add('btn-active');
-                    startAutoRefresh();
+                // Update trade type settings
+                document.getElementById('tradeAmountType').value = data.trade_type || 'percentage';
+                document.getElementById('tradePercentage').value = data.trade_percentage || 50;
+                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
+                
+                // Update mode display
+                if (data.trade_type === 'percentage') {
+                    document.getElementById('tradeAmountDisplay').textContent = (data.trade_percentage || 50) + '%';
                 } else {
-                    autoRefreshStatusEl.textContent = 'OFF';
-                    autoRefreshBtn.classList.remove('btn-active');
-                    stopAutoRefresh();
+                    document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.1) + ' SOL';
+                }
+                
+                toggleTradeAmountInput();
+                document.getElementById('checkInterval').value = data.check_interval || 900;
+                
+                if (data.signals && Object.keys(data.signals).length > 0) {
+                    const macdValue = data.signals.macd || 0;
+                    document.getElementById('macdSignal').innerHTML = formatMACDSignal(macdValue);
+                    document.getElementById('macdAction').innerHTML = formatMACDAction(macdValue);
+                    
+                    let consensusHTML = '';
+                    if (data.signals.consensus === 'BUY') {
+                        consensusHTML = '<span class="signal-strong-buy">🚀 STRONG BUY - TRADING</span>';
+                    } else if (data.signals.consensus === 'SELL') {
+                        consensusHTML = '<span class="signal-strong-sell">📉 STRONG SELL - TRADING</span>';
+                    } else if (data.signals.consensus === 'WEAK_BUY') {
+                        consensusHTML = '<span class="signal-weak-buy">🟡 WEAK BUY - WATCHING</span>';
+                    } else if (data.signals.consensus === 'WEAK_SELL') {
+                        consensusHTML = '<span class="signal-weak-sell">🟠 WEAK SELL - WATCHING</span>';
+                    } else {
+                        consensusHTML = '<span class="signal-neutral">⚪ NEUTRAL - WAITING</span>';
+                    }
+                    document.getElementById('consensusSignal').innerHTML = consensusHTML;
+                }
+                
+                document.getElementById('solBalance').textContent = data.sol_balance ? data.sol_balance.toFixed(4) + ' SOL' : '-- SOL';
+                document.getElementById('usdtBalance').textContent = data.usdt_balance ? '$' + data.usdt_balance.toFixed(2) : '$--';
+                
+                if (data.signals && data.signals.price) {
+                    document.getElementById('solPrice').textContent = '$' + data.signals.price.toFixed(2);
+                }
+                
+                if (data.is_running) {
+                    document.getElementById('startButton').disabled = true;
+                    document.getElementById('stopButton').disabled = false;
+                } else {
+                    document.getElementById('startButton').disabled = false;
+                    document.getElementById('stopButton').disabled = true;
+                }
+                
+                if (data.trade_history && data.trade_history.length > 0) {
+                    const historyHTML = data.trade_history.slice(-10).reverse().map(trade => {
+                        const actionClass = trade.action.includes('BUY') ? 'trade-buy' : 'trade-sell';
+                        const tradeDate = new Date(trade.time);
+                        const formattedTime = tradeDate.toLocaleString('en-US', {
+                            timeZone: 'America/New_York',
+                            month: '2-digit',
+                            day: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                        });
+                        return `
+                            <div class="trade-item">
+                                <div class="trade-time">${formattedTime}</div>
+                                <div class="trade-action ${actionClass}">${trade.action}</div>
+                                <div>${trade.sol_amount.toFixed(4)} SOL @ $${trade.price.toFixed(2)} = $${trade.usdt_amount.toFixed(2)}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    document.getElementById('tradeHistory').innerHTML = historyHTML;
+                } else {
+                    document.getElementById('tradeHistory').innerHTML = '<p style="text-align: center; color: #666;">No trades yet</p>';
                 }
             }
+        }
+
+        async function getBalance() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: blue">Getting balance...</div>';
             
-            // Show error message
-            function showError(message) {
-                apiErrorDiv.innerHTML = `
-                    <strong>CoinCatch API Error:</strong> ${message}
-                    <br><br>
-                    <small>Possible issues:</small>
-                    <ul style="text-align: left; margin: 10px 0;">
-                        <li>Incorrect API endpoints</li>
-                        <li>API key permissions</li>
-                        <li>API documentation may have changed</li>
-                    </ul>
-                    <button onclick="testEndpoints()" class="btn" style="margin-top: 10px;">
-                        <i>🔍</i> Test API Endpoints
-                    </button>
-                `;
-                apiErrorDiv.style.display = 'block';
+            const data = await apiCall('/api/balance');
+            
+            if (data.status === 'success') {
+                document.getElementById('solBalance').textContent = parseFloat(data.sol_balance).toFixed(4) + ' SOL';
+                document.getElementById('usdtBalance').textContent = '$' + parseFloat(data.usdt_balance).toFixed(2);
+                result.innerHTML = '<div style="color: green">✅ Balance updated</div>';
+            } else {
+                result.innerHTML = '<div style="color: red">❌ Failed to get balance</div>';
             }
+        }
+
+        function toggleTradeAmountInput() {
+            const tradeType = document.getElementById('tradeAmountType').value;
+            const percentageGroup = document.getElementById('percentageTradeGroup');
+            const fixedGroup = document.getElementById('fixedTradeGroup');
+            const manualPercentageGroup = document.getElementById('manualTradeGroup');
+            const manualFixedGroup = document.getElementById('manualFixedTradeGroup');
             
-            // Event listeners
-            refreshBtn.addEventListener('click', loadData);
-            autoRefreshBtn.addEventListener('click', toggleAutoRefresh);
-            testEndpointsBtn.addEventListener('click', testEndpoints);
-        });
+            if (tradeType === 'percentage') {
+                percentageGroup.style.display = 'block';
+                fixedGroup.style.display = 'none';
+                manualPercentageGroup.style.display = 'block';
+                manualFixedGroup.style.display = 'none';
+            } else {
+                percentageGroup.style.display = 'none';
+                fixedGroup.style.display = 'block';
+                manualPercentageGroup.style.display = 'none';
+                manualFixedGroup.style.display = 'block';
+            }
+        }
+        
+        setInterval(refreshData, 5000);
+        refreshData();
+        toggleTradeAmountInput(); // Initialize the correct display on load
     </script>
 </body>
 </html>
