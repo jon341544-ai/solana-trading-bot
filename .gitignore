@@ -1,66 +1,6 @@
-# Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-venv/
-env/
-ENV/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment variables
+*.pyc
 .env
-.env.local
-.env.production
-
-# Logs
+.venv
+.DS_Store
 *.log
-logs/
-
-# Flask
-instance/
-
-# Database
-*.db
-*.sqlite3
-
-# Temporary files
-*.tmp
-*.temp
-
-# Security
-secrets.py
-config_secret.py
-
-# Railway
-.railway/
