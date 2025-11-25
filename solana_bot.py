@@ -18,32 +18,34 @@ app = Flask(__name__)
 # Configuration
 class Config:
     def __init__(self):
-        # CoinCatch Configuration (reusing the original structure)
+        # CoinCatch Configuration for Mix API
         self.api_key = os.environ.get('COINCATCH_API_KEY', '')
         self.api_secret = os.environ.get('COINCATCH_API_SECRET', '') 
         self.passphrase = os.environ.get('COINCATCH_PASSPHRASE', '')
         self.base_url = "https://api.coincatch.com"
         self.is_configured = bool(self.api_key and self.api_secret and self.passphrase)
         
-        # Trading parameters - CHANGED TO SOL/USDT
-        self.symbol = 'SOLUSDT_SPBL' # CoinCatch Spot Symbol for SOL/USDT
+        # Trading parameters - USING FUTURES SYMBOL
+        self.symbol = 'SOLUSDT_UMCBL'  # Using Mix symbol instead of Spot
+        self.margin_coin = 'USDT'  # Margin coin for Mix trading
         self.base_asset = 'SOL'
         self.quote_asset = 'USDT'
         
         # Timezone setting - New York (EST/EDT)
         self.timezone = ZoneInfo('America/New_York')
         
-        # Trading parameters - FIXED SOL AMOUNT MODE
-        self.trade_type = 'fixed' # We will simplify to fixed amount for SOL
-        self.trade_amount = 0.1  # Default: Buy/Sell 0.1 SOL each time
+        # Trading parameters
+        self.trade_type = 'fixed'
+        self.trade_amount = 0.1  # Default: 0.1 SOL contracts
         self.check_interval = 900  # Check every 15 minutes
         self.indicator_interval = '15m'
         self.macd_fast = 12
         self.macd_slow = 26
         self.macd_signal = 9
         
-        # Minimum trade amount for SOL/USDT on CoinCatch is typically 0.1 SOL
+        # Minimum trade amount for SOL/USDT Mix
         self.min_trade_amount = 0.1
+        self.product_type = 'umcbl'  # Unified margin contract
 
 config = Config()
 
@@ -65,19 +67,16 @@ class TradingState:
 trading_state = TradingState()
 
 def make_api_request(method, endpoint, data=None):
-    """Make authenticated API request (Reused from original CoinCatch bot)"""
+    """Make authenticated API request for Mix API"""
     if not config.is_configured:
         return {'error': 'API credentials not configured'}
     
     try:
-        # We need to allow requests to pass through even if the bot is stopped, 
-        # especially for balance checks and initial setup.
-        # if not trading_state.is_running and endpoint not in ['/api/spot/v1/account/assets']:
-        #     return {'error': 'Bot stopped'}
-            
         timestamp = str(int(time.time() * 1000))
         body_string = json.dumps(data) if data else ''
         message = f"{timestamp}{method.upper()}{endpoint}{body_string}"
+        
+        print(f"Signing message: {message}")
         
         signature = base64.b64encode(
             hmac.new(
@@ -96,28 +95,64 @@ def make_api_request(method, endpoint, data=None):
         }
 
         url = config.base_url + endpoint
-        timeout = 5
+        timeout = 10
+        
+        print(f"Making {method} request to: {url}")
         
         if method.upper() == 'GET':
-            response = requests.get(url, headers=headers, timeout=timeout)
+            if data and isinstance(data, dict):
+                response = requests.get(url, headers=headers, timeout=timeout, params=data)
+            else:
+                response = requests.get(url, headers=headers, timeout=timeout)
         else:
             response = requests.post(url, headers=headers, json=data, timeout=timeout)
+        
+        print(f"Response status: {response.status_code}")
         
         if response.headers.get('content-type', '').startswith('application/json'):
             response_data = response.json()
         else:
+            response_text = response.text
+            print(f"Non-JSON response: {response_text}")
             return {'error': f'HTTP {response.status_code}', 'message': 'Server returned non-JSON response'}
+        
+        print(f"API Response: {response_data}")
         
         if response.status_code == 200:
             return response_data
         else:
-            return {'error': f'HTTP {response.status_code}', 'message': response_data.get('msg', str(response_data))}
+            error_msg = response_data.get('msg', response_data.get('message', str(response_data)))
+            print(f"API error {response.status_code}: {error_msg}")
+            return {'error': f'HTTP {response.status_code}', 'message': error_msg}
             
+    except requests.exceptions.Timeout:
+        print("API request timeout")
+        return {'error': 'Timeout', 'message': 'Request timed out'}
     except Exception as e:
+        print(f"Request failed: {str(e)}")
         return {'error': f'Request failed: {str(e)}'}
 
+def test_api_connection():
+    """Test API connection with current credentials"""
+    print("Testing API connection...")
+    
+    # Test account endpoint
+    result = make_api_request('GET', '/api/mix/v1/account/accounts', {
+        'symbol': config.symbol,
+        'marginCoin': config.margin_coin
+    })
+    
+    if 'error' in result:
+        print(f"❌ API connection failed: {result.get('message')}")
+        return False
+    else:
+        print("✅ API connection successful!")
+        if 'data' in result:
+            print(f"Account data received")
+        return True
+
 def get_klines(symbol=None, interval=None, limit=100):
-    """Fetch candlestick data (Adapted for SOLUSDT)"""
+    """Fetch candlestick data using Mix API"""
     if symbol is None:
         symbol = config.symbol
         
@@ -125,32 +160,20 @@ def get_klines(symbol=None, interval=None, limit=100):
         interval = config.indicator_interval
         
     try:
-        if not trading_state.is_running:
-            # Allow klines to be fetched for dashboard even if bot is stopped
-            pass
-            
         import time
         end_time = int(time.time() * 1000)
         
-        # CoinCatch klines use a different symbol for futures, but we will use the spot symbol for simplicity
-        # and assume the spot klines endpoint is used, or adapt the original logic to use the mix endpoint
-        # which seems to be what the original bot was doing for BTCUSDT_SPBL.
-        
-        # Replicating the original BTC bot's klines logic (using mix endpoint with a symbol adjustment)
-        interval_map = {'1m': '60', '5m': '300', '15m': '900', '30m': '1800', '1H': '3600', '4H': '14400', '1D': '86400'}
-        granularity = interval_map.get(interval, '900')
-        
-        # The original bot replaced _SPBL with _UMCBL for klines. We will do the same for SOL.
-        symbol_mix = symbol.replace('_SPBL', '_UMCBL')
+        interval_map = {'1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m', '1H': '1H', '4H': '4H', '1D': '1D'}
+        granularity = interval_map.get(interval, '15m')
         
         # Calculate start time for the required number of candles
         interval_minutes = {'1m': 1, '5m': 5, '15m': 15, '30m': 30, '1H': 60, '4H': 240, '1D': 1440}
         minutes_per_candle = interval_minutes.get(interval, 15)
         start_time = end_time - (limit * minutes_per_candle * 60 * 1000)
         
-        endpoint = f'/api/mix/v1/market/candles?symbol={symbol_mix}&granularity={granularity}&startTime={start_time}&endTime={end_time}'
+        endpoint = f'/api/mix/v1/market/candles?symbol={symbol}&granularity={granularity}&startTime={start_time}&endTime={end_time}'
         
-        print(f"Getting {interval} candles for {symbol_mix}...")
+        print(f"Getting {interval} candles for {symbol}...")
         result = make_api_request('GET', endpoint)
         
         if 'error' in result:
@@ -195,7 +218,7 @@ def get_klines(symbol=None, interval=None, limit=100):
         return None
 
 def calculate_macd(df, fast=12, slow=26, signal=9):
-    """Calculate MACD indicator (Reused from original bot)"""
+    """Calculate MACD indicator"""
     try:
         close = df['close']
         
@@ -230,39 +253,48 @@ def calculate_macd(df, fast=12, slow=26, signal=9):
         return 0
 
 def get_current_balances():
-    """Get current SOL and USDT balances (Adapted for SOL)"""
+    """Get current account balances using Mix API"""
     try:
-        result = make_api_request('GET', '/api/spot/v1/account/assets')
+        # Use Mix account endpoint
+        result = make_api_request('GET', '/api/mix/v1/account/accounts', {
+            'symbol': config.symbol,
+            'marginCoin': config.margin_coin
+        })
         
         if 'error' in result:
-            print(f"Failed to get balances: {result.get('message')}")
+            print(f"Failed to get Mix balances: {result.get('message')}")
             return 0.0, 0.0
         
         sol_balance = 0.0
         usdt_balance = 0.0
         
         if result and 'data' in result:
-            assets = result['data']
-            if isinstance(assets, list):
-                for asset in assets:
-                    coin_name = asset.get('coinName', '').upper()
-                    available = asset.get('available', '0')
-                    
-                    if coin_name == config.base_asset: # SOL
-                        sol_balance = float(available) if available else 0.0
-                    elif coin_name == config.quote_asset: # USDT
-                        usdt_balance = float(available) if available else 0.0
+            account_data = result['data']
+            # Get available USDT balance
+            usdt_balance = float(account_data.get('available', 0))
+            
+            # Check for open positions to determine SOL "balance"
+            positions_result = make_api_request('GET', '/api/mix/v1/position/all-position', {
+                'productType': config.product_type
+            })
+            
+            if 'data' in positions_result and positions_result['data']:
+                # If we have open positions, calculate equivalent SOL
+                for position in positions_result['data']:
+                    if position.get('symbol') == config.symbol and position.get('holdSide') == 'long':
+                        sol_balance = float(position.get('total', 0))
+                        break
         
         trading_state.current_sol_balance = sol_balance
         trading_state.current_usdt_balance = usdt_balance
         
         return sol_balance, usdt_balance
     except Exception as e:
-        print(f"Error getting balances: {e}")
+        print(f"Error getting Mix balances: {e}")
         return 0.0, 0.0
 
 def get_trading_signals():
-    """Get signals from MACD indicator only (Reused from original bot)"""
+    """Get signals from MACD indicator only"""
     required_candles = 100
     
     df = get_klines(interval=config.indicator_interval, limit=required_candles)
@@ -295,24 +327,24 @@ def get_trading_signals():
 def get_current_price():
     """Get the current price of the trading pair"""
     try:
-        endpoint = f'/api/spot/v1/market/ticker?symbol={config.symbol}'
+        endpoint = f'/api/mix/v1/market/ticker?symbol={config.symbol}'
         ticker_result = make_api_request('GET', endpoint)
         
         if 'error' in ticker_result:
             print(f"Failed to get price: {ticker_result.get('message')}")
             return None
         
-        # Handle different response formats
+        # Handle response format for Mix API
         current_price = None
         if isinstance(ticker_result, dict):
             if 'data' in ticker_result:
                 data = ticker_result['data']
                 if isinstance(data, dict):
-                    current_price = data.get('close') or data.get('last') or data.get('price') or data.get('lastPr')
+                    current_price = data.get('last') or data.get('close') or data.get('lastPr')
                 elif isinstance(data, list) and len(data) > 0:
-                    current_price = data[0].get('close') or data[0].get('last') or data[0].get('price')
+                    current_price = data[0].get('last') or data[0].get('close')
             else:
-                current_price = ticker_result.get('close') or ticker_result.get('last') or ticker_result.get('price')
+                current_price = ticker_result.get('last') or ticker_result.get('close')
         
         if not current_price:
             print(f"Could not parse price from response: {ticker_result}")
@@ -325,7 +357,7 @@ def get_current_price():
         return None
 
 def execute_buy_order():
-    """Execute buy order for FIXED SOL amount"""
+    """Execute buy order using Mix API (Open Long)"""
     try:
         if not trading_state.is_running:
             return False
@@ -336,69 +368,53 @@ def execute_buy_order():
         if current_price is None:
             return False
         
-        sol_amount = config.trade_amount
-        usdt_to_spend = sol_amount * current_price
+        # For Mix trading, we're opening a long position
+        quantity = config.trade_amount
+        usdt_required = quantity * current_price
         
-        print(f"Fixed Buy: {sol_amount:.6f} SOL = ${usdt_to_spend:.2f} USDT")
+        print(f"Mix Buy (Open Long): {quantity:.6f} SOL = ${usdt_required:.2f} USDT")
             
-        if usdt_balance < usdt_to_spend:
-            print(f"Insufficient USDT: Need ${usdt_to_spend:.2f}, have ${usdt_balance:.2f}")
-            return False
-        
-        if sol_amount < config.min_trade_amount:
-            print(f"Buy amount too small: {sol_amount} SOL (min: {config.min_trade_amount} SOL)")
+        if usdt_balance < usdt_required:
+            print(f"Insufficient USDT margin: Need ${usdt_required:.2f}, have ${usdt_balance:.2f}")
             return False
         
         order_data = {
             "symbol": config.symbol,
-            "side": "buy",
+            "marginCoin": config.margin_coin,
+            "side": "open_long",
             "orderType": "market",
-            "quantity": str(sol_amount),
-            "force": "normal"
+            "size": str(quantity),
+            "productType": config.product_type
         }
         
         print(f"\n{'='*60}")
-        print(f"EXECUTING BUY ORDER (SOL/USDT)")
-        print(f"SOL Amount: {sol_amount:.6f} SOL")
-        print(f"USDT Cost: ${usdt_to_spend:.2f}")
+        print(f"EXECUTING MIX BUY ORDER (OPEN LONG)")
+        print(f"SOL Quantity: {quantity:.6f}")
+        print(f"Margin Required: ${usdt_required:.2f}")
         print(f"Current Price: ${current_price:.2f}")
         print(f"{'='*60}\n")
         
-        result = make_api_request('POST', '/api/spot/v1/trade/orders', order_data)
+        result = make_api_request('POST', '/api/mix/v1/order/placeOrder', order_data)
         
         if not trading_state.is_running:
             return False
             
         if 'error' in result:
-            print(f"Market order failed, trying limit order...")
-            limit_price = round(current_price * 1.005, 2)
-            
-            limit_order_data = {
-                "symbol": config.symbol,
-                "side": "buy",
-                "orderType": "limit",
-                "price": str(limit_price),
-                "quantity": str(sol_amount),
-                "force": "normal"
-            }
-            result = make_api_request('POST', '/api/spot/v1/trade/orders', limit_order_data)
-            
-            if 'error' in result:
-                print(f"Buy order failed: {result.get('message')}")
-                return False
+            print(f"Mix buy order failed: {result.get('message')}")
+            return False
         
-        print(f"✅ BUY ORDER SUCCESSFUL")
+        print(f"✅ MIX BUY ORDER SUCCESSFUL")
         time.sleep(1)
         get_current_balances()
         
-        return sol_amount, usdt_to_spend, current_price
+        return quantity, usdt_required, current_price
         
     except Exception as e:
-        print(f"Error executing buy order: {e}")
+        print(f"Error executing Mix buy order: {e}")
         return False
 
 def execute_sell_order():
-    """Execute sell order - sells FIXED SOL amount"""
+    """Execute sell order using Mix API (Close Long)"""
     try:
         if not trading_state.is_running:
             return False
@@ -409,72 +425,54 @@ def execute_sell_order():
         if current_price is None:
             return False
         
-        sol_amount_to_sell = config.trade_amount
-        expected_usdt = sol_amount_to_sell * current_price
+        # For Mix trading, we're closing a long position
+        quantity = min(config.trade_amount, sol_balance)
+        expected_proceeds = quantity * current_price
             
-        if sol_balance < sol_amount_to_sell:
-            print(f"Insufficient SOL: Need {sol_amount_to_sell:.6f} SOL, have {sol_balance:.6f} SOL")
-            return False
-        
-        if sol_amount_to_sell < config.min_trade_amount:
-            print(f"Sell amount too small: {sol_amount_to_sell} SOL (min: {config.min_trade_amount} SOL)")
+        if sol_balance < quantity:
+            print(f"Insufficient SOL position: Need {quantity:.6f} SOL, have {sol_balance:.6f} SOL")
             return False
         
         order_data = {
             "symbol": config.symbol,
-            "side": "sell",
+            "marginCoin": config.margin_coin,
+            "side": "close_long",
             "orderType": "market",
-            "quantity": str(sol_amount_to_sell),
-            "force": "normal"
+            "size": str(quantity),
+            "productType": config.product_type
         }
         
         print(f"\n{'='*60}")
-        print(f"EXECUTING SELL ORDER (SOL/USDT)")
-        print(f"Selling: {sol_amount_to_sell:.6f} SOL")
+        print(f"EXECUTING MIX SELL ORDER (CLOSE LONG)")
+        print(f"Closing: {quantity:.6f} SOL")
         print(f"Current Price: ${current_price:.2f}")
-        print(f"Expected USDT: ${expected_usdt:.2f}")
+        print(f"Expected Proceeds: ${expected_proceeds:.2f}")
         print(f"{'='*60}\n")
         
-        result = make_api_request('POST', '/api/spot/v1/trade/orders', order_data)
+        result = make_api_request('POST', '/api/mix/v1/order/placeOrder', order_data)
         
         if not trading_state.is_running:
             return False
             
         if 'error' in result:
-            print(f"Market order failed, trying limit order...")
-            limit_price = round(current_price * 0.995, 2)
-            
-            limit_order_data = {
-                "symbol": config.symbol,
-                "side": "sell",
-                "orderType": "limit",
-                "price": str(limit_price),
-                "quantity": str(sol_amount_to_sell),
-                "force": "normal"
-            }
-            
-            result = make_api_request('POST', '/api/spot/v1/trade/orders', limit_order_data)
-            
-            if 'error' in result:
-                error_msg = result.get('message', 'Unknown error')
-                print(f"Sell order failed: {error_msg}")
-                print(f"Full API response: {result}")
-                return False
+            error_msg = result.get('message', 'Unknown error')
+            print(f"Mix sell order failed: {error_msg}")
+            return False
         
-        print(f"✅ SELL ORDER SUCCESSFUL")
+        print(f"✅ MIX SELL ORDER SUCCESSFUL")
         time.sleep(1)
         get_current_balances()
         
-        return sol_amount_to_sell, expected_usdt, current_price
+        return quantity, expected_proceeds, current_price
         
     except Exception as e:
-        print(f"Error executing sell order: {e}")
+        print(f"Error executing Mix sell order: {e}")
         return False
 
-# --- Trading Loop and Web Server Endpoints (Adapted) ---
+# --- Trading Loop and Web Server Endpoints ---
 
 def trading_loop():
-    """Main trading loop - MACD Only (Adapted for SOL/USDT)"""
+    """Main trading loop - MACD Only"""
     print("\n🤖 COINCATCH SOL BOT STARTED - MACD ONLY STRATEGY 🤖")
     print(f"Trading Pair: {config.symbol}")
     print(f"Fixed SOL Amount: {config.trade_amount} SOL")
@@ -502,12 +500,11 @@ def trading_loop():
             
             print(f"\n--- Check at {signals['timestamp']} ---")
             print(f"Price: ${signals['price']:.2f}")
-            print(f"SOL: {sol_balance:.6f} | USDT: ${usdt_balance:.2f}")
+            print(f"SOL Position: {sol_balance:.6f} | Available USDT: ${usdt_balance:.2f}")
             print(f"Trade Amount: {config.trade_amount} SOL")
             print(f"Signal: {signals['consensus']} (MACD: {signals['macd']})")
             
-            # Determine current position: Are we holding SOL or USDT?
-            # Simple position tracking: if SOL balance > trade amount, we are 'in' SOL
+            # Determine current position
             if sol_balance > config.trade_amount * 0.5:
                 current_position = 'SOL'
             else:
@@ -518,7 +515,7 @@ def trading_loop():
             
             # Trading Logic
             if signals['consensus'] in ['BUY', 'WEAK_BUY'] and current_position == 'USDT':
-                print("BUY signal detected and currently holding USDT. Executing Buy (USDT -> SOL)...")
+                print("BUY signal detected and currently holding USDT. Executing Buy (Open Long)...")
                 trade_result = execute_buy_order()
                 if trade_result:
                     amount_traded, cost, price = trade_result
@@ -534,7 +531,7 @@ def trading_loop():
                     trading_state.last_position = 'SOL'
                     
             elif signals['consensus'] in ['SELL', 'WEAK_SELL'] and current_position == 'SOL':
-                print("SELL signal detected and currently holding SOL. Executing Sell (SOL -> USDT)...")
+                print("SELL signal detected and currently holding SOL. Executing Sell (Close Long)...")
                 trade_result = execute_sell_order()
                 if trade_result:
                     amount_traded, proceeds, price = trade_result
@@ -562,7 +559,7 @@ def trading_loop():
             print(f"An error occurred in the trading loop: {e}")
             time.sleep(60) # Wait a minute before retrying
 
-# --- Web Server Endpoints (Adapted) ---
+# --- Web Server Endpoints ---
 
 @app.route('/')
 def index():
@@ -598,6 +595,11 @@ def index():
 def start_bot():
     if not config.is_configured:
         return jsonify({'status': 'error', 'message': 'Configuration missing. Please set COINCATCH_API_KEY, COINCATCH_API_SECRET, and COINCATCH_PASSPHRASE environment variables.'}), 400
+    
+    # Test connection before starting
+    print("Testing API connection before starting bot...")
+    if not test_api_connection():
+        return jsonify({'status': 'error', 'message': 'API connection test failed. Please check your credentials.'}), 400
         
     if not trading_state.is_running:
         trading_state.is_running = True
@@ -611,6 +613,15 @@ def stop_bot():
         trading_state.is_running = False
         return jsonify({'status': 'success', 'message': 'CoinCatch SOL trading bot stopped.'})
     return jsonify({'status': 'info', 'message': 'CoinCatch SOL trading bot is not running.'})
+
+@app.route('/api/test_connection', methods=['GET'])
+def test_connection():
+    """Test API connection endpoint"""
+    success = test_api_connection()
+    if success:
+        return jsonify({'status': 'success', 'message': 'API connection test passed'})
+    else:
+        return jsonify({'status': 'error', 'message': 'API connection test failed'}), 400
 
 @app.route('/api/get_data', methods=['GET'])
 def get_data():
@@ -672,9 +683,6 @@ def get_balances_api():
 @app.route('/api/update_settings', methods=['POST'])
 def update_settings():
     try:
-        # The original bot had percentage/fixed logic, but we simplified to fixed for SOL.
-        # We will only allow updating the fixed amount, interval, and timeframe.
-        
         new_trade_amount = request.args.get('trade_amount', type=float)
         new_check_interval = request.args.get('check_interval', type=int)
         new_indicator_interval = request.args.get('indicator_interval', type=str)
@@ -698,7 +706,6 @@ def manual_buy():
         if not config.is_configured:
             return jsonify({'status': 'error', 'message': 'API credentials not configured'}), 400
             
-        # For manual trade, we will use the fixed amount set in config for simplicity
         trade_result = execute_buy_order()
         
         if trade_result:
@@ -726,7 +733,6 @@ def manual_sell():
         if not config.is_configured:
             return jsonify({'status': 'error', 'message': 'API credentials not configured'}), 400
             
-        # For manual trade, we will use the fixed amount set in config for simplicity
         trade_result = execute_sell_order()
         
         if trade_result:
