@@ -5,660 +5,171 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CoinCatch SOL Trading Bot</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); /* Blue theme for CEX */
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        
-        .header {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        
-        .header h1 {
-            color: #007bff;
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            color: #666;
-            font-size: 1.2em;
-        }
-        
-        .mode-info {
-            background: #e6f7ff;
-            border-left: 4px solid #007bff;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-        }
-        
-        .mode-info h3 {
-            color: #007bff;
-            margin-bottom: 10px;
-        }
-        
-        .card {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-        }
-        
-        .card h2 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 1.5em;
-        }
-        
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .status-item {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-        
-        .status-item label {
-            display: block;
-            color: #666;
-            font-size: 0.9em;
-            margin-bottom: 5px;
-        }
-        
-        .status-item .value {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: #333;
-        }
-        
-        .status-running { color: #28a745 !important; }
-        .status-stopped { color: #dc3545 !important; }
-        
-        .signal-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        
-        .signal-table th,
-        .signal-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .signal-table th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #666;
-        }
-        
-        .signal-strong-buy { color: #28a745; font-weight: bold; }
-        .signal-strong-sell { color: #dc3545; font-weight: bold; }
-        .signal-weak-buy { color: #ffc107; font-weight: bold; }
-        .signal-weak-sell { color: #fd7e14; font-weight: bold; }
-        .signal-neutral { color: #6c757d; font-weight: bold; }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-        }
-        
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: border-color 0.3s;
-        }
-        
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #007bff;
-        }
-        
-        .form-group small {
-            display: block;
-            margin-top: 5px;
-            color: #666;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        
-        button {
-            flex: 1;
-            padding: 15px 30px;
-            font-size: 1.1em;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
-        }
-        
-        .start-button {
-            background: #28a745;
-            color: white;
-        }
-        
-        .start-button:hover:not(:disabled) {
-            background: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
-        }
-        
-        .stop-button {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .stop-button:hover:not(:disabled) {
-            background: #c82333;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
-        }
-        
-        .update-button {
-            background: #007bff;
-            color: white;
-        }
-        
-        .update-button:hover {
-            background: #0056b3;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
-        }
-        
-        .buy-button {
-            background: #28a745;
-            color: white;
-        }
-        
-        .buy-button:hover {
-            background: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
-        }
-        
-        .sell-button {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .sell-button:hover {
-            background: #c82333;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(220, 53, 69, 0.3);
-        }
-        
-        .balance-button {
-            background: #17a2b8;
-            color: white;
-        }
-        
-        .balance-button:hover {
-            background: #138496;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(23, 162, 184, 0.3);
-        }
-        
-        .refresh-button {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .refresh-button:hover {
-            background: #5a6268;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(108, 117, 125, 0.3);
-        }
-        
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .warning-box {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 8px;
-        }
-        
-        .warning-box strong {
-            color: #856404;
-        }
-        
-        #result {
-            margin-top: 15px;
-            padding: 12px;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: 500;
-        }
-        
-        .trade-history {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        .trade-item {
-            padding: 12px;
-            margin-bottom: 10px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #007bff;
-        }
-        
-        .trade-item .trade-time {
-            color: #666;
-            font-size: 0.9em;
-        }
-        
-        .trade-item .trade-action {
-            font-weight: bold;
-            margin: 5px 0;
-        }
-        
-        .trade-buy { color: #28a745; }
-        .trade-sell { color: #dc3545; }
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .status-running { color: green; font-weight: bold; }
+        .status-stopped { color: red; font-weight: bold; }
+        .btn { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-start { background: #4CAF50; color: white; }
+        .btn-stop { background: #f44336; color: white; }
+        .btn-test { background: #2196F3; color: white; }
+        .btn-manual { background: #FF9800; color: white; }
+        .balance { font-size: 1.2em; margin: 10px 0; }
+        .signal-buy { color: green; }
+        .signal-sell { color: red; }
+        .signal-neutral { color: orange; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>CoinCatch SOL Trading Bot</h1>
-            <p>MACD Only Strategy on SOL/USDT Spot</p>
-        </div>
+        <h1>🤖 CoinCatch SOL Trading Bot</h1>
         
-        <div class="mode-info">
-            <h3>💡 STRATEGY: MACD Only - Strong Crossovers</h3>
-            <p>Trades SOL/USDT on CoinCatch spot market using MACD signals.</p>
-        </div>
-        
+        <!-- Status Card -->
         <div class="card">
-            <h2>Bot Status</h2>
-            <div class="status-grid">
-                <div class="status-item">
-                    <label>Status:</label>
-                    <div class="value" id="botStatus">STOPPED</div>
-                </div>
-                <div class="status-item">
-                    <label>Position:</label>
-                    <div class="value" id="position">NONE</div>
-                </div>
-                <div class="status-item">
-                    <label>Last Trade:</label>
-                    <div class="value" id="lastTrade">Never</div>
-                </div>
-                <div class="status-item">
-                    <label>Interval:</label>
-                    <div class="value" id="intervalDisplay">15m</div>
+            <h2>Bot Status: 
+                <span class="{% if is_running %}status-running{% else %}status-stopped{% endif %}">
+                    {% if is_running %}RUNNING{% else %}STOPPED{% endif %}
+                </span>
+            </h2>
+            <button class="btn btn-start" onclick="startBot()">Start Bot</button>
+            <button class="btn btn-stop" onclick="stopBot()">Stop Bot</button>
+            <button class="btn btn-test" onclick="testConnection()">Test Connection</button>
+        </div>
+
+        <!-- Balances Card -->
+        <div class="card">
+            <h2>Account Balances</h2>
+            <div class="balance">SOL Balance: {{ sol_balance }}</div>
+            <div class="balance">USDT Balance: {{ usdt_balance }}</div>
+            <div class="balance">SOL Price: {{ sol_price }}</div>
+            <div class="balance">SOL Value: ${{ sol_value }}</div>
+            <div class="balance">Total Value: ${{ total_value }}</div>
+        </div>
+
+        <!-- Trading Info Card -->
+        <div class="card">
+            <h2>Trading Information</h2>
+            <div>Last Trade: {{ last_trade_time }}</div>
+            <div>Trade Amount: {{ trade_amount }}</div>
+            <div>Check Interval: {{ check_interval }} seconds</div>
+            <div>Indicator Interval: {{ indicator_interval }}</div>
+            <div>MACD Settings: {{ macd_settings }}</div>
+            
+            {% if last_signals %}
+            <div>
+                <h3>Last Signals</h3>
+                <div>Time: {{ last_signals.timestamp }}</div>
+                <div>Price: ${{ "%.2f"|format(last_signals.price) }}</div>
+                <div class="signal-{{ last_signals.consensus|lower|replace('_', '-') }}">
+                    Signal: {{ last_signals.consensus }} (MACD: {{ last_signals.macd }})
                 </div>
             </div>
+            {% endif %}
         </div>
-        
+
+        <!-- Manual Trading Card -->
         <div class="card">
-            <h2>Portfolio & Market Data</h2>
-            <div class="status-grid">
-                <div class="status-item">
-                    <label>SOL Price (USDT):</label>
-                    <div class="value" id="solPrice">$--</div>
-                </div>
-                <div class="status-item">
-                    <label>USDT Balance:</label>
-                    <div class="value" id="usdtBalance">$--</div>
-                </div>
-                <div class="status-item">
-                    <label>SOL Balance:</label>
-                    <div class="value" id="solBalance">-- SOL</div>
-                </div>
-                <div class="status-item">
-                    <label>SOL Value (USDT):</label>
-                    <div class="value" id="solValue">$--</div>
-                </div>
-                <div class="status-item">
-                    <label>Total Portfolio Value:</label>
-                    <div class="value" id="totalValue">$--</div>
-                </div>
-                <div class="status-item">
-                    <label>Trade Amount:</label>
-                    <div class="value" id="tradeAmountDisplay">--</div>
-                </div>
-            </div>
+            <h2>Manual Trading</h2>
+            <button class="btn btn-manual" onclick="manualBuy()">Manual BUY</button>
+            <button class="btn btn-manual" onclick="manualSell()">Manual SELL</button>
         </div>
-        
+
+        <!-- Trade History Card -->
         <div class="card">
-            <h2>MACD Signal</h2>
-            <table class="signal-table">
+            <h2>Trade History</h2>
+            {% if trade_history %}
+            <table>
                 <thead>
                     <tr>
-                        <th>Indicator</th>
-                        <th>Signal</th>
+                        <th>Time</th>
                         <th>Action</th>
+                        <th>SOL Amount</th>
+                        <th>Price</th>
+                        <th>Signal</th>
                     </tr>
                 </thead>
                 <tbody>
+                    {% for trade in trade_history|reverse %}
                     <tr>
-                        <td>MACD</td>
-                        <td id="macdSignal">--</td>
-                        <td id="macdAction">--</td>
+                        <td>{{ trade.time }}</td>
+                        <td>{{ trade.action }}</td>
+                        <td>{{ "%.6f"|format(trade.amount_sol) }}</td>
+                        <td>${{ "%.2f"|format(trade.price_sol) }}</td>
+                        <td>{{ trade.signal }}</td>
                     </tr>
-                    <tr style="font-weight: bold; background: #f8f9fa;">
-                        <td>TRADING SIGNAL</td>
-                        <td colspan="2" id="consensusSignal">--</td>
-                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
-        </div>
-        
-        <div class="card">
-            <h2>⚙ Settings</h2>
-            <div class="form-group">
-                <label>Fixed SOL Trade Amount:</label>
-                <input type="number" id="tradeAmountSol" value="0.1" min="0.1" step="0.1">
-                <small>Fixed amount of SOL to buy/sell each trade (min: 0.1 SOL).</small>
-            </div>
-            
-            <div class="form-group">
-                <label>Check Interval (seconds):</label>
-                <input type="number" id="checkInterval" value="900" min="60" step="60">
-                <small>How often to check signals (min: 60)</small>
-            </div>
-            
-            <div class="form-group">
-                <label>Timeframe:</label>
-                <select id="indicatorInterval">
-                    <option value="1m">1 Minute</option>
-                    <option value="5m">5 Minutes</option>
-                    <option value="15m" selected>15 Minutes</option>
-                    <option value="30m">30 Minutes</option>
-                    <option value="1H">1 Hour</option>
-                    <option value="4H">4 Hours</option>
-                    <option value="1D">1 Day</option>
-                </select>
-                <small>Candle timeframe for MACD calculation.</small>
-            </div>
-            
-            <button onclick="updateSettings()" class="update-button">Update Settings</button>
-        </div>
-        
-        <div class="card">
-            <div class="button-group">
-                <button onclick="startBot()" id="startButton" class="start-button">▶ START BOT</button>
-                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP BOT</button>
-            </div>
-        </div>
-        
-        <div class="card">
-            <h2>🎮 Manual Trading</h2>
-            
-            <div class="warning-box">
-                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals. Uses the fixed SOL trade amount set above.
-            </div>
-            
-            <div class="button-group">
-                <button onclick="manualBuy()" class="buy-button">🛒 Manual BUY (USDT -> SOL)</button>
-                <button onclick="manualSell()" class="sell-button">💰 Manual SELL (SOL -> USDT)</button>
-            </div>
-        </div>
-        
-        <div class="card">
-            <h2>📊 Trade History</h2>
-            <div class="trade-history" id="tradeHistory">
-                <p style="text-align: center; color: #666;">No trades yet</p>
-            </div>
-        </div>
-        
-        <div class="card">
-            <div class="button-group">
-                <button onclick="refreshData()" class="refresh-button">🔄 Refresh</button>
-                <button onclick="getBalance()" class="balance-button">💰 Get Balances</button>
-            </div>
-            <div id="result"></div>
+            {% else %}
+            <p>No trades yet.</p>
+            {% endif %}
         </div>
     </div>
 
     <script>
-        async function apiCall(endpoint, method = 'GET') {
-            try {
-                const response = await fetch(endpoint, { method: method });
-                return await response.json();
-            } catch (error) {
-                console.error('API call failed:', error);
-                return { status: 'error', message: 'Network error' };
-            }
-        }
-
-        function formatMACDSignal(value) {
-            if (value === 1) return '<span class="signal-strong-buy">🟢 STRONG BUY</span>';
-            if (value === -1) return '<span class="signal-strong-sell">🔴 STRONG SELL</span>';
-            if (value === 0.5) return '<span class="signal-weak-buy">🟡 WEAK BUY</span>';
-            if (value === -0.5) return '<span class="signal-weak-sell">🟠 WEAK SELL</span>';
-            return '<span class="signal-neutral">⚪ NEUTRAL</span>';
-        }
-
-        function formatMACDAction(value) {
-            if (value === 1) return '<span style="color: #28a745; font-weight: bold;">TRADE - BUY (USDT->SOL)</span>';
-            if (value === -1) return '<span style="color: #dc3545; font-weight: bold;">TRADE - SELL (SOL->USDT)</span>';
-            if (value === 0.5) return '<span style="color: #ffc107;">Watch - Possible Buy</span>';
-            if (value === -0.5) return '<span style="color: #fd7e14;">Watch - Possible Sell</span>';
-            return '<span style="color: #6c757d;">Wait</span>';
-        }
-
-        async function startBot() {
-            const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: #007bff;">Starting CoinCatch SOL Bot...</div>';
-            
-            const data = await apiCall('/start', 'POST');
-            
-            if (data.status === 'success') {
-                result.innerHTML = '<div style="color: #28a745;">✅ ' + data.message + '</div>';
-                document.getElementById('startButton').disabled = true;
-                document.getElementById('stopButton').disabled = false;
-                setTimeout(refreshData, 1000);
-            } else {
-                result.innerHTML = '<div style="color: red;">❌ ' + data.message + '</div>';
-            }
-        }
-
-        async function stopBot() {
-            const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: #007bff;">Stopping Bot...</div>';
-            
-            const data = await apiCall('/stop', 'POST');
-            
-            if (data.status === 'success') {
-                result.innerHTML = '<div style="color: orange;">■ ' + data.message + '</div>';
-                document.getElementById('startButton').disabled = false;
-                document.getElementById('stopButton').disabled = true;
-                setTimeout(refreshData, 1000);
-            } else {
-                result.innerHTML = '<div style="color: red;">❌ ' + data.message + '</div>';
-            }
-        }
-
-        async function updateSettings() {
-            const tradeAmount = document.getElementById('tradeAmountSol').value;
-            const interval = document.getElementById('checkInterval').value;
-            const timeframe = document.getElementById('indicatorInterval').value;
-            
-            const data = await apiCall(
-                `/api/update_settings?trade_amount=${tradeAmount}&check_interval=${interval}&indicator_interval=${timeframe}`,
-                'POST'
-            );
-            
-            if (data.status === 'success') {
-                document.getElementById('result').innerHTML = '<div style="color: #28a745;">✅ Settings Updated</div>';
-                setTimeout(refreshData, 500);
-            } else {
-                document.getElementById('result').innerHTML = '<div style="color: red;">❌ ' + data.message + '</div>';
-            }
-        }
-
-        async function manualBuy() {
-            const confirmMessage = `Are you sure you want to manually BUY the fixed SOL amount? (USDT -> SOL)`;
-            if (!confirm(confirmMessage)) return;
-            
-            const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: #007bff;">Executing Manual Buy...</div>';
-            
-            const data = await apiCall(`/api/manual_buy`, 'POST');
-            
-            if (data.status === 'success') {
-                result.innerHTML = '<div style="color: #28a745;">✅ Manual Buy Successful!</div>';
-                setTimeout(refreshData, 1000);
-            } else {
-                result.innerHTML = '<div style="color: red;">❌ Manual Buy Failed: ' + data.message + '</div>';
-            }
-        }
-
-        async function manualSell() {
-            const confirmMessage = `Are you sure you want to manually SELL the fixed SOL amount? (SOL -> USDT)`;
-            if (!confirm(confirmMessage)) return;
-            
-            const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: #007bff;">Executing Manual Sell...</div>';
-            
-            const data = await apiCall(`/api/manual_sell`, 'POST');
-            
-            if (data.status === 'success') {
-                result.innerHTML = '<div style="color: #28a745;">✅ Manual Sell Successful!</div>';
-                setTimeout(refreshData, 1000);
-            } else {
-                result.innerHTML = '<div style="color: red;">❌ Manual Sell Failed: ' + data.message + '</div>';
-            }
-        }
-
-        async function getBalance() {
-            const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: #007bff;">Fetching balances...</div>';
-            
-            const data = await apiCall('/api/get_balances');
-            
-            if (data.status === 'success') {
-                result.innerHTML = '<div style="color: #28a745;">✅ Balances Refreshed</div>';
-                updateDashboard(data);
-            } else {
-                result.innerHTML = '<div style="color: red;">❌ Failed to fetch balances: ' + data.message + '</div>';
-            }
-        }
-
-        async function refreshData() {
-            const data = await apiCall('/api/get_data');
-            updateDashboard(data);
-        }
-
-        function updateDashboard(data) {
-            if (!data || data.status === 'error') {
-                console.error("Failed to update dashboard:", data ? data.message : "No data");
-                return;
-            }
-            
-            // Bot Status
-            const isRunning = data.is_running;
-            document.getElementById('botStatus').textContent = isRunning ? 'RUNNING' : 'STOPPED';
-            document.getElementById('botStatus').className = 'value ' + (isRunning ? 'status-running' : 'status-stopped');
-            document.getElementById('startButton').disabled = isRunning;
-            document.getElementById('stopButton').disabled = !isRunning;
-            
-            // Portfolio & Market Data
-            document.getElementById('solPrice').textContent = data.sol_price ? `$${parseFloat(data.sol_price).toFixed(2)}` : 'N/A';
-            document.getElementById('usdtBalance').textContent = `$${parseFloat(data.usdt_balance).toFixed(2)}`;
-            document.getElementById('solBalance').textContent = `${parseFloat(data.sol_balance).toFixed(6)} SOL`;
-            document.getElementById('solValue').textContent = `$${parseFloat(data.sol_value).toFixed(2)}`;
-            document.getElementById('totalValue').textContent = `$${parseFloat(data.total_value).toFixed(2)}`;
-            document.getElementById('tradeAmountDisplay').textContent = data.trade_amount;
-            
-            // Status Grid
-            document.getElementById('position').textContent = data.last_position || 'USDT';
-            document.getElementById('lastTrade').textContent = data.last_trade_time || 'Never';
-            document.getElementById('intervalDisplay').textContent = data.indicator_interval;
-
-            // MACD Signal
-            const signals = data.last_signals;
-            if (signals && signals.macd !== undefined) {
-                document.getElementById('macdSignal').innerHTML = formatMACDSignal(signals.macd);
-                document.getElementById('macdAction').innerHTML = formatMACDAction(signals.macd);
-                document.getElementById('consensusSignal').textContent = signals.consensus;
-            } else {
-                document.getElementById('macdSignal').textContent = '--';
-                document.getElementById('macdAction').textContent = '--';
-                document.getElementById('consensusSignal').textContent = '--';
-            }
-
-            // Trade History
-            const historyDiv = document.getElementById('tradeHistory');
-            historyDiv.innerHTML = '';
-            if (data.trade_history && data.trade_history.length > 0) {
-                data.trade_history.reverse().forEach(trade => {
-                    const actionClass = trade.action.includes('BUY') ? 'trade-buy' : 'trade-sell';
-                    const amountText = trade.action.includes('BUY') 
-                        ? `Bought ${parseFloat(trade.amount_sol).toFixed(6)} SOL for $${parseFloat(trade.cost_usdt).toFixed(2)} USDT`
-                        : `Sold ${parseFloat(trade.amount_sol).toFixed(6)} SOL for $${parseFloat(trade.proceeds_usdt).toFixed(2)} USDT`;
-                    
-                    historyDiv.innerHTML += `
-                        <div class="trade-item">
-                            <div class="trade-time">${trade.time}</div>
-                            <div class="trade-action ${actionClass}">${trade.action} - ${amountText} @ $${parseFloat(trade.price_sol).toFixed(2)}</div>
-                        </div>
-                    `;
+        function startBot() {
+            fetch('/start', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    if (data.status === 'success') {
+                        location.reload();
+                    }
                 });
-            } else {
-                historyDiv.innerHTML = '<p style="text-align: center; color: #666;">No trades yet</p>';
-            }
-            
-            // Settings
-            document.getElementById('tradeAmountSol').value = parseFloat(data.trade_amount.split(' ')[0]);
-            document.getElementById('checkInterval').value = data.check_interval;
-            document.getElementById('indicatorInterval').value = data.indicator_interval;
         }
 
-        // Initial load
-        document.addEventListener('DOMContentLoaded', () => {
-            refreshData();
-            // Refresh data every 10 seconds
-            setInterval(refreshData, 10000);
-        });
+        function stopBot() {
+            fetch('/stop', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    if (data.status === 'success') {
+                        location.reload();
+                    }
+                });
+        }
+
+        function testConnection() {
+            fetch('/api/test_connection')
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                });
+        }
+
+        function manualBuy() {
+            if (confirm('Execute manual BUY order?')) {
+                fetch('/api/manual_buy', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                        if (data.status === 'success') {
+                            location.reload();
+                        }
+                    });
+            }
+        }
+
+        function manualSell() {
+            if (confirm('Execute manual SELL order?')) {
+                fetch('/api/manual_sell', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                        if (data.status === 'success') {
+                            location.reload();
+                        }
+                    });
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            location.reload();
+        }, 30000);
     </script>
 </body>
 </html>
