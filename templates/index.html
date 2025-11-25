@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOL Trading Bot</title>
+    <title>Solana Trading Bot</title>
     <style>
         * {
             margin: 0;
@@ -13,7 +13,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #00ffbd 0%, #00a8ff 100%);
+            background: linear-gradient(135deg, #9945FF 0%, #14F195 100%); /* Solana colors */
             min-height: 100vh;
             padding: 20px;
         }
@@ -33,7 +33,7 @@
         }
         
         .header h1 {
-            color: #00a8ff;
+            color: #9945FF; /* Solana Purple */
             font-size: 2.5em;
             margin-bottom: 10px;
         }
@@ -45,14 +45,14 @@
         
         .mode-info {
             background: #e6f7ff;
-            border-left: 4px solid #00a8ff;
+            border-left: 4px solid #14F195; /* Solana Green */
             padding: 15px;
             margin: 20px 0;
             border-radius: 8px;
         }
         
         .mode-info h3 {
-            color: #0077b6;
+            color: #9945FF;
             margin-bottom: 10px;
         }
         
@@ -96,7 +96,7 @@
             color: #333;
         }
         
-        .status-running { color: #28a745 !important; }
+        .status-running { color: #14F195 !important; }
         .status-stopped { color: #dc3545 !important; }
         
         .signal-table {
@@ -118,10 +118,10 @@
             color: #666;
         }
         
-        .signal-strong-buy { color: #28a745; font-weight: bold; }
+        .signal-strong-buy { color: #14F195; font-weight: bold; }
         .signal-strong-sell { color: #dc3545; font-weight: bold; }
-        .signal-weak-buy { color: #ffc107; font-weight: bold; }
-        .signal-weak-sell { color: #fd7e14; font-weight: bold; }
+        .signal-weak-buy { color: #9945FF; font-weight: bold; }
+        .signal-weak-sell { color: #ffc107; font-weight: bold; }
         .signal-neutral { color: #6c757d; font-weight: bold; }
         
         .form-group {
@@ -148,7 +148,7 @@
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #00a8ff;
+            border-color: #9945FF;
         }
         
         .form-group small {
@@ -175,14 +175,14 @@
         }
         
         .start-button {
-            background: #28a745;
-            color: white;
+            background: #14F195;
+            color: black;
         }
         
         .start-button:hover:not(:disabled) {
-            background: #218838;
+            background: #00c778;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+            box-shadow: 0 5px 15px rgba(20, 241, 149, 0.3);
         }
         
         .stop-button {
@@ -197,25 +197,25 @@
         }
         
         .update-button {
-            background: #00a8ff;
+            background: #9945FF;
             color: white;
         }
         
         .update-button:hover {
-            background: #0097e6;
+            background: #7a37cc;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 168, 255, 0.3);
+            box-shadow: 0 5px 15px rgba(153, 69, 255, 0.3);
         }
         
         .buy-button {
-            background: #28a745;
-            color: white;
+            background: #14F195;
+            color: black;
         }
         
         .buy-button:hover {
-            background: #218838;
+            background: #00c778;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+            box-shadow: 0 5px 15px rgba(20, 241, 149, 0.3);
         }
         
         .sell-button {
@@ -230,14 +230,14 @@
         }
         
         .balance-button {
-            background: #17a2b8;
+            background: #9945FF;
             color: white;
         }
         
         .balance-button:hover {
-            background: #138496;
+            background: #7a37cc;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(23, 162, 184, 0.3);
+            box-shadow: 0 5px 15px rgba(153, 69, 255, 0.3);
         }
         
         .refresh-button {
@@ -286,7 +286,7 @@
             margin-bottom: 10px;
             background: #f8f9fa;
             border-radius: 8px;
-            border-left: 4px solid #00a8ff;
+            border-left: 4px solid #9945FF;
         }
         
         .trade-item .trade-time {
@@ -299,44 +299,28 @@
             margin: 5px 0;
         }
         
-        .trade-buy { color: #28a745; }
+        .trade-buy { color: #14F195; }
         .trade-sell { color: #dc3545; }
         
-        .macd-settings {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 15px;
-        }
-        
-        .macd-setting-group {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .macd-setting-group label {
+        .wallet-address {
             font-size: 0.8em;
             color: #666;
-            margin-bottom: 5px;
-        }
-        
-        .macd-setting-group input {
-            padding: 8px;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
+            word-break: break-all;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🪙 SOL Trading Bot</h1>
-            <p>MACD Only Strategy</p>
+            <h1>☀️ Solana Trading Bot</h1>
+            <p>MACD Only Strategy on Jupiter DEX</p>
+            <div class="wallet-address">Wallet: <span id="walletAddress">--</span></div>
         </div>
         
         <div class="mode-info">
-            <h3>💡 STRATEGY: MACD Only - Strong Crossovers</h3>
-            <p>Only trades on strong MACD crossovers with confirming histogram</p>
+            <h3>⚠️ DEX Trading Note</h3>
+            <p>This bot uses the Jupiter Aggregator API for swaps. The current implementation **simulates** the final transaction signing and sending. For live trading, you must securely implement the on-chain transaction logic using your private key.</p>
         </div>
         
         <div class="card">
@@ -362,23 +346,31 @@
         </div>
         
         <div class="card">
-            <h2>Market Data</h2>
+            <h2>Portfolio & Market Data</h2>
             <div class="status-grid">
                 <div class="status-item">
-                    <label>SOL Price:</label>
+                    <label>SOL Price (USDC):</label>
                     <div class="value" id="solPrice">$--</div>
                 </div>
                 <div class="status-item">
-                    <label>USDT:</label>
-                    <div class="value" id="usdtBalance">$--</div>
+                    <label>USDC Balance:</label>
+                    <div class="value" id="usdcBalance">$--</div>
                 </div>
                 <div class="status-item">
-                    <label>SOL:</label>
+                    <label>SOL Balance:</label>
                     <div class="value" id="solBalance">-- SOL</div>
                 </div>
                 <div class="status-item">
+                    <label>SOL Value (USDC):</label>
+                    <div class="value" id="solValue">$--</div>
+                </div>
+                <div class="status-item">
+                    <label>Total Portfolio Value:</label>
+                    <div class="value" id="totalValue">$--</div>
+                </div>
+                <div class="status-item">
                     <label>Trade Amount:</label>
-                    <div class="value" id="tradeAmountDisplay">50%</div>
+                    <div class="value" id="tradeAmountDisplay">--</div>
                 </div>
             </div>
         </div>
@@ -410,36 +402,9 @@
         <div class="card">
             <h2>⚙ Settings</h2>
             <div class="form-group">
-                <label>Trade Amount Type:</label>
-                <select id="tradeAmountType" onchange="toggleTradeAmountInput()">
-                    <option value="percentage" selected>Percentage of Balance</option>
-                    <option value="fixed">Fixed SOL Amount</option>
-                </select>
-                <small>Choose between a percentage of your balance or a fixed SOL amount.</small>
-            </div>
-            
-            <div class="form-group" id="percentageTradeGroup">
-                <label>Trade Percentage:</label>
-                <input type="number" id="tradePercentage" value="50" min="1" max="100" step="1">
-                <small>Percentage of available USDT (for BUY) or SOL (for SELL) to trade (1-100%).</small>
-            </div>
-            
-            <div class="form-group" id="fixedTradeGroup" style="display:none;">
-                <label>Fixed SOL Amount:</label>
-                <input type="number" id="solTradeAmount" value="0.1" min="0.01" max="1000" step="0.01">
-                <small>SOL to buy/sell each trade (min: 0.01)</small>
-            </div>
-            
-            <div class="form-group" id="manualTradeGroup">
-                <label>Manual Trade Amount:</label>
-                <input type="number" id="manualTradeAmount" value="50" min="1" max="100" step="1">
-                <small>Percentage of available balance for manual buy/sell (1-100%).</small>
-            </div>
-            
-            <div class="form-group" id="manualFixedTradeGroup" style="display:none;">
-                <label>Manual Trade Amount (SOL):</label>
-                <input type="number" id="manualFixedTradeAmount" value="0.1" min="0.01" max="1000" step="0.01">
-                <small>SOL amount for manual buy/sell (min: 0.01)</small>
+                <label>Trade Amount (USDC Equivalent):</label>
+                <input type="number" id="tradeAmountUsdc" value="10.0" min="1" step="1">
+                <small>Fixed amount of USDC to swap for SOL, or SOL to swap for USDC (e.g., 10 means $10 USDC worth of SOL).</small>
             </div>
             
             <div class="form-group">
@@ -459,7 +424,7 @@
                     <option value="4H">4 Hours</option>
                     <option value="1D">1 Day</option>
                 </select>
-                <small>Candle timeframe for MACD calculation</small>
+                <small>Candle timeframe for MACD calculation (data fetched from Binance).</small>
             </div>
             
             <button onclick="updateSettings()" class="update-button">Update Settings</button>
@@ -476,12 +441,18 @@
             <h2>🎮 Manual Trading</h2>
             
             <div class="warning-box">
-                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals
+                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals.
+            </div>
+            
+            <div class="form-group">
+                <label>Manual Trade Amount (USDC Equivalent):</label>
+                <input type="number" id="manualTradeAmountUsdc" value="10.0" min="1" step="1">
+                <small>USDC equivalent amount for manual buy/sell.</small>
             </div>
             
             <div class="button-group">
-                <button onclick="manualBuy()" class="buy-button">🛒 Manual BUY</button>
-                <button onclick="manualSell()" class="sell-button">💰 Manual SELL</button>
+                <button onclick="manualBuy()" class="buy-button">🛒 Manual BUY (USDC -> SOL)</button>
+                <button onclick="manualSell()" class="sell-button">💰 Manual SELL (SOL -> USDC)</button>
             </div>
         </div>
         
@@ -495,7 +466,7 @@
         <div class="card">
             <div class="button-group">
                 <button onclick="refreshData()" class="refresh-button">🔄 Refresh</button>
-                <button onclick="getBalance()" class="balance-button">💰 Balance</button>
+                <button onclick="getBalance()" class="balance-button">💰 Get Balances</button>
             </div>
             <div id="result"></div>
         </div>
@@ -521,291 +492,202 @@
         }
 
         function formatMACDAction(value) {
-            if (value === 1) return '<span style="color: #28a745; font-weight: bold;">TRADE - BUY</span>';
-            if (value === -1) return '<span style="color: #dc3545; font-weight: bold;">TRADE - SELL</span>';
-            if (value === 0.5) return '<span style="color: #ffc107;">Watch - Possible Buy</span>';
-            if (value === -0.5) return '<span style="color: #fd7e14;">Watch - Possible Sell</span>';
+            if (value === 1) return '<span style="color: #14F195; font-weight: bold;">TRADE - BUY (USDC->SOL)</span>';
+            if (value === -1) return '<span style="color: #dc3545; font-weight: bold;">TRADE - SELL (SOL->USDC)</span>';
+            if (value === 0.5) return '<span style="color: #9945FF;">Watch - Possible Buy</span>';
+            if (value === -0.5) return '<span style="color: #ffc107;">Watch - Possible Sell</span>';
             return '<span style="color: #6c757d;">Wait</span>';
         }
 
         async function startBot() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Starting SOL Bot...</div>';
+            result.innerHTML = '<div style="color: #9945FF;">Starting Solana Bot...</div>';
             
-            const data = await apiCall('/api/start_bot', 'POST');
+            const data = await apiCall('/start', 'POST');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
+                result.innerHTML = '<div style="color: #14F195;">✅ ' + data.message + '</div>';
                 document.getElementById('startButton').disabled = true;
                 document.getElementById('stopButton').disabled = false;
                 setTimeout(refreshData, 1000);
             } else {
-                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+                result.innerHTML = '<div style="color: red;">❌ ' + data.message + '</div>';
             }
         }
 
         async function stopBot() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Stopping Bot...</div>';
+            result.innerHTML = '<div style="color: #9945FF;">Stopping Bot...</div>';
             
-            const data = await apiCall('/api/stop_bot', 'POST');
+            const data = await apiCall('/stop', 'POST');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div style="color: orange">■ ' + data.message + '</div>';
+                result.innerHTML = '<div style="color: orange;">■ ' + data.message + '</div>';
                 document.getElementById('startButton').disabled = false;
                 document.getElementById('stopButton').disabled = true;
                 setTimeout(refreshData, 1000);
             } else {
-                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+                result.innerHTML = '<div style="color: red;">❌ ' + data.message + '</div>';
             }
         }
 
         async function updateSettings() {
-            const tradeType = document.getElementById('tradeAmountType').value;
-            const tradePercentage = document.getElementById('tradePercentage').value;
-            const solAmount = document.getElementById('solTradeAmount').value;
+            const tradeAmountUsdc = document.getElementById('tradeAmountUsdc').value;
             const interval = document.getElementById('checkInterval').value;
             const timeframe = document.getElementById('indicatorInterval').value;
             
             const data = await apiCall(
-                `/api/update_settings?trade_type=${tradeType}&trade_percentage=${tradePercentage}&sol_trade_amount=${solAmount}&check_interval=${interval}&indicator_interval=${timeframe}`,
+                `/api/update_settings?trade_amount_usdc=${tradeAmountUsdc}&check_interval=${interval}&indicator_interval=${timeframe}`,
                 'POST'
             );
             
             if (data.status === 'success') {
-                document.getElementById('result').innerHTML = '<div style="color: green">✅ Settings Updated</div>';
+                document.getElementById('result').innerHTML = '<div style="color: #14F195;">✅ Settings Updated</div>';
                 setTimeout(refreshData, 500);
             } else {
-                document.getElementById('result').innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+                document.getElementById('result').innerHTML = '<div style="color: red;">❌ ' + data.message + '</div>';
             }
         }
 
         async function manualBuy() {
-            const tradeType = document.getElementById('tradeAmountType').value;
-            let amount;
-            let queryParam;
-            let confirmMessage;
-            
-            if (tradeType === 'percentage') {
-                amount = parseFloat(document.getElementById('manualTradeAmount').value);
-                if (amount < 1 || amount > 100) {
-                    alert('Percentage must be between 1 and 100.');
-                    return;
-                }
-                queryParam = `percentage=${amount}`;
-                confirmMessage = `Are you sure you want to manually BUY ${amount}% of your available USDT?`;
-            } else {
-                amount = parseFloat(document.getElementById('manualFixedTradeAmount').value);
-                if (amount < 0.01 || amount > 1000) {
-                    alert('Fixed SOL amount must be between 0.01 and 1000 SOL.');
-                    return;
-                }
-                queryParam = `sol_amount=${amount}`;
-                confirmMessage = `Are you sure you want to manually BUY ${amount} SOL?`;
-            }
-            
-            if (!confirm(confirmMessage)) {
+            const amount = parseFloat(document.getElementById('manualTradeAmountUsdc').value);
+            if (amount < 1) {
+                alert('Trade amount must be at least 1 USDC equivalent.');
                 return;
             }
             
-            const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">⏳ Executing manual BUY...</div>';
+            const confirmMessage = `Are you sure you want to manually BUY ${amount} USDC worth of SOL? (USDC -> SOL)`;
+            if (!confirm(confirmMessage)) return;
             
-            const data = await apiCall('/api/manual_buy?' + queryParam, 'POST');
+            const result = document.getElementById('result');
+            result.innerHTML = '<div style="color: #9945FF;">Executing Manual Buy...</div>';
+            
+            const data = await apiCall(`/api/manual_buy?amount=${amount}`, 'POST');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
-                setTimeout(() => {
-                    refreshData();
-                    getBalance();
-                }, 2000);
+                result.innerHTML = '<div style="color: #14F195;">✅ Manual Buy Successful!</div>';
+                setTimeout(refreshData, 1000);
             } else {
-                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
+                result.innerHTML = '<div style="color: red;">❌ Manual Buy Failed: ' + data.message + '</div>';
             }
         }
 
         async function manualSell() {
-            const tradeType = document.getElementById('tradeAmountType').value;
-            let amount;
-            let queryParam;
-            let confirmMessage;
-            
-            if (tradeType === 'percentage') {
-                amount = parseFloat(document.getElementById('manualTradeAmount').value);
-                if (amount < 1 || amount > 100) {
-                    alert('Percentage must be between 1 and 100.');
-                    return;
-                }
-                queryParam = `percentage=${amount}`;
-                confirmMessage = `Are you sure you want to manually SELL ${amount}% of your available SOL?`;
-            } else {
-                amount = parseFloat(document.getElementById('manualFixedTradeAmount').value);
-                if (amount < 0.01 || amount > 1000) {
-                    alert('Fixed SOL amount must be between 0.01 and 1000 SOL.');
-                    return;
-                }
-                queryParam = `sol_amount=${amount}`;
-                confirmMessage = `Are you sure you want to manually SELL ${amount} SOL?`;
-            }
-            
-            if (!confirm(confirmMessage)) {
+            const amount = parseFloat(document.getElementById('manualTradeAmountUsdc').value);
+            if (amount < 1) {
+                alert('Trade amount must be at least 1 USDC equivalent.');
                 return;
             }
             
+            const confirmMessage = `Are you sure you want to manually SELL ${amount} USDC worth of SOL? (SOL -> USDC)`;
+            if (!confirm(confirmMessage)) return;
+            
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">⏳ Executing manual SELL...</div>';
+            result.innerHTML = '<div style="color: #9945FF;">Executing Manual Sell...</div>';
             
-            const data = await apiCall('/api/manual_sell?' + queryParam, 'POST');
+            const data = await apiCall(`/api/manual_sell?amount=${amount}`, 'POST');
             
             if (data.status === 'success') {
-                result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
-                setTimeout(() => {
-                    refreshData();
-                    getBalance();
-                }, 2000);
+                result.innerHTML = '<div style="color: #14F195;">✅ Manual Sell Successful!</div>';
+                setTimeout(refreshData, 1000);
             } else {
-                result.innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
-            }
-        }
-
-        async function refreshData() {
-            const data = await apiCall('/api/status');
-            
-            if (data.status === 'success') {
-                document.getElementById('botStatus').textContent = data.is_running ? 'RUNNING' : 'STOPPED';
-                document.getElementById('botStatus').className = 'value ' + (data.is_running ? 'status-running' : 'status-stopped');
-                
-                document.getElementById('position').textContent = data.last_position || 'NONE';
-                document.getElementById('lastTrade').textContent = data.last_trade_time ? 
-                    new Date(data.last_trade_time).toLocaleString('en-US', {
-                        timeZone: 'America/New_York',
-                        month: '2-digit',
-                        day: '2-digit', 
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: true
-                    }) : 'Never';
-                document.getElementById('intervalDisplay').textContent = data.indicator_interval || '15m';
-                
-                // Update trade type settings
-                document.getElementById('tradeAmountType').value = data.trade_type || 'percentage';
-                document.getElementById('tradePercentage').value = data.trade_percentage || 50;
-                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
-                
-                // Update mode display
-                if (data.trade_type === 'percentage') {
-                    document.getElementById('tradeAmountDisplay').textContent = (data.trade_percentage || 50) + '%';
-                } else {
-                    document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.1) + ' SOL';
-                }
-                
-                toggleTradeAmountInput();
-                document.getElementById('checkInterval').value = data.check_interval || 900;
-                
-                if (data.signals && Object.keys(data.signals).length > 0) {
-                    const macdValue = data.signals.macd || 0;
-                    document.getElementById('macdSignal').innerHTML = formatMACDSignal(macdValue);
-                    document.getElementById('macdAction').innerHTML = formatMACDAction(macdValue);
-                    
-                    let consensusHTML = '';
-                    if (data.signals.consensus === 'BUY') {
-                        consensusHTML = '<span class="signal-strong-buy">🚀 STRONG BUY - TRADING</span>';
-                    } else if (data.signals.consensus === 'SELL') {
-                        consensusHTML = '<span class="signal-strong-sell">📉 STRONG SELL - TRADING</span>';
-                    } else if (data.signals.consensus === 'WEAK_BUY') {
-                        consensusHTML = '<span class="signal-weak-buy">🟡 WEAK BUY - WATCHING</span>';
-                    } else if (data.signals.consensus === 'WEAK_SELL') {
-                        consensusHTML = '<span class="signal-weak-sell">🟠 WEAK SELL - WATCHING</span>';
-                    } else {
-                        consensusHTML = '<span class="signal-neutral">⚪ NEUTRAL - WAITING</span>';
-                    }
-                    document.getElementById('consensusSignal').innerHTML = consensusHTML;
-                }
-                
-                document.getElementById('solBalance').textContent = data.sol_balance ? data.sol_balance.toFixed(4) + ' SOL' : '-- SOL';
-                document.getElementById('usdtBalance').textContent = data.usdt_balance ? '$' + data.usdt_balance.toFixed(2) : '$--';
-                
-                if (data.signals && data.signals.price) {
-                    document.getElementById('solPrice').textContent = '$' + data.signals.price.toFixed(2);
-                }
-                
-                if (data.is_running) {
-                    document.getElementById('startButton').disabled = true;
-                    document.getElementById('stopButton').disabled = false;
-                } else {
-                    document.getElementById('startButton').disabled = false;
-                    document.getElementById('stopButton').disabled = true;
-                }
-                
-                if (data.trade_history && data.trade_history.length > 0) {
-                    const historyHTML = data.trade_history.slice(-10).reverse().map(trade => {
-                        const actionClass = trade.action.includes('BUY') ? 'trade-buy' : 'trade-sell';
-                        const tradeDate = new Date(trade.time);
-                        const formattedTime = tradeDate.toLocaleString('en-US', {
-                            timeZone: 'America/New_York',
-                            month: '2-digit',
-                            day: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: true
-                        });
-                        return `
-                            <div class="trade-item">
-                                <div class="trade-time">${formattedTime}</div>
-                                <div class="trade-action ${actionClass}">${trade.action}</div>
-                                <div>${trade.sol_amount.toFixed(4)} SOL @ $${trade.price.toFixed(2)} = $${trade.usdt_amount.toFixed(2)}</div>
-                            </div>
-                        `;
-                    }).join('');
-                    document.getElementById('tradeHistory').innerHTML = historyHTML;
-                } else {
-                    document.getElementById('tradeHistory').innerHTML = '<p style="text-align: center; color: #666;">No trades yet</p>';
-                }
+                result.innerHTML = '<div style="color: red;">❌ Manual Sell Failed: ' + data.message + '</div>';
             }
         }
 
         async function getBalance() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Getting balance...</div>';
+            result.innerHTML = '<div style="color: #9945FF;">Fetching balances...</div>';
             
-            const data = await apiCall('/api/balance');
+            const data = await apiCall('/api/get_balances');
             
             if (data.status === 'success') {
-                document.getElementById('solBalance').textContent = parseFloat(data.sol_balance).toFixed(4) + ' SOL';
-                document.getElementById('usdtBalance').textContent = '$' + parseFloat(data.usdt_balance).toFixed(2);
-                result.innerHTML = '<div style="color: green">✅ Balance updated</div>';
+                result.innerHTML = '<div style="color: #14F195;">✅ Balances Refreshed</div>';
+                updateDashboard(data);
             } else {
-                result.innerHTML = '<div style="color: red">❌ Failed to get balance</div>';
+                result.innerHTML = '<div style="color: red;">❌ Failed to fetch balances: ' + data.message + '</div>';
             }
         }
 
-        function toggleTradeAmountInput() {
-            const tradeType = document.getElementById('tradeAmountType').value;
-            const percentageGroup = document.getElementById('percentageTradeGroup');
-            const fixedGroup = document.getElementById('fixedTradeGroup');
-            const manualPercentageGroup = document.getElementById('manualTradeGroup');
-            const manualFixedGroup = document.getElementById('manualFixedTradeGroup');
-            
-            if (tradeType === 'percentage') {
-                percentageGroup.style.display = 'block';
-                fixedGroup.style.display = 'none';
-                manualPercentageGroup.style.display = 'block';
-                manualFixedGroup.style.display = 'none';
-            } else {
-                percentageGroup.style.display = 'none';
-                fixedGroup.style.display = 'block';
-                manualPercentageGroup.style.display = 'none';
-                manualFixedGroup.style.display = 'block';
-            }
+        async function refreshData() {
+            const data = await apiCall('/api/get_data');
+            updateDashboard(data);
         }
-        
-        setInterval(refreshData, 5000);
-        refreshData();
-        toggleTradeAmountInput(); // Initialize the correct display on load
+
+        function updateDashboard(data) {
+            if (!data || data.status === 'error') {
+                console.error("Failed to update dashboard:", data ? data.message : "No data");
+                return;
+            }
+            
+            // Bot Status
+            const isRunning = data.is_running;
+            document.getElementById('botStatus').textContent = isRunning ? 'RUNNING' : 'STOPPED';
+            document.getElementById('botStatus').className = 'value ' + (isRunning ? 'status-running' : 'status-stopped');
+            document.getElementById('startButton').disabled = isRunning;
+            document.getElementById('stopButton').disabled = !isRunning;
+            
+            // Wallet Address
+            document.getElementById('walletAddress').textContent = data.wallet_address;
+
+            // Portfolio & Market Data
+            document.getElementById('solPrice').textContent = data.sol_price ? `$${parseFloat(data.sol_price).toFixed(2)}` : 'N/A';
+            document.getElementById('usdcBalance').textContent = `$${parseFloat(data.usdc_balance).toFixed(2)}`;
+            document.getElementById('solBalance').textContent = `${parseFloat(data.sol_balance).toFixed(6)} SOL`;
+            document.getElementById('solValue').textContent = `$${parseFloat(data.sol_value).toFixed(2)}`;
+            document.getElementById('totalValue').textContent = `$${parseFloat(data.total_value).toFixed(2)}`;
+            document.getElementById('tradeAmountDisplay').textContent = data.trade_amount;
+            
+            // Status Grid
+            document.getElementById('position').textContent = data.last_position || 'USDC';
+            document.getElementById('lastTrade').textContent = data.last_trade_time || 'Never';
+            document.getElementById('intervalDisplay').textContent = data.indicator_interval;
+
+            // MACD Signal
+            const signals = data.last_signals;
+            if (signals && signals.macd !== undefined) {
+                document.getElementById('macdSignal').innerHTML = formatMACDSignal(signals.macd);
+                document.getElementById('macdAction').innerHTML = formatMACDAction(signals.macd);
+                document.getElementById('consensusSignal').textContent = signals.consensus;
+            } else {
+                document.getElementById('macdSignal').textContent = '--';
+                document.getElementById('macdAction').textContent = '--';
+                document.getElementById('consensusSignal').textContent = '--';
+            }
+
+            // Trade History
+            const historyDiv = document.getElementById('tradeHistory');
+            historyDiv.innerHTML = '';
+            if (data.trade_history && data.trade_history.length > 0) {
+                data.trade_history.reverse().forEach(trade => {
+                    const actionClass = trade.action === 'BUY' ? 'trade-buy' : 'trade-sell';
+                    const amountText = trade.action === 'BUY' 
+                        ? `Bought ${parseFloat(trade.amount_sol).toFixed(6)} SOL for $${parseFloat(trade.cost_usdc).toFixed(2)} USDC`
+                        : `Sold ${parseFloat(trade.amount_sol).toFixed(6)} SOL for $${parseFloat(trade.proceeds_usdc).toFixed(2)} USDC`;
+                    
+                    historyDiv.innerHTML += `
+                        <div class="trade-item">
+                            <div class="trade-time">${trade.time}</div>
+                            <div class="trade-action ${actionClass}">${trade.action} - ${amountText} @ $${parseFloat(trade.price_sol).toFixed(2)}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                historyDiv.innerHTML = '<p style="text-align: center; color: #666;">No trades yet</p>';
+            }
+            
+            // Settings
+            document.getElementById('tradeAmountUsdc').value = parseFloat(data.trade_amount.split(' ')[0]);
+            document.getElementById('checkInterval').value = data.check_interval;
+            document.getElementById('indicatorInterval').value = data.indicator_interval;
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshData();
+            // Refresh data every 10 seconds
+            setInterval(refreshData, 10000);
+        });
     </script>
 </body>
 </html>
