@@ -1,4 +1,3 @@
-# solana_bot.py
 import os
 import time
 import hmac
@@ -19,11 +18,19 @@ app = Flask(__name__)
 # Configuration
 class Config:
     def __init__(self):
+        # Enhanced environment variable loading with debug info
         self.api_key = os.environ.get('COINCATCH_API_KEY', '')
         self.api_secret = os.environ.get('COINCATCH_API_SECRET', '') 
         self.passphrase = os.environ.get('COINCATCH_PASSPHRASE', '')
         self.base_url = "https://api.coincatch.com"
+        
+        # Debug logging
+        print(f"🔑 API Key configured: {'Yes' if self.api_key else 'No'}")
+        print(f"🔒 API Secret configured: {'Yes' if self.api_secret else 'No'}")
+        print(f"🗝️ Passphrase configured: {'Yes' if self.passphrase else 'No'}")
+        
         self.is_configured = bool(self.api_key and self.api_secret and self.passphrase)
+        print(f"✅ Full configuration: {'COMPLETE' if self.is_configured else 'INCOMPLETE'}")
         
         # Timezone setting - New York (EST/EDT)
         self.timezone = ZoneInfo('America/New_York')
@@ -180,6 +187,36 @@ def make_api_request(method, endpoint, data=None):
             
     except Exception as e:
         return {'error': f'Request failed: {str(e)}'}
+
+def test_api_connection():
+    """Test API connection and configuration"""
+    print("\n🔧 Testing API Configuration...")
+    
+    if not config.is_configured:
+        print("❌ API credentials not configured")
+        print("Please set environment variables:")
+        print("  - COINCATCH_API_KEY")
+        print("  - COINCATCH_API_SECRET")
+        print("  - COINCATCH_PASSPHRASE")
+        return False
+    
+    print("✅ API credentials found")
+    
+    # Test balance endpoint
+    print("🔌 Testing API connection...")
+    result = make_api_request('GET', '/api/spot/v1/account/assets')
+    
+    if 'error' in result:
+        print(f"❌ API connection failed: {result.get('message')}")
+        return False
+    
+    print("✅ API connection successful")
+    
+    # Check if SOL balance can be retrieved
+    sol_balance, usdt_balance = get_current_balances()
+    print(f"💰 Balance check: SOL={sol_balance:.4f}, USDT=${usdt_balance:.2f}")
+    
+    return True
 
 def get_klines(symbol='SOLUSDT_SPBL', interval=None, limit=100):
     """Fetch candlestick data"""
@@ -940,6 +977,41 @@ def get_balance():
     except Exception as e:
         return jsonify({'status':'error','message':str(e)})
 
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint for monitoring"""
+    health_status = {
+        'status': 'success',
+        'bot_running': trading_state.is_running,
+        'api_configured': config.is_configured,
+        'timestamp': get_ny_time().isoformat()
+    }
+    
+    # Test API connection
+    try:
+        result = make_api_request('GET', '/api/spot/v1/account/assets')
+        health_status['api_connected'] = 'error' not in result
+        if 'error' in result:
+            health_status['api_error'] = result.get('message')
+    except Exception as e:
+        health_status['api_connected'] = False
+        health_status['api_error'] = str(e)
+    
+    return jsonify(health_status)
+
+@app.route('/api/debug')
+def debug_info():
+    """Debug endpoint to check configuration"""
+    debug_info = {
+        'api_key_configured': bool(config.api_key),
+        'api_secret_configured': bool(config.api_secret),
+        'passphrase_configured': bool(config.passphrase),
+        'api_key_length': len(config.api_key) if config.api_key else 0,
+        'api_secret_length': len(config.api_secret) if config.api_secret else 0,
+        'is_fully_configured': config.is_configured
+    }
+    return jsonify(debug_info)
+
 @app.route('/api/manual_buy',methods=['POST'])
 def manual_buy():
     """Execute manual buy order with specified amount (percentage or fixed)"""
@@ -1153,21 +1225,24 @@ if __name__=='__main__':
     print("\n"+"="*60)
     print("SOLANA TRADING BOT - RSI ONLY STRATEGY WITH PROFIT PROTECTION")
     print("="*60)
-    if config.trade_type == 'percentage':
-        print(f"\nBuy Amount: {config.trade_percentage}% of balance per trade")
+    
+    # Test API connection first
+    if not test_api_connection():
+        print("\n⚠️  Bot cannot start due to configuration issues")
+        print("Please check your API credentials and try again")
     else:
-        print(f"\nBuy Amount: {config.sol_trade_amount} SOL per trade")
-    print("Sell Amount: 100% of SOL balance")
-    print("Strategy: RSI Only (Oversold/Overbought levels)")
-    print(f"RSI Settings: Period={config.rsi_period}, Oversold={config.rsi_oversold}, Overbought={config.rsi_overbought}")
-    print(f"Profit Protection: Never sell at loss, target {config.profit_target_percent}% profit")
-    print(f"RSI Cycle Required: {config.require_rsi_cycle}")
-    print(f"Interval: {config.indicator_interval}")
-    print(f"Check: {config.check_interval} seconds")
-    print("\nAPI Keys from environment variables:")
-    print("- COINCATCH_API_KEY")
-    print("- COINCATCH_API_SECRET") 
-    print("- COINCATCH_PASSPHRASE")
+        if config.trade_type == 'percentage':
+            print(f"\nBuy Amount: {config.trade_percentage}% of balance per trade")
+        else:
+            print(f"\nBuy Amount: {config.sol_trade_amount} SOL per trade")
+        print("Sell Amount: 100% of SOL balance")
+        print("Strategy: RSI Only (Oversold/Overbought levels)")
+        print(f"RSI Settings: Period={config.rsi_period}, Oversold={config.rsi_oversold}, Overbought={config.rsi_overbought}")
+        print(f"Profit Protection: Never sell at loss, target {config.profit_target_percent}% profit")
+        print(f"RSI Cycle Required: {config.require_rsi_cycle}")
+        print(f"Interval: {config.indicator_interval}")
+        print(f"Check: {config.check_interval} seconds")
+    
     print("\nStarting server...")
     print("="*60+"\n")
     
