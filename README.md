@@ -1,47 +1,132 @@
-# CoinCatch Solana Trading Bot (MACD Strategy)
+# Solana Trading Bot
 
-This is an automated trading bot for the **CoinCatch centralized exchange (CEX)**, utilizing the **MACD (Moving Average Convergence Divergence)** technical indicator to trade **SOL/USDT** on the spot market.
+RSI-based automated trading bot for Solana (SOL) on CoinCatch exchange with profit protection.
+
+## Features
+
+- ✅ RSI-only trading strategy
+- ✅ Profit protection (never sells at a loss)
+- ✅ Configurable profit targets
+- ✅ RSI cycle tracking
+- ✅ Manual trading controls
+- ✅ Real-time profit dashboard
+- ✅ Trade history tracking
+
+## Deployment on Railway
+
+### Prerequisites
+
+1. CoinCatch account with API credentials
+2. GitHub account
+3. Railway account
+
+### Setup Instructions
+
+1. **Fork/Clone this repository**
+
+2. **Set up Railway project:**
+   - Go to [Railway.app](https://railway.app)
+   - Click "New Project"
+   - Select "Deploy from GitHub repo"
+   - Choose this repository
+
+3. **Configure Environment Variables in Railway:**
+   
+   Go to your Railway project → Variables tab and add:
+   
+   ```
+   COINCATCH_API_KEY=your_api_key_here
+   COINCATCH_API_SECRET=your_api_secret_here
+   COINCATCH_PASSPHRASE=your_passphrase_here
+   PORT=5000
+   ```
+
+4. **Deploy:**
+   - Railway will automatically detect the Procfile and deploy
+   - Wait for deployment to complete
+   - Access your bot via the generated Railway URL
 
 ## Configuration
 
-The bot requires the following environment variables to be set in your Railway project:
+### Trading Parameters
 
-| Variable | Description |
-| :--- | :--- |
-| `COINCATCH_API_KEY` | Your CoinCatch API Key. |
-| `COINCATCH_API_SECRET` | Your CoinCatch API Secret. |
-| `COINCATCH_PASSPHRASE` | Your CoinCatch API Passphrase. |
-| `PORT` | (Optional) The port for the web server. Defaults to `5000`. |
+- **Trade Type:** Percentage or Fixed amount
+- **Trade Percentage:** 1-100% of available USDT (for buys)
+- **Fixed SOL Amount:** 0.01-1000 SOL per trade
+- **Profit Target:** 0.1-50% profit before selling
+- **Check Interval:** How often to check signals (minimum 60 seconds)
+- **Timeframe:** Candle timeframe for RSI calculation (1m, 5m, 15m, 30m, 1H, 4H, 1D)
 
-## Strategy
+### RSI Settings
 
-The bot implements a simple MACD crossover strategy:
+- **Period:** 6-30 (default: 14)
+- **Oversold:** 10-40 (default: 30)
+- **Overbought:** 60-90 (default: 70)
 
-*   **BUY Signal:** MACD line crosses above the Signal line. The bot attempts to buy a fixed amount of **SOL** using **USDT**.
-*   **SELL Signal:** MACD line crosses below the Signal line. The bot attempts to sell a fixed amount of **SOL** for **USDT**.
+## Important Notes
 
-The bot uses a fixed trade amount of **0.1 SOL** per trade, which can be adjusted in the `solana_bot.py` file or via the dashboard.
+⚠️ **Sell Behavior:** The bot ALWAYS sells 100% of your SOL balance when a sell signal triggers or profit target is reached.
 
-## Dependencies
+⚠️ **Profit Protection:** The bot will never sell at a loss. It will only sell when:
+1. Profit target is reached, OR
+2. RSI sell signal occurs AND current price is at or above break-even
 
-This project requires Python 3.x and the following libraries:
+⚠️ **API Permissions:** Ensure your CoinCatch API key has trading permissions enabled.
 
-*   `flask`
-*   `pandas`
-*   `numpy`
-*   `requests`
-*   `gunicorn`
+## Project Structure
 
-Install them using:
-\`\`\`bash
-pip install -r requirements.txt
-\`\`\`
+```
+.
+├── solana_bot.py          # Main Flask application
+├── templates/
+│   └── index.html         # Web interface
+├── requirements.txt       # Python dependencies
+├── Procfile              # Railway deployment config
+├── runtime.txt           # Python version
+├── railway.json          # Railway settings (optional)
+├── .gitignore            # Git ignore rules
+└── README.md             # This file
+```
 
-## Running the Bot
+## Local Development
 
-1.  **Set Environment Variables:** Ensure the three `COINCATCH_` variables are set in your Railway project.
-2.  **Run the application:** Railway will automatically run the application using the `Procfile`.
-3.  **Access the Dashboard:** The bot runs a simple web dashboard (usually on port 5000) to view status, balances, and trade history.
-    \`\`\`
-    http://<YOUR_RAILWAY_DOMAIN>
-    \`\`\`
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Set environment variables:**
+   ```bash
+   export COINCATCH_API_KEY="your_key"
+   export COINCATCH_API_SECRET="your_secret"
+   export COINCATCH_PASSPHRASE="your_passphrase"
+   ```
+
+3. **Run the bot:**
+   ```bash
+   python solana_bot.py
+   ```
+
+4. **Access the interface:**
+   Open http://localhost:5000 in your browser
+
+## Monitoring
+
+- View real-time status in the web interface
+- Check Railway logs for detailed trading activity
+- Monitor profit dashboard for performance metrics
+
+## Security
+
+- Never commit API credentials to Git
+- Always use environment variables for sensitive data
+- Enable 2FA on your CoinCatch account
+- Use API key IP restrictions if available
+
+## Disclaimer
+
+This bot is for educational purposes. Cryptocurrency trading carries significant risk. Only trade with money you can afford to lose. Past performance does not guarantee future results.
+
+## License
+
+MIT License - Use at your own risk
