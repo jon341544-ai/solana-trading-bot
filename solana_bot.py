@@ -1,3 +1,4 @@
+# solana_bot.py
 import os
 import time
 import hmac
@@ -27,17 +28,17 @@ class Config:
         # Timezone setting - New York (EST/EDT)
         self.timezone = ZoneInfo('America/New_York')
         
-        # Trading parameters for SOLANA
+        # Trading parameters - FIXED SOL AMOUNT MODE
         self.trade_type = 'percentage' # 'percentage' or 'fixed'
         self.trade_percentage = 50 # Default: 50% of available balance
-        self.sol_trade_amount = 0.1  # Default: Buy/Sell 0.1 SOL each time (used if trade_type is 'fixed')
+        self.sol_trade_amount = 1.0  # Default: Buy/Sell 1.0 SOL each time (used if trade_type is 'fixed')
         self.check_interval = 900  # Check every 15 minutes
         self.indicator_interval = '15m'
         self.rsi_period = 14
         self.rsi_oversold = 30
         self.rsi_overbought = 70
-        self.profit_target_percent = 1.0  # Default 1% profit target
-        self.require_rsi_cycle = True  # Require RSI cycle before buying back
+        self.profit_target_percent = 1.0  # NEW: Default 1% profit target
+        self.require_rsi_cycle = True  # NEW: Require RSI cycle before buying back
 
 config = Config()
 
@@ -55,10 +56,10 @@ class TradingState:
         self.trade_history = []
         self.current_sol_balance = 0.0
         self.current_usdt_balance = 0.0
-        self.last_buy_price = None  # Track last buy price
-        self.rsi_cycle_complete = True  # Track if RSI has cycled
-        self.last_rsi_value = 50  # Track last RSI value
-        self.profit_stats = {  # Profit tracking
+        self.last_buy_price = None  # NEW: Track last buy price
+        self.rsi_cycle_complete = True  # NEW: Track if RSI has cycled
+        self.last_rsi_value = 50  # NEW: Track last RSI value
+        self.profit_stats = {  # NEW: Profit tracking
             'today': {'profit': 0.0, 'trades': 0},
             'week': {'profit': 0.0, 'trades': 0},
             'month': {'profit': 0.0, 'trades': 0},
@@ -181,7 +182,7 @@ def make_api_request(method, endpoint, data=None):
         return {'error': f'Request failed: {str(e)}'}
 
 def get_klines(symbol='SOLUSDT_SPBL', interval=None, limit=100):
-    """Fetch candlestick data for Solana"""
+    """Fetch candlestick data"""
     if interval is None:
         interval = config.indicator_interval
         
@@ -202,7 +203,7 @@ def get_klines(symbol='SOLUSDT_SPBL', interval=None, limit=100):
         symbol_mix = symbol.replace('_SPBL', '_UMCBL')
         endpoint = f'/api/mix/v1/market/candles?symbol={symbol_mix}&granularity={granularity}&startTime={start_time}&endTime={end_time}'
         
-        print(f"Getting {interval} candles for SOL...")
+        print(f"Getting {interval} candles...")
         result = make_api_request('GET', endpoint)
         
         if not trading_state.is_running:
@@ -224,7 +225,7 @@ def get_klines(symbol='SOLUSDT_SPBL', interval=None, limit=100):
             print("ERROR: Empty klines data")
             return None
             
-        print(f"Got {len(data)} {interval} candles for SOL")
+        print(f"Got {len(data)} {interval} candles")
             
         df = pd.DataFrame(data)
         if df.empty:
@@ -336,7 +337,7 @@ def get_trading_signals():
     
     rsi_signal, current_rsi = calculate_rsi(df, config.rsi_period)
     
-    # Track RSI cycle for buy-back logic
+    # NEW: Track RSI cycle for buy-back logic
     if config.require_rsi_cycle:
         if trading_state.last_position == 'long':
             # If we're in a long position, check if RSI has cycled from overbought to oversold
@@ -351,13 +352,13 @@ def get_trading_signals():
     
     signals = {
         'rsi': rsi_signal,
-        'rsi_value': current_rsi,  # Include actual RSI value
+        'rsi_value': current_rsi,  # NEW: Include actual RSI value
         'timestamp': get_ny_time().isoformat(),
         'price': float(df['close'].iloc[-1]),
         'interval': config.indicator_interval
     }
     
-    # Check profit condition for selling
+    # NEW: Check profit condition for selling
     if trading_state.last_position == 'long' and trading_state.last_buy_price:
         current_price = signals['price']
         profit_percent = ((current_price - trading_state.last_buy_price) / trading_state.last_buy_price) * 100
@@ -371,9 +372,9 @@ def get_trading_signals():
     if rsi_signal == 1 and (trading_state.rsi_cycle_complete or not config.require_rsi_cycle):
         signals['consensus'] = 'BUY'
     elif signals['profit_target_reached']:
-        signals['consensus'] = 'PROFIT_SELL'  # Profit-based sell signal
+        signals['consensus'] = 'PROFIT_SELL'  # NEW: Profit-based sell signal
     elif rsi_signal == -1:
-        signals['consensus'] = 'RSI_SELL'  # RSI-based sell signal
+        signals['consensus'] = 'RSI_SELL'  # NEW: RSI-based sell signal
     elif rsi_signal == 0.5 and (trading_state.rsi_cycle_complete or not config.require_rsi_cycle):
         signals['consensus'] = 'WEAK_BUY'
     elif rsi_signal == -0.5:
@@ -384,7 +385,7 @@ def get_trading_signals():
     return signals
 
 def execute_buy_order():
-    """Execute buy order for DYNAMIC amount (percentage or fixed) - SOL"""
+    """Execute buy order for DYNAMIC amount (percentage or fixed)"""
     try:
         if not trading_state.is_running:
             return False
@@ -448,7 +449,7 @@ def execute_buy_order():
         }
         
         print(f"\n{'='*60}")
-        print(f"EXECUTING BUY ORDER - SOLANA")
+        print(f"EXECUTING BUY ORDER")
         print(f"SOL Amount: {sol_amount_rounded:.4f} SOL")
         print(f"USDT Cost: ${usdt_to_spend:.2f}")
         print(f"Current Price: ${current_price:.2f}")
@@ -477,9 +478,9 @@ def execute_buy_order():
                 print(f"Buy order failed: {result.get('message')}")
                 return False
         
-        print(f"✅ BUY ORDER SUCCESSFUL - SOLANA")
+        print(f"✅ BUY ORDER SUCCESSFUL")
         
-        # Store buy price and reset RSI cycle tracking
+        # NEW: Store buy price and reset RSI cycle tracking
         trading_state.last_buy_price = current_price
         if config.require_rsi_cycle:
             trading_state.rsi_cycle_complete = False
@@ -531,7 +532,7 @@ def execute_sell_order():
         current_price = float(price_field)
         expected_usdt = sol_amount_rounded * current_price
         
-        # Calculate profit/loss
+        # NEW: Calculate profit/loss
         if trading_state.last_buy_price:
             profit_percent = ((current_price - trading_state.last_buy_price) / trading_state.last_buy_price) * 100
             print(f"📊 Profit/Loss: {profit_percent:+.2f}% (Buy: ${trading_state.last_buy_price:.2f}, Current: ${current_price:.2f})")
@@ -548,7 +549,7 @@ def execute_sell_order():
         }
         
         print(f"\n{'='*60}")
-        print(f"EXECUTING SELL ORDER - SOLANA")
+        print(f"EXECUTING SELL ORDER")
         print(f"Selling: {sol_amount_rounded:.4f} SOL (100% of balance)")
         print(f"Current Price: ${current_price:.2f}")
         print(f"Expected USDT: ${expected_usdt:.2f}")
@@ -589,9 +590,9 @@ def execute_sell_order():
                 
                 return False
         
-        print(f"✅ SELL ORDER SUCCESSFUL - SOLANA")
+        print(f"✅ SELL ORDER SUCCESSFUL")
         
-        # Clear buy price after successful sell
+        # NEW: Clear buy price after successful sell
         trading_state.last_buy_price = None
         
         time.sleep(1)
@@ -604,8 +605,8 @@ def execute_sell_order():
         return False
 
 def trading_loop():
-    """Main trading loop - RSI Only with Profit Protection for SOLANA"""
-    print("\n🤖 BOT STARTED - RSI ONLY STRATEGY WITH PROFIT PROTECTION - SOLANA 🤖")
+    """Main trading loop - RSI Only with Profit Protection"""
+    print("\n🤖 BOT STARTED - RSI ONLY STRATEGY WITH PROFIT PROTECTION 🤖")
     print(f"Trade Type: {config.trade_type}")
     if config.trade_type == 'percentage':
         print(f"Trade Percentage: {config.trade_percentage}%")
@@ -615,8 +616,8 @@ def trading_loop():
     print(f"Check Interval: {config.check_interval} seconds")
     print(f"Indicator Interval: {config.indicator_interval}")
     print(f"RSI Settings: Period={config.rsi_period}, Oversold={config.rsi_oversold}, Overbought={config.rsi_overbought}")
-    print(f"Profit Target: {config.profit_target_percent}%")
-    print(f"Require RSI Cycle: {config.require_rsi_cycle}")
+    print(f"Profit Target: {config.profit_target_percent}%")  # NEW
+    print(f"Require RSI Cycle: {config.require_rsi_cycle}")  # NEW
     print()
     
     while trading_state.is_running:
@@ -646,7 +647,7 @@ def trading_loop():
                 print(f"Buy Amount: {config.sol_trade_amount} SOL")
             print(f"Sell Amount: 100% of SOL balance")
             
-            # Display profit information
+            # NEW: Display profit information
             if trading_state.last_position == 'long' and trading_state.last_buy_price:
                 profit_percent = signals.get('profit_percent', 0)
                 profit_status = f"{profit_percent:+.2f}%"
@@ -670,7 +671,7 @@ def trading_loop():
                 
             print(f"RSI: {rsi_actual:.1f} - {rsi_display}")
             
-            # Display RSI cycle status
+            # NEW: Display RSI cycle status
             if config.require_rsi_cycle:
                 cycle_status = "✅ READY" if trading_state.rsi_cycle_complete else "⏳ WAITING FOR CYCLE"
                 print(f"RSI Cycle: {cycle_status}")
@@ -681,7 +682,7 @@ def trading_loop():
             if not trading_state.is_running:
                 break
                 
-            # Enhanced trading logic with profit protection
+            # NEW: Enhanced trading logic with profit protection
             if signals['consensus'] == 'BUY' and trading_state.last_position != 'long':
                 print(f"\n🚀 STRONG BUY SIGNAL - Executing trade...")
                 
@@ -733,7 +734,7 @@ def trading_loop():
                     print(f"❌ Sell failed")
                     
             elif signals['consensus'] == 'RSI_SELL' and trading_state.last_position == 'long':
-                # Check if we would sell at a loss
+                # NEW: Check if we would sell at a loss
                 if trading_state.last_buy_price:
                     current_price = signals['price']
                     profit_percent = ((current_price - trading_state.last_buy_price) / trading_state.last_buy_price) * 100
@@ -826,7 +827,7 @@ def start_bot():
     trading_thread=threading.Thread(target=trading_loop,daemon=True)
     trading_thread.start()
     
-    return jsonify({'status':'success','message':f'Bot started - RSI Only Strategy with Profit Protection - SOLANA'})
+    return jsonify({'status':'success','message':f'Bot started - RSI Only Strategy with Profit Protection'})
 
 @app.route('/api/stop_bot',methods=['POST'])
 def stop_bot():
@@ -856,11 +857,11 @@ def get_status():
         'rsi_period': config.rsi_period,
         'rsi_oversold': config.rsi_oversold,
         'rsi_overbought': config.rsi_overbought,
-        'profit_target_percent': config.profit_target_percent,
-        'require_rsi_cycle': config.require_rsi_cycle,
-        'last_buy_price': trading_state.last_buy_price,
-        'rsi_cycle_complete': trading_state.rsi_cycle_complete,
-        'profit_stats': trading_state.profit_stats,
+        'profit_target_percent': config.profit_target_percent,  # NEW
+        'require_rsi_cycle': config.require_rsi_cycle,  # NEW
+        'last_buy_price': trading_state.last_buy_price,  # NEW
+        'rsi_cycle_complete': trading_state.rsi_cycle_complete,  # NEW
+        'profit_stats': trading_state.profit_stats,  # NEW: Profit statistics
         'sol_balance':trading_state.current_sol_balance,
         'usdt_balance':trading_state.current_usdt_balance
     })
@@ -870,14 +871,14 @@ def update_settings():
     try:
         trade_type = request.args.get('trade_type', 'percentage')
         trade_percentage = int(request.args.get('trade_percentage', 50))
-        sol_trade_amount = float(request.args.get('sol_trade_amount', 0.1))
+        sol_trade_amount = float(request.args.get('sol_trade_amount', 1.0))
         check_interval = int(request.args.get('check_interval', 900))
         indicator_interval = request.args.get('indicator_interval', '15m')
         rsi_period = int(request.args.get('rsi_period', 14))
         rsi_oversold = int(request.args.get('rsi_oversold', 30))
         rsi_overbought = int(request.args.get('rsi_overbought', 70))
-        profit_target_percent = float(request.args.get('profit_target_percent', 1.0))
-        require_rsi_cycle = request.args.get('require_rsi_cycle', 'true').lower() == 'true'
+        profit_target_percent = float(request.args.get('profit_target_percent', 1.0))  # NEW
+        require_rsi_cycle = request.args.get('require_rsi_cycle', 'true').lower() == 'true'  # NEW
         
         if trade_type not in ['percentage', 'fixed']:
             return jsonify({'status':'error','message':'Trade type must be percentage or fixed'})
@@ -904,7 +905,7 @@ def update_settings():
         if rsi_overbought < 60 or rsi_overbought > 90:
             return jsonify({'status':'error','message':'RSI overbought must be 60-90'})
         
-        if profit_target_percent < 0.1 or profit_target_percent > 50:
+        if profit_target_percent < 0.1 or profit_target_percent > 50:  # NEW
             return jsonify({'status':'error','message':'Profit target must be 0.1-50%'})
         
         config.trade_type = trade_type
@@ -915,8 +916,8 @@ def update_settings():
         config.rsi_period = rsi_period
         config.rsi_oversold = rsi_oversold
         config.rsi_overbought = rsi_overbought
-        config.profit_target_percent = profit_target_percent
-        config.require_rsi_cycle = require_rsi_cycle
+        config.profit_target_percent = profit_target_percent  # NEW
+        config.require_rsi_cycle = require_rsi_cycle  # NEW
         
         return jsonify({'status':'success','message':f'Updated: {trade_type} mode, {sol_trade_amount} SOL, {check_interval}s, {indicator_interval}, RSI({rsi_period},{rsi_oversold},{rsi_overbought}), Profit Target: {profit_target_percent}%, RSI Cycle: {require_rsi_cycle}'})
     except Exception as e:
@@ -941,7 +942,7 @@ def get_balance():
 
 @app.route('/api/manual_buy',methods=['POST'])
 def manual_buy():
-    """Execute manual buy order with specified amount (percentage or fixed) - SOL"""
+    """Execute manual buy order with specified amount (percentage or fixed)"""
     try:
         percentage = request.args.get('percentage')
         sol_amount = request.args.get('sol_amount')
@@ -1009,7 +1010,7 @@ def manual_buy():
         }
         
         print(f"\n{'='*60}")
-        print(f"MANUAL BUY ORDER - SOLANA")
+        print(f"MANUAL BUY ORDER")
         print(f"Amount: {sol_amount_rounded:.4f} SOL")
         print(f"Cost: ${usdt_to_spend:.2f} USDT")
         print(f"Price: ${current_price:.2f}")
@@ -1032,9 +1033,9 @@ def manual_buy():
             if 'error' in result:
                 return jsonify({'status':'error','message':f"Buy failed: {result.get('message')}"})
         
-        print(f"✅ MANUAL BUY SUCCESSFUL - SOLANA")
+        print(f"✅ MANUAL BUY SUCCESSFUL")
         
-        # Store buy price for manual buys too
+        # NEW: Store buy price for manual buys too
         trading_state.last_buy_price = current_price
         if config.require_rsi_cycle:
             trading_state.rsi_cycle_complete = False
@@ -1099,7 +1100,7 @@ def manual_sell():
         }
         
         print(f"\n{'='*60}")
-        print(f"MANUAL SELL ORDER - SOLANA")
+        print(f"MANUAL SELL ORDER")
         print(f"Amount: {sol_amount_rounded:.4f} SOL (100% of balance)")
         print(f"Expected: ${expected_usdt:.2f} USDT")
         print(f"Price: ${current_price:.2f}")
@@ -1122,9 +1123,9 @@ def manual_sell():
             if 'error' in result:
                 return jsonify({'status':'error','message':f"Sell failed: {result.get('message')}"})
         
-        print(f"✅ MANUAL SELL SUCCESSFUL - SOLANA")
+        print(f"✅ MANUAL SELL SUCCESSFUL")
         
-        # Clear buy price after manual sell
+        # NEW: Clear buy price after manual sell
         trading_state.last_buy_price = None
         
         time.sleep(1)
@@ -1170,6 +1171,4 @@ if __name__=='__main__':
     print("\nStarting server...")
     print("="*60+"\n")
     
-    # Get port from environment variable (Railway uses PORT)
-port = int(os.environ.get('PORT', 5000))
-app.run(debug=False, host='0.0.0.0', port=port)
+    app.run(debug=True,host='0.0.0.0',port=5000)
