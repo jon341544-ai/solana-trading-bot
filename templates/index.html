@@ -13,13 +13,13 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #14F195 0%, #9945FF 100%);
             min-height: 100vh;
             padding: 20px;
         }
         
         .container {
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
         }
         
@@ -33,7 +33,7 @@
         }
         
         .header h1 {
-            color: #667eea;
+            color: #9945FF;
             font-size: 2.5em;
             margin-bottom: 10px;
         }
@@ -98,6 +98,9 @@
         
         .status-running { color: #28a745 !important; }
         .status-stopped { color: #dc3545 !important; }
+        .status-profit { color: #28a745 !important; }
+        .status-loss { color: #dc3545 !important; }
+        .status-neutral { color: #6c757d !important; }
         
         .signal-table {
             width: 100%;
@@ -118,9 +121,12 @@
             color: #666;
         }
         
-        .signal-long { color: #28a745; font-weight: bold; }
-        .signal-short { color: #dc3545; font-weight: bold; }
+        .signal-strong-buy { color: #28a745; font-weight: bold; }
+        .signal-strong-sell { color: #dc3545; font-weight: bold; }
+        .signal-weak-buy { color: #ffc107; font-weight: bold; }
+        .signal-weak-sell { color: #fd7e14; font-weight: bold; }
         .signal-neutral { color: #6c757d; font-weight: bold; }
+        .signal-profit { color: #20c997; font-weight: bold; }
         
         .form-group {
             margin-bottom: 20px;
@@ -146,7 +152,7 @@
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #9945FF;
         }
         
         .form-group small {
@@ -195,14 +201,14 @@
         }
         
         .update-button {
-            background: #667eea;
+            background: #9945FF;
             color: white;
         }
         
         .update-button:hover {
-            background: #5568d3;
+            background: #7d2ad6;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 5px 15px rgba(153, 69, 255, 0.3);
         }
         
         .buy-button {
@@ -284,7 +290,7 @@
             margin-bottom: 10px;
             background: #f8f9fa;
             border-radius: 8px;
-            border-left: 4px solid #667eea;
+            border-left: 4px solid #9945FF;
         }
         
         .trade-item .trade-time {
@@ -299,18 +305,231 @@
         
         .trade-buy { color: #28a745; }
         .trade-sell { color: #dc3545; }
+        .trade-profit { color: #20c997; }
+        
+        .rsi-settings {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .rsi-setting-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .rsi-setting-group label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .rsi-setting-group input {
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        
+        .profit-settings {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .profit-setting-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .profit-setting-group label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .profit-setting-group input {
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        
+        .cycle-setting-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .cycle-setting-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .profit-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .profit-card {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #9945FF;
+        }
+        
+        .profit-card h3 {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .profit-card .amount {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .profit-card .trades {
+            font-size: 0.8em;
+            color: #666;
+        }
+        
+        .profit-positive {
+            border-left-color: #28a745;
+            background: #f8fff9;
+        }
+        
+        .profit-negative {
+            border-left-color: #dc3545;
+            background: #fff8f8;
+        }
+        
+        .volume-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .volume-stat {
+            text-align: center;
+        }
+        
+        .volume-stat .label {
+            font-size: 0.7em;
+            color: #666;
+            margin-bottom: 2px;
+        }
+        
+        .volume-stat .value {
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        
+        .buy-volume { color: #28a745; }
+        .sell-volume { color: #dc3545; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🤖 SOL Trading Bot</h1>
-            <p>Fixed SOL Amount Trading Mode</p>
+            <h1>◎ SOL Trading Bot</h1>
+            <p>RSI Only Strategy with Profit Protection</p>
         </div>
         
         <div class="mode-info">
-            <h3>💡 MODE: Buy & Sell Fixed SOL Amount Each Trade</h3>
-            <p>Example: 0.1 SOL → Always buys/sells exactly 0.1 SOL</p>
+            <h3>💡 STRATEGY: RSI Only with Profit Protection</h3>
+            <p>• Never sells at a loss • Sells at profit target • Waits for RSI cycle before buying back • SELLS: 100% of SOL balance</p>
+        </div>
+        
+        <div class="card">
+            <h2>📊 Profit Dashboard</h2>
+            <div class="profit-dashboard">
+                <div class="profit-card" id="todayProfit">
+                    <h3>Today</h3>
+                    <div class="amount">$0.00</div>
+                    <div class="trades">0 trades</div>
+                    <div class="volume-stats">
+                        <div class="volume-stat">
+                            <div class="label">BUY</div>
+                            <div class="value buy-volume">$0</div>
+                        </div>
+                        <div class="volume-stat">
+                            <div class="label">SELL</div>
+                            <div class="value sell-volume">$0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="profit-card" id="weekProfit">
+                    <h3>This Week</h3>
+                    <div class="amount">$0.00</div>
+                    <div class="trades">0 trades</div>
+                    <div class="volume-stats">
+                        <div class="volume-stat">
+                            <div class="label">BUY</div>
+                            <div class="value buy-volume">$0</div>
+                        </div>
+                        <div class="volume-stat">
+                            <div class="label">SELL</div>
+                            <div class="value sell-volume">$0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="profit-card" id="monthProfit">
+                    <h3>This Month</h3>
+                    <div class="amount">$0.00</div>
+                    <div class="trades">0 trades</div>
+                    <div class="volume-stats">
+                        <div class="volume-stat">
+                            <div class="label">BUY</div>
+                            <div class="value buy-volume">$0</div>
+                        </div>
+                        <div class="volume-stat">
+                            <div class="label">SELL</div>
+                            <div class="value sell-volume">$0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="profit-card" id="yearProfit">
+                    <h3>This Year</h3>
+                    <div class="amount">$0.00</div>
+                    <div class="trades">0 trades</div>
+                    <div class="volume-stats">
+                        <div class="volume-stat">
+                            <div class="label">BUY</div>
+                            <div class="value buy-volume">$0</div>
+                        </div>
+                        <div class="volume-stat">
+                            <div class="label">SELL</div>
+                            <div class="value sell-volume">$0</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="profit-card" id="allTimeProfit">
+                    <h3>All Time</h3>
+                    <div class="amount">$0.00</div>
+                    <div class="trades">0 trades</div>
+                    <div class="volume-stats">
+                        <div class="volume-stat">
+                            <div class="label">BUY</div>
+                            <div class="value buy-volume">$0</div>
+                        </div>
+                        <div class="volume-stat">
+                            <div class="label">SELL</div>
+                            <div class="value sell-volume">$0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div class="card">
@@ -352,36 +571,52 @@
                 </div>
                 <div class="status-item">
                     <label>Trade Amount:</label>
-                    <div class="value" id="tradeAmountDisplay">0.1 SOL</div>
+                    <div class="value" id="tradeAmountDisplay">50%</div>
                 </div>
             </div>
         </div>
         
         <div class="card">
-            <h2>Signals (2 of 3 needed)</h2>
+            <h2>Profit Protection Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>Last Buy Price:</label>
+                    <div class="value" id="lastBuyPrice">$--</div>
+                </div>
+                <div class="status-item">
+                    <label>Current Profit:</label>
+                    <div class="value" id="currentProfit">--%</div>
+                </div>
+                <div class="status-item">
+                    <label>Profit Target:</label>
+                    <div class="value" id="profitTarget">1.0%</div>
+                </div>
+                <div class="status-item">
+                    <label>RSI Cycle:</label>
+                    <div class="value" id="rsiCycleStatus">READY</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>RSI Signal</h2>
             <table class="signal-table">
                 <thead>
                     <tr>
                         <th>Indicator</th>
                         <th>Signal</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Supertrend</td>
-                        <td id="supertrendSignal">--</td>
-                    </tr>
-                    <tr>
-                        <td>MACD</td>
-                        <td id="macdSignal">--</td>
-                    </tr>
-                    <tr>
-                        <td>FantailVMA</td>
-                        <td id="fantailSignal">--</td>
+                        <td>RSI</td>
+                        <td id="rsiSignal">--</td>
+                        <td id="rsiAction">--</td>
                     </tr>
                     <tr style="font-weight: bold; background: #f8f9fa;">
-                        <td>CONSENSUS</td>
-                        <td id="consensusSignal">--</td>
+                        <td>TRADING SIGNAL</td>
+                        <td colspan="2" id="consensusSignal">--</td>
                     </tr>
                 </tbody>
             </table>
@@ -389,11 +624,49 @@
         
         <div class="card">
             <h2>⚙ Settings</h2>
-            
             <div class="form-group">
+                <label>Trade Amount Type:</label>
+                <select id="tradeAmountType" onchange="toggleTradeAmountInput()">
+                    <option value="percentage" selected>Percentage of Balance</option>
+                    <option value="fixed">Fixed SOL Amount</option>
+                </select>
+                <small>Choose between a percentage of your balance or a fixed SOL amount for BUY orders only. SELL orders always use 100% of SOL balance.</small>
+            </div>
+            
+            <div class="form-group" id="percentageTradeGroup">
+                <label>Trade Percentage:</label>
+                <input type="number" id="tradePercentage" value="50" min="1" max="100" step="1">
+                <small>Percentage of available USDT to use for BUY orders (1-100%). SELL orders always use 100% of SOL balance.</small>
+            </div>
+            
+            <div class="form-group" id="fixedTradeGroup" style="display:none;">
                 <label>Fixed SOL Amount:</label>
-                <input type="number" id="solTradeAmount" value="0.1" min="0.1" max="100" step="0.1">
-                <small>SOL to buy/sell each trade (min: 0.1)</small>
+                <input type="number" id="solTradeAmount" value="0.1" min="0.01" max="1000" step="0.01">
+                <small>SOL to buy each trade (min: 0.01). SELL orders always use 100% of SOL balance.</small>
+            </div>
+            
+            <div class="profit-settings">
+                <div class="profit-setting-group">
+                    <label>Profit Target (%):</label>
+                    <input type="number" id="profitTargetPercent" value="1.0" min="0.1" max="50" step="0.1">
+                    <small>Automatically sell when profit reaches this percentage</small>
+                </div>
+                <div class="cycle-setting-group">
+                    <input type="checkbox" id="requireRsiCycle" checked>
+                    <label for="requireRsiCycle">Require RSI Cycle</label>
+                </div>
+            </div>
+            
+            <div class="form-group" id="manualTradeGroup">
+                <label>Manual Buy Amount:</label>
+                <input type="number" id="manualTradeAmount" value="50" min="1" max="100" step="1">
+                <small>Percentage of available USDT for manual buy (1-100%). Manual sell always uses 100% of SOL balance.</small>
+            </div>
+            
+            <div class="form-group" id="manualFixedTradeGroup" style="display:none;">
+                <label>Manual Buy Amount (SOL):</label>
+                <input type="number" id="manualFixedTradeAmount" value="0.1" min="0.01" max="1000" step="0.01">
+                <small>SOL amount for manual buy (min: 0.01). Manual sell always uses 100% of SOL balance.</small>
             </div>
             
             <div class="form-group">
@@ -413,7 +686,22 @@
                     <option value="4H">4 Hours</option>
                     <option value="1D">1 Day</option>
                 </select>
-                <small>Candle timeframe for indicators</small>
+                <small>Candle timeframe for RSI calculation</small>
+            </div>
+            
+            <div class="rsi-settings">
+                <div class="rsi-setting-group">
+                    <label>RSI Period:</label>
+                    <input type="number" id="rsiPeriod" value="14" min="6" max="30" step="1">
+                </div>
+                <div class="rsi-setting-group">
+                    <label>RSI Oversold:</label>
+                    <input type="number" id="rsiOversold" value="30" min="10" max="40" step="1">
+                </div>
+                <div class="rsi-setting-group">
+                    <label>RSI Overbought:</label>
+                    <input type="number" id="rsiOverbought" value="70" min="60" max="90" step="1">
+                </div>
             </div>
             
             <button onclick="updateSettings()" class="update-button">Update Settings</button>
@@ -421,8 +709,8 @@
         
         <div class="card">
             <div class="button-group">
-                <button onclick="startBot()" id="startButton" class="start-button">▶ START</button>
-                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP</button>
+                <button onclick="startBot()" id="startButton" class="start-button">▶ START BOT</button>
+                <button onclick="stopBot()" id="stopButton" class="stop-button" disabled>■ STOP BOT</button>
             </div>
         </div>
         
@@ -430,18 +718,12 @@
             <h2>🎮 Manual Trading</h2>
             
             <div class="warning-box">
-                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals
-            </div>
-            
-            <div class="form-group">
-                <label>Manual Trade Amount (SOL):</label>
-                <input type="number" id="manualTradeAmount" value="0.1" min="0.1" max="100" step="0.1">
-                <small>SOL amount for manual buy/sell (min: 0.1)</small>
+                <strong>Warning:</strong> Manual trades execute immediately and bypass automated signals. Manual sell always uses 100% of SOL balance.
             </div>
             
             <div class="button-group">
                 <button onclick="manualBuy()" class="buy-button">🛒 Manual BUY</button>
-                <button onclick="manualSell()" class="sell-button">💰 Manual SELL</button>
+                <button onclick="manualSell()" class="sell-button">💰 Manual SELL (100%)</button>
             </div>
         </div>
         
@@ -472,15 +754,150 @@
             }
         }
 
-        function formatSignal(value) {
-            if (value === 1) return '<span class="signal-long">🟢 LONG</span>';
-            if (value === -1) return '<span class="signal-short">🔴 SHORT</span>';
+        function formatRSISignal(value) {
+            if (value === 1) return '<span class="signal-strong-buy">🟢 STRONG BUY</span>';
+            if (value === -1) return '<span class="signal-strong-sell">🔴 STRONG SELL</span>';
+            if (value === 0.5) return '<span class="signal-weak-buy">🟡 WEAK BUY</span>';
+            if (value === -0.5) return '<span class="signal-weak-sell">🟠 WEAK SELL</span>';
             return '<span class="signal-neutral">⚪ NEUTRAL</span>';
+        }
+
+        function formatRSIAction(value) {
+            if (value === 1) return '<span style="color: #28a745; font-weight: bold;">TRADE - BUY</span>';
+            if (value === -1) return '<span style="color: #dc3545; font-weight: bold;">TRADE - SELL</span>';
+            if (value === 0.5) return '<span style="color: #ffc107;">Watch - Possible Buy</span>';
+            if (value === -0.5) return '<span style="color: #fd7e14;">Watch - Possible Sell</span>';
+            return '<span style="color: #6c757d;">Wait</span>';
+        }
+
+        function formatProfit(amount) {
+            const sign = amount >= 0 ? '+' : '';
+            const colorClass = amount > 0 ? 'status-profit' : amount < 0 ? 'status-loss' : 'status-neutral';
+            return `<span class="${colorClass}">${sign}$${Math.abs(amount).toFixed(2)}</span>`;
+        }
+
+        function updateProfitDashboard(profitStats) {
+            if (!profitStats) return;
+            
+            // Today
+            const todayProfit = profitStats.today?.profit || 0;
+            const todayTrades = profitStats.today?.trades || 0;
+            const todayBuyVolume = profitStats.today?.buy_volume || 0;
+            const todaySellVolume = profitStats.today?.sell_volume || 0;
+            
+            document.getElementById('todayProfit').innerHTML = `
+                <h3>Today</h3>
+                <div class="amount">${formatProfit(todayProfit)}</div>
+                <div class="trades">${todayTrades} trades</div>
+                <div class="volume-stats">
+                    <div class="volume-stat">
+                        <div class="label">BUY</div>
+                        <div class="value buy-volume">$${todayBuyVolume.toFixed(0)}</div>
+                    </div>
+                    <div class="volume-stat">
+                        <div class="label">SELL</div>
+                        <div class="value sell-volume">$${todaySellVolume.toFixed(0)}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('todayProfit').className = `profit-card ${todayProfit > 0 ? 'profit-positive' : todayProfit < 0 ? 'profit-negative' : ''}`;
+            
+            // Week
+            const weekProfit = profitStats.week?.profit || 0;
+            const weekTrades = profitStats.week?.trades || 0;
+            const weekBuyVolume = profitStats.week?.buy_volume || 0;
+            const weekSellVolume = profitStats.week?.sell_volume || 0;
+            
+            document.getElementById('weekProfit').innerHTML = `
+                <h3>This Week</h3>
+                <div class="amount">${formatProfit(weekProfit)}</div>
+                <div class="trades">${weekTrades} trades</div>
+                <div class="volume-stats">
+                    <div class="volume-stat">
+                        <div class="label">BUY</div>
+                        <div class="value buy-volume">$${weekBuyVolume.toFixed(0)}</div>
+                    </div>
+                    <div class="volume-stat">
+                        <div class="label">SELL</div>
+                        <div class="value sell-volume">$${weekSellVolume.toFixed(0)}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('weekProfit').className = `profit-card ${weekProfit > 0 ? 'profit-positive' : weekProfit < 0 ? 'profit-negative' : ''}`;
+            
+            // Month
+            const monthProfit = profitStats.month?.profit || 0;
+            const monthTrades = profitStats.month?.trades || 0;
+            const monthBuyVolume = profitStats.month?.buy_volume || 0;
+            const monthSellVolume = profitStats.month?.sell_volume || 0;
+            
+            document.getElementById('monthProfit').innerHTML = `
+                <h3>This Month</h3>
+                <div class="amount">${formatProfit(monthProfit)}</div>
+                <div class="trades">${monthTrades} trades</div>
+                <div class="volume-stats">
+                    <div class="volume-stat">
+                        <div class="label">BUY</div>
+                        <div class="value buy-volume">$${monthBuyVolume.toFixed(0)}</div>
+                    </div>
+                    <div class="volume-stat">
+                        <div class="label">SELL</div>
+                        <div class="value sell-volume">$${monthSellVolume.toFixed(0)}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('monthProfit').className = `profit-card ${monthProfit > 0 ? 'profit-positive' : monthProfit < 0 ? 'profit-negative' : ''}`;
+            
+            // Year
+            const yearProfit = profitStats.year?.profit || 0;
+            const yearTrades = profitStats.year?.trades || 0;
+            const yearBuyVolume = profitStats.year?.buy_volume || 0;
+            const yearSellVolume = profitStats.year?.sell_volume || 0;
+            
+            document.getElementById('yearProfit').innerHTML = `
+                <h3>This Year</h3>
+                <div class="amount">${formatProfit(yearProfit)}</div>
+                <div class="trades">${yearTrades} trades</div>
+                <div class="volume-stats">
+                    <div class="volume-stat">
+                        <div class="label">BUY</div>
+                        <div class="value buy-volume">$${yearBuyVolume.toFixed(0)}</div>
+                    </div>
+                    <div class="volume-stat">
+                        <div class="label">SELL</div>
+                        <div class="value sell-volume">$${yearSellVolume.toFixed(0)}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('yearProfit').className = `profit-card ${yearProfit > 0 ? 'profit-positive' : yearProfit < 0 ? 'profit-negative' : ''}`;
+            
+            // All Time
+            const allTimeProfit = profitStats.all_time?.profit || 0;
+            const allTimeTrades = profitStats.all_time?.trades || 0;
+            const allTimeBuyVolume = profitStats.all_time?.buy_volume || 0;
+            const allTimeSellVolume = profitStats.all_time?.sell_volume || 0;
+            
+            document.getElementById('allTimeProfit').innerHTML = `
+                <h3>All Time</h3>
+                <div class="amount">${formatProfit(allTimeProfit)}</div>
+                <div class="trades">${allTimeTrades} trades</div>
+                <div class="volume-stats">
+                    <div class="volume-stat">
+                        <div class="label">BUY</div>
+                        <div class="value buy-volume">$${allTimeBuyVolume.toFixed(0)}</div>
+                    </div>
+                    <div class="volume-stat">
+                        <div class="label">SELL</div>
+                        <div class="value sell-volume">$${allTimeSellVolume.toFixed(0)}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('allTimeProfit').className = `profit-card ${allTimeProfit > 0 ? 'profit-positive' : allTimeProfit < 0 ? 'profit-negative' : ''}`;
         }
 
         async function startBot() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Starting...</div>';
+            result.innerHTML = '<div style="color: blue">Starting RSI Bot with Profit Protection...</div>';
             
             const data = await apiCall('/api/start_bot', 'POST');
             
@@ -496,7 +913,7 @@
 
         async function stopBot() {
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">Stopping...</div>';
+            result.innerHTML = '<div style="color: blue">Stopping Bot...</div>';
             
             const data = await apiCall('/api/stop_bot', 'POST');
             
@@ -511,17 +928,24 @@
         }
 
         async function updateSettings() {
+            const tradeType = document.getElementById('tradeAmountType').value;
+            const tradePercentage = document.getElementById('tradePercentage').value;
             const solAmount = document.getElementById('solTradeAmount').value;
             const interval = document.getElementById('checkInterval').value;
             const timeframe = document.getElementById('indicatorInterval').value;
+            const rsiPeriod = document.getElementById('rsiPeriod').value;
+            const rsiOversold = document.getElementById('rsiOversold').value;
+            const rsiOverbought = document.getElementById('rsiOverbought').value;
+            const profitTarget = document.getElementById('profitTargetPercent').value;
+            const requireRsiCycle = document.getElementById('requireRsiCycle').checked;
             
             const data = await apiCall(
-                `/api/update_settings?sol_trade_amount=${solAmount}&check_interval=${interval}&indicator_interval=${timeframe}`,
+                `/api/update_settings?trade_type=${tradeType}&trade_percentage=${tradePercentage}&sol_trade_amount=${solAmount}&check_interval=${interval}&indicator_interval=${timeframe}&rsi_period=${rsiPeriod}&rsi_oversold=${rsiOversold}&rsi_overbought=${rsiOverbought}&profit_target_percent=${profitTarget}&require_rsi_cycle=${requireRsiCycle}`,
                 'POST'
             );
             
             if (data.status === 'success') {
-                document.getElementById('result').innerHTML = '<div style="color: green">✅ Updated</div>';
+                document.getElementById('result').innerHTML = '<div style="color: green">✅ Settings Updated</div>';
                 setTimeout(refreshData, 500);
             } else {
                 document.getElementById('result').innerHTML = '<div style="color: red">❌ ' + data.message + '</div>';
@@ -529,21 +953,37 @@
         }
 
         async function manualBuy() {
-            const amount = parseFloat(document.getElementById('manualTradeAmount').value);
+            const tradeType = document.getElementById('tradeAmountType').value;
+            let amount;
+            let queryParam;
+            let confirmMessage;
             
-            if (amount < 0.1 || amount > 100) {
-                alert('Amount must be between 0.1 and 100 SOL');
-                return;
+            if (tradeType === 'percentage') {
+                amount = parseFloat(document.getElementById('manualTradeAmount').value);
+                if (amount < 1 || amount > 100) {
+                    alert('Percentage must be between 1 and 100.');
+                    return;
+                }
+                queryParam = `percentage=${amount}`;
+                confirmMessage = `Are you sure you want to manually BUY ${amount}% of your available USDT?`;
+            } else {
+                amount = parseFloat(document.getElementById('manualFixedTradeAmount').value);
+                if (amount < 0.01 || amount > 1000) {
+                    alert('Fixed SOL amount must be between 0.01 and 1000 SOL.');
+                    return;
+                }
+                queryParam = `sol_amount=${amount}`;
+                confirmMessage = `Are you sure you want to manually BUY ${amount} SOL?`;
             }
             
-            if (!confirm('Are you sure you want to manually BUY ' + amount + ' SOL?')) {
+            if (!confirm(confirmMessage)) {
                 return;
             }
             
             const result = document.getElementById('result');
             result.innerHTML = '<div style="color: blue">⏳ Executing manual BUY...</div>';
             
-            const data = await apiCall('/api/manual_buy?amount=' + amount, 'POST');
+            const data = await apiCall('/api/manual_buy?' + queryParam, 'POST');
             
             if (data.status === 'success') {
                 result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
@@ -557,21 +997,16 @@
         }
 
         async function manualSell() {
-            const amount = parseFloat(document.getElementById('manualTradeAmount').value);
+            const confirmMessage = `Are you sure you want to manually SELL 100% of your available SOL?`;
             
-            if (amount < 0.1 || amount > 100) {
-                alert('Amount must be between 0.1 and 100 SOL');
-                return;
-            }
-            
-            if (!confirm('Are you sure you want to manually SELL ' + amount + ' SOL?')) {
+            if (!confirm(confirmMessage)) {
                 return;
             }
             
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">⏳ Executing manual SELL...</div>';
+            result.innerHTML = '<div style="color: blue">⏳ Executing manual SELL (100% of SOL)...</div>';
             
-            const data = await apiCall('/api/manual_sell?amount=' + amount, 'POST');
+            const data = await apiCall('/api/manual_sell', 'POST');
             
             if (data.status === 'success') {
                 result.innerHTML = '<div style="color: green">✅ ' + data.message + '</div>';
@@ -588,6 +1023,11 @@
             const data = await apiCall('/api/status');
             
             if (data.status === 'success') {
+                // Update profit dashboard first
+                if (data.profit_stats) {
+                    updateProfitDashboard(data.profit_stats);
+                }
+                
                 document.getElementById('botStatus').textContent = data.is_running ? 'RUNNING' : 'STOPPED';
                 document.getElementById('botStatus').className = 'value ' + (data.is_running ? 'status-running' : 'status-stopped');
                 
@@ -605,27 +1045,70 @@
                     }) : 'Never';
                 document.getElementById('intervalDisplay').textContent = data.indicator_interval || '15m';
                 
-                document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.1) + ' SOL';
+                // Update trade type settings
+                document.getElementById('tradeAmountType').value = data.trade_type || 'percentage';
+                document.getElementById('tradePercentage').value = data.trade_percentage || 50;
                 document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
+                
+                // Update profit protection settings
+                document.getElementById('profitTargetPercent').value = data.profit_target_percent || 1.0;
+                document.getElementById('requireRsiCycle').checked = data.require_rsi_cycle !== false;
+                
+                // Update RSI settings
+                document.getElementById('rsiPeriod').value = data.rsi_period || 14;
+                document.getElementById('rsiOversold').value = data.rsi_oversold || 30;
+                document.getElementById('rsiOverbought').value = data.rsi_overbought || 70;
+                
+                // Update mode display
+                if (data.trade_type === 'percentage') {
+                    document.getElementById('tradeAmountDisplay').textContent = (data.trade_percentage || 50) + '%';
+                } else {
+                    document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.1) + ' SOL';
+                }
+                
+                // Update profit protection status
+                document.getElementById('profitTarget').textContent = (data.profit_target_percent || 1.0) + '%';
+                document.getElementById('lastBuyPrice').textContent = data.last_buy_price ? '$' + data.last_buy_price.toFixed(2) : '$--';
+                document.getElementById('rsiCycleStatus').textContent = data.rsi_cycle_complete ? 'READY' : 'WAITING';
+                document.getElementById('rsiCycleStatus').className = 'value ' + (data.rsi_cycle_complete ? 'status-running' : 'status-stopped');
+                
+                toggleTradeAmountInput();
                 document.getElementById('checkInterval').value = data.check_interval || 900;
                 
                 if (data.signals && Object.keys(data.signals).length > 0) {
-                    document.getElementById('supertrendSignal').innerHTML = formatSignal(data.signals.supertrend);
-                    document.getElementById('macdSignal').innerHTML = formatSignal(data.signals.macd);
-                    document.getElementById('fantailSignal').innerHTML = formatSignal(data.signals.fantail_vma);
+                    const rsiValue = data.signals.rsi || 0;
+                    document.getElementById('rsiSignal').innerHTML = formatRSISignal(rsiValue);
+                    document.getElementById('rsiAction').innerHTML = formatRSIAction(rsiValue);
+                    
+                    // Update current profit
+                    const profitPercent = data.signals.profit_percent || 0;
+                    document.getElementById('currentProfit').textContent = profitPercent.toFixed(2) + '%';
+                    if (profitPercent > 0) {
+                        document.getElementById('currentProfit').style.color = '#28a745';
+                    } else if (profitPercent < 0) {
+                        document.getElementById('currentProfit').style.color = '#dc3545';
+                    } else {
+                        document.getElementById('currentProfit').style.color = '#333';
+                    }
                     
                     let consensusHTML = '';
                     if (data.signals.consensus === 'BUY') {
-                        consensusHTML = '<span class="signal-long">🚀 BUY</span>';
-                    } else if (data.signals.consensus === 'SELL') {
-                        consensusHTML = '<span class="signal-short">📉 SELL</span>';
+                        consensusHTML = '<span class="signal-strong-buy">🚀 STRONG BUY - TRADING</span>';
+                    } else if (data.signals.consensus === 'PROFIT_SELL') {
+                        consensusHTML = '<span class="signal-profit">💰 PROFIT TARGET - SELLING</span>';
+                    } else if (data.signals.consensus === 'RSI_SELL') {
+                        consensusHTML = '<span class="signal-strong-sell">📉 RSI SELL - TRADING</span>';
+                    } else if (data.signals.consensus === 'WEAK_BUY') {
+                        consensusHTML = '<span class="signal-weak-buy">🟡 WEAK BUY - WATCHING</span>';
+                    } else if (data.signals.consensus === 'WEAK_SELL') {
+                        consensusHTML = '<span class="signal-weak-sell">🟠 WEAK SELL - WATCHING</span>';
                     } else {
-                        consensusHTML = '<span class="signal-neutral">- NEUTRAL</span>';
+                        consensusHTML = '<span class="signal-neutral">⚪ NEUTRAL - WAITING</span>';
                     }
                     document.getElementById('consensusSignal').innerHTML = consensusHTML;
                 }
                 
-                document.getElementById('solBalance').textContent = data.sol_balance || '--';
+                document.getElementById('solBalance').textContent = data.sol_balance ? data.sol_balance.toFixed(4) + ' SOL' : '-- SOL';
                 document.getElementById('usdtBalance').textContent = data.usdt_balance ? '$' + data.usdt_balance.toFixed(2) : '$--';
                 
                 if (data.signals && data.signals.price) {
@@ -642,7 +1125,10 @@
                 
                 if (data.trade_history && data.trade_history.length > 0) {
                     const historyHTML = data.trade_history.slice(-10).reverse().map(trade => {
-                        const actionClass = trade.action.includes('BUY') ? 'trade-buy' : 'trade-sell';
+                        let actionClass = 'trade-buy';
+                        if (trade.action.includes('SELL')) {
+                            actionClass = trade.action.includes('PROFIT') ? 'trade-profit' : 'trade-sell';
+                        }
                         const tradeDate = new Date(trade.time);
                         const formattedTime = tradeDate.toLocaleString('en-US', {
                             timeZone: 'America/New_York',
@@ -658,7 +1144,7 @@
                             <div class="trade-item">
                                 <div class="trade-time">${formattedTime}</div>
                                 <div class="trade-action ${actionClass}">${trade.action}</div>
-                                <div>${trade.sol_amount} SOL @ $${trade.price.toFixed(2)} = $${trade.usdt_amount.toFixed(2)}</div>
+                                <div>${trade.sol_amount.toFixed(4)} SOL @ $${trade.price.toFixed(2)} = $${trade.usdt_amount.toFixed(2)}</div>
                             </div>
                         `;
                     }).join('');
@@ -676,7 +1162,7 @@
             const data = await apiCall('/api/balance');
             
             if (data.status === 'success') {
-                document.getElementById('solBalance').textContent = data.sol_balance + ' SOL';
+                document.getElementById('solBalance').textContent = parseFloat(data.sol_balance).toFixed(4) + ' SOL';
                 document.getElementById('usdtBalance').textContent = '$' + parseFloat(data.usdt_balance).toFixed(2);
                 result.innerHTML = '<div style="color: green">✅ Balance updated</div>';
             } else {
@@ -684,8 +1170,29 @@
             }
         }
 
-        setInterval(refreshData, 5000);
+        function toggleTradeAmountInput() {
+            const tradeType = document.getElementById('tradeAmountType').value;
+            const percentageGroup = document.getElementById('percentageTradeGroup');
+            const fixedGroup = document.getElementById('fixedTradeGroup');
+            const manualPercentageGroup = document.getElementById('manualTradeGroup');
+            const manualFixedGroup = document.getElementById('manualFixedTradeGroup');
+            
+            if (tradeType === 'percentage') {
+                percentageGroup.style.display = 'block';
+                fixedGroup.style.display = 'none';
+                manualPercentageGroup.style.display = 'block';
+                manualFixedGroup.style.display = 'none';
+            } else {
+                percentageGroup.style.display = 'none';
+                fixedGroup.style.display = 'block';
+                manualPercentageGroup.style.display = 'none';
+                manualFixedGroup.style.display = 'block';
+            }
+        }
+        
+        setInterval(refreshData, 15000); // 15 seconds refresh
         refreshData();
+        toggleTradeAmountInput(); // Initialize the correct display on load
     </script>
 </body>
 </html>
