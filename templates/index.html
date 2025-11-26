@@ -1,3 +1,4 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,7 +14,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #14F195 0%, #9945FF 100%);
+            background: linear-gradient(135deg, #00ffbd 0%, #00a8ff 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -33,7 +34,7 @@
         }
         
         .header h1 {
-            color: #9945FF;
+            color: #00a8ff;
             font-size: 2.5em;
             margin-bottom: 10px;
         }
@@ -44,15 +45,15 @@
         }
         
         .mode-info {
-            background: #fff9e6;
-            border-left: 4px solid #ffc107;
+            background: #e6f7ff;
+            border-left: 4px solid #00a8ff;
             padding: 15px;
             margin: 20px 0;
             border-radius: 8px;
         }
         
         .mode-info h3 {
-            color: #f57c00;
+            color: #0077cc;
             margin-bottom: 10px;
         }
         
@@ -152,7 +153,7 @@
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #9945FF;
+            border-color: #00a8ff;
         }
         
         .form-group small {
@@ -201,14 +202,14 @@
         }
         
         .update-button {
-            background: #9945FF;
+            background: #00a8ff;
             color: white;
         }
         
         .update-button:hover {
-            background: #7d2ad6;
+            background: #0088cc;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(153, 69, 255, 0.3);
+            box-shadow: 0 5px 15px rgba(0, 168, 255, 0.3);
         }
         
         .buy-button {
@@ -290,7 +291,7 @@
             margin-bottom: 10px;
             background: #f8f9fa;
             border-radius: 8px;
-            border-left: 4px solid #9945FF;
+            border-left: 4px solid #00a8ff;
         }
         
         .trade-item .trade-time {
@@ -379,7 +380,7 @@
             background: #f8f9fa;
             border-radius: 10px;
             text-align: center;
-            border-left: 4px solid #9945FF;
+            border-left: 4px solid #00a8ff;
         }
         
         .profit-card h3 {
@@ -442,7 +443,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>◎ SOL Trading Bot</h1>
+            <h1>🪙 SOL Trading Bot</h1>
             <p>RSI Only Strategy with Profit Protection</p>
         </div>
         
@@ -641,7 +642,7 @@
             
             <div class="form-group" id="fixedTradeGroup" style="display:none;">
                 <label>Fixed SOL Amount:</label>
-                <input type="number" id="solTradeAmount" value="0.1" min="0.01" max="1000" step="0.01">
+                <input type="number" id="solTradeAmount" value="1.0" min="0.01" max="1000" step="0.1">
                 <small>SOL to buy each trade (min: 0.01). SELL orders always use 100% of SOL balance.</small>
             </div>
             
@@ -665,7 +666,7 @@
             
             <div class="form-group" id="manualFixedTradeGroup" style="display:none;">
                 <label>Manual Buy Amount (SOL):</label>
-                <input type="number" id="manualFixedTradeAmount" value="0.1" min="0.01" max="1000" step="0.01">
+                <input type="number" id="manualFixedTradeAmount" value="1.0" min="0.01" max="1000" step="0.1">
                 <small>SOL amount for manual buy (min: 0.01). Manual sell always uses 100% of SOL balance.</small>
             </div>
             
@@ -1048,7 +1049,7 @@
                 // Update trade type settings
                 document.getElementById('tradeAmountType').value = data.trade_type || 'percentage';
                 document.getElementById('tradePercentage').value = data.trade_percentage || 50;
-                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 0.1;
+                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 1.0;
                 
                 // Update profit protection settings
                 document.getElementById('profitTargetPercent').value = data.profit_target_percent || 1.0;
@@ -1063,7 +1064,7 @@
                 if (data.trade_type === 'percentage') {
                     document.getElementById('tradeAmountDisplay').textContent = (data.trade_percentage || 50) + '%';
                 } else {
-                    document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 0.1) + ' SOL';
+                    document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 1.0) + ' SOL';
                 }
                 
                 // Update profit protection status
