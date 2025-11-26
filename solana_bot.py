@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import math
 from flask import Flask, jsonify, request, render_template
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import threading
 
@@ -27,15 +27,17 @@ class Config:
         # Timezone setting - New York (EST/EDT)
         self.timezone = ZoneInfo('America/New_York')
         
-        # Trading parameters - FIXED SOL AMOUNT MODE
-        self.sol_trade_amount = 0.1  # Default: Buy/Sell 0.1 SOL each time
+        # Trading parameters for SOLANA
+        self.trade_type = 'percentage' # 'percentage' or 'fixed'
+        self.trade_percentage = 50 # Default: 50% of available balance
+        self.sol_trade_amount = 0.1  # Default: Buy/Sell 0.1 SOL each time (used if trade_type is 'fixed')
         self.check_interval = 900  # Check every 15 minutes
         self.indicator_interval = '15m'
-        self.supertrend_period = 10
-        self.supertrend_multiplier = 3
-        self.macd_fast = 12
-        self.macd_slow = 26
-        self.macd_signal = 9
+        self.rsi_period = 14
+        self.rsi_oversold = 30
+        self.rsi_overbought = 70
+        self.profit_target_percent = 1.0  # Default 1% profit target
+        self.require_rsi_cycle = True  # Require RSI cycle before buying back
 
 config = Config()
 
@@ -53,8 +55,80 @@ class TradingState:
         self.trade_history = []
         self.current_sol_balance = 0.0
         self.current_usdt_balance = 0.0
+        self.last_buy_price = None  # Track last buy price
+        self.rsi_cycle_complete = True  # Track if RSI has cycled
+        self.last_rsi_value = 50  # Track last RSI value
+        self.profit_stats = {  # Profit tracking
+            'today': {'profit': 0.0, 'trades': 0},
+            'week': {'profit': 0.0, 'trades': 0},
+            'month': {'profit': 0.0, 'trades': 0},
+            'year': {'profit': 0.0, 'trades': 0},
+            'all_time': {'profit': 0.0, 'trades': 0}
+        }
         
 trading_state = TradingState()
+
+def calculate_profit_stats():
+    """Calculate profit statistics for different time periods"""
+    try:
+        now = get_ny_time()
+        today_start = datetime(now.year, now.month, now.day, tzinfo=config.timezone)
+        week_start = today_start - timedelta(days=now.weekday())
+        month_start = datetime(now.year, now.month, 1, tzinfo=config.timezone)
+        year_start = datetime(now.year, 1, 1, tzinfo=config.timezone)
+        
+        # Reset stats
+        trading_state.profit_stats = {
+            'today': {'profit': 0.0, 'trades': 0, 'buy_volume': 0.0, 'sell_volume': 0.0},
+            'week': {'profit': 0.0, 'trades': 0, 'buy_volume': 0.0, 'sell_volume': 0.0},
+            'month': {'profit': 0.0, 'trades': 0, 'buy_volume': 0.0, 'sell_volume': 0.0},
+            'year': {'profit': 0.0, 'trades': 0, 'buy_volume': 0.0, 'sell_volume': 0.0},
+            'all_time': {'profit': 0.0, 'trades': 0, 'buy_volume': 0.0, 'sell_volume': 0.0}
+        }
+        
+        for trade in trading_state.trade_history:
+            trade_time = datetime.fromisoformat(trade['time'].replace('Z', '+00:00')).astimezone(config.timezone)
+            usdt_amount = trade.get('usdt_amount', 0)
+            
+            # Determine if this is a buy or sell for volume tracking
+            if 'BUY' in trade['action']:
+                volume_key = 'buy_volume'
+                profit_impact = -usdt_amount  # Buying spends money
+            else:
+                volume_key = 'sell_volume'
+                profit_impact = usdt_amount  # Selling earns money
+            
+            # All time stats
+            trading_state.profit_stats['all_time']['profit'] += profit_impact
+            trading_state.profit_stats['all_time']['trades'] += 1
+            trading_state.profit_stats['all_time'][volume_key] += usdt_amount
+            
+            # Yearly stats
+            if trade_time >= year_start:
+                trading_state.profit_stats['year']['profit'] += profit_impact
+                trading_state.profit_stats['year']['trades'] += 1
+                trading_state.profit_stats['year'][volume_key] += usdt_amount
+            
+            # Monthly stats
+            if trade_time >= month_start:
+                trading_state.profit_stats['month']['profit'] += profit_impact
+                trading_state.profit_stats['month']['trades'] += 1
+                trading_state.profit_stats['month'][volume_key] += usdt_amount
+            
+            # Weekly stats
+            if trade_time >= week_start:
+                trading_state.profit_stats['week']['profit'] += profit_impact
+                trading_state.profit_stats['week']['trades'] += 1
+                trading_state.profit_stats['week'][volume_key] += usdt_amount
+            
+            # Daily stats
+            if trade_time >= today_start:
+                trading_state.profit_stats['today']['profit'] += profit_impact
+                trading_state.profit_stats['today']['trades'] += 1
+                trading_state.profit_stats['today'][volume_key] += usdt_amount
+                
+    except Exception as e:
+        print(f"Error calculating profit stats: {e}")
 
 def make_api_request(method, endpoint, data=None):
     """Make authenticated API request"""
@@ -107,7 +181,7 @@ def make_api_request(method, endpoint, data=None):
         return {'error': f'Request failed: {str(e)}'}
 
 def get_klines(symbol='SOLUSDT_SPBL', interval=None, limit=100):
-    """Fetch candlestick data"""
+    """Fetch candlestick data for Solana"""
     if interval is None:
         interval = config.indicator_interval
         
@@ -128,7 +202,7 @@ def get_klines(symbol='SOLUSDT_SPBL', interval=None, limit=100):
         symbol_mix = symbol.replace('_SPBL', '_UMCBL')
         endpoint = f'/api/mix/v1/market/candles?symbol={symbol_mix}&granularity={granularity}&startTime={start_time}&endTime={end_time}'
         
-        print(f"Getting {interval} candles...")
+        print(f"Getting {interval} candles for SOL...")
         result = make_api_request('GET', endpoint)
         
         if not trading_state.is_running:
@@ -150,7 +224,7 @@ def get_klines(symbol='SOLUSDT_SPBL', interval=None, limit=100):
             print("ERROR: Empty klines data")
             return None
             
-        print(f"Got {len(data)} {interval} candles")
+        print(f"Got {len(data)} {interval} candles for SOL")
             
         df = pd.DataFrame(data)
         if df.empty:
@@ -174,109 +248,51 @@ def get_klines(symbol='SOLUSDT_SPBL', interval=None, limit=100):
         print(f"Error fetching klines: {e}")
         return None
 
-def calculate_supertrend(df, period=10, multiplier=3):
-    """Calculate Supertrend indicator"""
-    try:
-        high = df['high']
-        low = df['low']
-        close = df['close']
-        
-        hl = high - low
-        hc = abs(high - close.shift())
-        lc = abs(low - close.shift())
-        tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
-        atr = tr.rolling(window=period).mean()
-        
-        hl_avg = (high + low) / 2
-        upper_band = hl_avg + (multiplier * atr)
-        lower_band = hl_avg - (multiplier * atr)
-        
-        supertrend = pd.Series(index=df.index, dtype=float)
-        direction = pd.Series(index=df.index, dtype=int)
-        
-        for i in range(period, len(df)):
-            if i == period:
-                supertrend.iloc[i] = lower_band.iloc[i]
-                direction.iloc[i] = 1
-            else:
-                if close.iloc[i] > supertrend.iloc[i-1]:
-                    direction.iloc[i] = 1
-                    supertrend.iloc[i] = max(lower_band.iloc[i], supertrend.iloc[i-1])
-                else:
-                    direction.iloc[i] = -1
-                    supertrend.iloc[i] = min(upper_band.iloc[i], supertrend.iloc[i-1])
-        
-        return direction.iloc[-1] if not pd.isna(direction.iloc[-1]) else 0
-    except Exception as e:
-        print(f"Error calculating Supertrend: {e}")
-        return 0
-
-def calculate_macd(df, fast=12, slow=26, signal=9):
-    """Calculate MACD indicator"""
+def calculate_rsi(df, period=14):
+    """Calculate RSI indicator and return both signal and current RSI value"""
     try:
         close = df['close']
         
-        ema_fast = close.ewm(span=fast, adjust=False).mean()
-        ema_slow = close.ewm(span=slow, adjust=False).mean()
-        macd_line = ema_fast - ema_slow
-        signal_line = macd_line.ewm(span=signal, adjust=False).mean()
+        # Calculate price changes
+        delta = close.diff()
         
-        current_macd = macd_line.iloc[-1]
-        current_signal = signal_line.iloc[-1]
-        prev_macd = macd_line.iloc[-2]
-        prev_signal = signal_line.iloc[-2]
+        # Separate gains and losses
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
         
-        if current_macd > current_signal and prev_macd <= prev_signal:
-            return 1
-        elif current_macd < current_signal and prev_macd >= prev_signal:
-            return -1
-        elif current_macd > current_signal:
-            return 1
+        # Calculate average gains and losses
+        avg_gain = gain.rolling(window=period).mean()
+        avg_loss = loss.rolling(window=period).mean()
+        
+        # Calculate RS and RSI
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        current_rsi = rsi.iloc[-1]
+        prev_rsi = rsi.iloc[-2] if len(rsi) > 1 else current_rsi
+        
+        # Generate signals based on RSI levels
+        if current_rsi <= config.rsi_oversold and prev_rsi > config.rsi_oversold:
+            # RSI crossed below oversold level - STRONG BUY
+            signal = 1
+        elif current_rsi >= config.rsi_overbought and prev_rsi < config.rsi_overbought:
+            # RSI crossed above overbought level - STRONG SELL
+            signal = -1
+        elif current_rsi < config.rsi_oversold:
+            # RSI is in oversold territory - WEAK BUY
+            signal = 0.5
+        elif current_rsi > config.rsi_overbought:
+            # RSI is in overbought territory - WEAK SELL
+            signal = -0.5
         else:
-            return -1
+            # RSI is in neutral territory
+            signal = 0
+            
+        return signal, current_rsi
             
     except Exception as e:
-        print(f"Error calculating MACD: {e}")
-        return 0
-
-def calculate_fantail_vma(df, length=50, power=2):
-    """Calculate Bixord_FantailVMA indicator"""
-    try:
-        close = df['close']
-        volume = df['volume']
-        
-        vwma_values = []
-        
-        for i in range(length - 1, len(df)):
-            window_close = close.iloc[i - length + 1:i + 1]
-            window_volume = volume.iloc[i - length + 1:i + 1]
-            
-            powered_volume = window_volume ** power
-            
-            if powered_volume.sum() > 0:
-                vwma = (window_close * powered_volume).sum() / powered_volume.sum()
-            else:
-                vwma = window_close.mean()
-            
-            vwma_values.append(vwma)
-        
-        if len(vwma_values) < 2:
-            return 0
-        
-        current_price = close.iloc[-1]
-        current_vwma = vwma_values[-1]
-        prev_vwma = vwma_values[-2]
-        
-        if current_price > current_vwma and current_vwma > prev_vwma:
-            return 1
-        elif current_price < current_vwma and current_vwma < prev_vwma:
-            return -1
-        else:
-            return 0
-            
-    except Exception as e:
-        print(f"Error calculating FantailVMA: {e}")
-        return 0
+        print(f"Error calculating RSI: {e}")
+        return 0, 50
 
 def get_current_balances():
     """Get current SOL and USDT balances"""
@@ -311,36 +327,64 @@ def get_current_balances():
         return 0.0, 0.0
 
 def get_trading_signals():
-    """Get signals from all three indicators"""
-    required_candles = max(200, config.supertrend_period + 50)
+    """Get signals from RSI indicator only"""
+    required_candles = 100
     
     df = get_klines(interval=config.indicator_interval, limit=required_candles)
     if df is None or len(df) < 50:
         return None
     
+    rsi_signal, current_rsi = calculate_rsi(df, config.rsi_period)
+    
+    # Track RSI cycle for buy-back logic
+    if config.require_rsi_cycle:
+        if trading_state.last_position == 'long':
+            # If we're in a long position, check if RSI has cycled from overbought to oversold
+            if trading_state.last_rsi_value > config.rsi_overbought and current_rsi < config.rsi_oversold:
+                trading_state.rsi_cycle_complete = True
+                print(f"✅ RSI cycle complete: {trading_state.last_rsi_value:.1f} -> {current_rsi:.1f}")
+        else:
+            # If we're not in a position, reset cycle tracking
+            trading_state.rsi_cycle_complete = True
+        
+        trading_state.last_rsi_value = current_rsi
+    
     signals = {
-        'supertrend': calculate_supertrend(df, config.supertrend_period, config.supertrend_multiplier),
-        'macd': calculate_macd(df, config.macd_fast, config.macd_slow, config.macd_signal),
-        'fantail_vma': calculate_fantail_vma(df),
+        'rsi': rsi_signal,
+        'rsi_value': current_rsi,  # Include actual RSI value
         'timestamp': get_ny_time().isoformat(),
         'price': float(df['close'].iloc[-1]),
         'interval': config.indicator_interval
     }
     
-    buy_votes = sum([1 for v in [signals['supertrend'], signals['macd'], signals['fantail_vma']] if v == 1])
-    sell_votes = sum([1 for v in [signals['supertrend'], signals['macd'], signals['fantail_vma']] if v == -1])
+    # Check profit condition for selling
+    if trading_state.last_position == 'long' and trading_state.last_buy_price:
+        current_price = signals['price']
+        profit_percent = ((current_price - trading_state.last_buy_price) / trading_state.last_buy_price) * 100
+        signals['profit_percent'] = profit_percent
+        signals['profit_target_reached'] = profit_percent >= config.profit_target_percent
+    else:
+        signals['profit_percent'] = 0
+        signals['profit_target_reached'] = False
     
-    if buy_votes >= 2:
+    # Determine consensus based on RSI signal strength and profit conditions
+    if rsi_signal == 1 and (trading_state.rsi_cycle_complete or not config.require_rsi_cycle):
         signals['consensus'] = 'BUY'
-    elif sell_votes >= 2:
-        signals['consensus'] = 'SELL'
+    elif signals['profit_target_reached']:
+        signals['consensus'] = 'PROFIT_SELL'  # Profit-based sell signal
+    elif rsi_signal == -1:
+        signals['consensus'] = 'RSI_SELL'  # RSI-based sell signal
+    elif rsi_signal == 0.5 and (trading_state.rsi_cycle_complete or not config.require_rsi_cycle):
+        signals['consensus'] = 'WEAK_BUY'
+    elif rsi_signal == -0.5:
+        signals['consensus'] = 'WEAK_SELL'
     else:
         signals['consensus'] = 'NEUTRAL'
     
     return signals
 
 def execute_buy_order():
-    """Execute buy order for FIXED SOL amount"""
+    """Execute buy order for DYNAMIC amount (percentage or fixed) - SOL"""
     try:
         if not trading_state.is_running:
             return False
@@ -374,16 +418,25 @@ def execute_buy_order():
             return False
         
         current_price = float(current_price)
-        usdt_needed = config.sol_trade_amount * current_price
         
-        if usdt_balance < usdt_needed:
-            print(f"Insufficient USDT: Need ${usdt_needed:.2f}, have ${usdt_balance:.2f}")
+        # --- Calculate SOL amount based on trade type ---
+        if config.trade_type == 'percentage':
+            usdt_to_spend = usdt_balance * (config.trade_percentage / 100.0)
+            sol_amount = usdt_to_spend / current_price
+            print(f"Percentage Buy: {config.trade_percentage}% of ${usdt_balance:.2f} USDT = ${usdt_to_spend:.2f} USDT")
+        else: # fixed
+            sol_amount = config.sol_trade_amount
+            usdt_to_spend = sol_amount * current_price
+            print(f"Fixed Buy: {sol_amount:.4f} SOL = ${usdt_to_spend:.2f} USDT")
+            
+        if usdt_balance < usdt_to_spend:
+            print(f"Insufficient USDT: Need ${usdt_to_spend:.2f}, have ${usdt_balance:.2f}")
             return False
         
-        sol_amount_rounded = round(config.sol_trade_amount, 4)
+        sol_amount_rounded = round(sol_amount, 4)
         
-        if sol_amount_rounded < 0.1:
-            print(f"Buy amount too small: {sol_amount_rounded} SOL (min: 0.1 SOL)")
+        if sol_amount_rounded < 0.01:
+            print(f"Buy amount too small: {sol_amount_rounded} SOL (min: 0.01 SOL)")
             return False
         
         order_data = {
@@ -395,9 +448,9 @@ def execute_buy_order():
         }
         
         print(f"\n{'='*60}")
-        print(f"EXECUTING BUY ORDER")
-        print(f"Fixed SOL Amount: {sol_amount_rounded:.4f} SOL")
-        print(f"USDT Cost: ${usdt_needed:.2f}")
+        print(f"EXECUTING BUY ORDER - SOLANA")
+        print(f"SOL Amount: {sol_amount_rounded:.4f} SOL")
+        print(f"USDT Cost: ${usdt_to_spend:.2f}")
         print(f"Current Price: ${current_price:.2f}")
         print(f"{'='*60}\n")
         
@@ -424,39 +477,44 @@ def execute_buy_order():
                 print(f"Buy order failed: {result.get('message')}")
                 return False
         
-        print(f"✅ BUY ORDER SUCCESSFUL")
+        print(f"✅ BUY ORDER SUCCESSFUL - SOLANA")
+        
+        # Store buy price and reset RSI cycle tracking
+        trading_state.last_buy_price = current_price
+        if config.require_rsi_cycle:
+            trading_state.rsi_cycle_complete = False
+            print(f"📊 RSI cycle tracking reset - waiting for cycle completion before next buy")
+        
         time.sleep(1)
         get_current_balances()
         
-        return True
+        return sol_amount_rounded, usdt_to_spend, current_price
         
     except Exception as e:
         print(f"Error executing buy order: {e}")
         return False
 
 def execute_sell_order():
-    """Execute sell order - sells actual SOL balance (accounting for fees)"""
+    """Execute sell order - ALWAYS sells 100% of SOL balance"""
     try:
         if not trading_state.is_running:
             return False
             
         sol_balance, usdt_balance = get_current_balances()
         
-        # Check if we have at least 90% of the target amount (to account for buy fees)
-        minimum_needed = config.sol_trade_amount * 0.9
-        
-        if sol_balance < minimum_needed:
-            print(f"Insufficient SOL: Need at least {minimum_needed:.4f} SOL, have {sol_balance} SOL")
+        # --- ALWAYS sell 100% of SOL balance ---
+        sol_amount_to_sell = sol_balance
+        print(f"SELL: 100% of {sol_balance:.4f} SOL")
+            
+        if sol_balance < sol_amount_to_sell:
+            print(f"Insufficient SOL: Need {sol_amount_to_sell:.4f} SOL, have {sol_balance:.4f} SOL")
             return False
         
-        # Sell the ACTUAL balance we have (not the fixed amount)
-        # This accounts for fees from the buy
-        # Round DOWN to nearest 0.1 SOL increment (CoinCatch requirement)
-        # Example: 0.1410 → 0.1, 0.2456 → 0.2, 0.9812 → 0.9
-        sol_amount_rounded = math.floor(sol_balance * 10) / 10
+        # Round to 4 decimal places for SOL
+        sol_amount_rounded = round(sol_amount_to_sell, 4)
         
-        if sol_amount_rounded < 0.1:
-            print(f"Sell amount too small: {sol_amount_rounded} SOL")
+        if sol_amount_rounded < 0.01:
+            print(f"Sell amount too small: {sol_amount_rounded} SOL (min: 0.01 SOL)")
             return False
         
         ticker_result = make_api_request('GET', '/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL')
@@ -471,6 +529,15 @@ def execute_sell_order():
             return False
         
         current_price = float(price_field)
+        expected_usdt = sol_amount_rounded * current_price
+        
+        # Calculate profit/loss
+        if trading_state.last_buy_price:
+            profit_percent = ((current_price - trading_state.last_buy_price) / trading_state.last_buy_price) * 100
+            print(f"📊 Profit/Loss: {profit_percent:+.2f}% (Buy: ${trading_state.last_buy_price:.2f}, Current: ${current_price:.2f})")
+        else:
+            profit_percent = 0
+            print("📊 No previous buy price recorded")
         
         order_data = {
             "symbol": "SOLUSDT_SPBL",
@@ -481,12 +548,12 @@ def execute_sell_order():
         }
         
         print(f"\n{'='*60}")
-        print(f"EXECUTING SELL ORDER")
-        print(f"Target Amount: {config.sol_trade_amount:.4f} SOL")
-        print(f"Available Balance: {sol_balance:.4f} SOL") 
-        print(f"Selling: {sol_amount_rounded:.4f} SOL (actual balance)")
+        print(f"EXECUTING SELL ORDER - SOLANA")
+        print(f"Selling: {sol_amount_rounded:.4f} SOL (100% of balance)")
         print(f"Current Price: ${current_price:.2f}")
-        print(f"Expected USDT: ${sol_amount_rounded * current_price:.2f}")
+        print(f"Expected USDT: ${expected_usdt:.2f}")
+        if trading_state.last_buy_price:
+            print(f"Profit/Loss: {profit_percent:+.2f}%")
         print(f"{'='*60}\n")
         
         result = make_api_request('POST', '/api/spot/v1/trade/orders', order_data)
@@ -522,22 +589,35 @@ def execute_sell_order():
                 
                 return False
         
-        print(f"✅ SELL ORDER SUCCESSFUL")
+        print(f"✅ SELL ORDER SUCCESSFUL - SOLANA")
+        
+        # Clear buy price after successful sell
+        trading_state.last_buy_price = None
+        
         time.sleep(1)
         get_current_balances()
         
-        return True
+        return sol_amount_rounded, expected_usdt, current_price
         
     except Exception as e:
         print(f"Error executing sell order: {e}")
         return False
 
 def trading_loop():
-    """Main trading loop - FIXED SOL AMOUNT"""
-    print("\n🤖 BOT STARTED - FIXED SOL AMOUNT MODE 🤖")
-    print(f"Fixed Amount: {config.sol_trade_amount} SOL per trade")
+    """Main trading loop - RSI Only with Profit Protection for SOLANA"""
+    print("\n🤖 BOT STARTED - RSI ONLY STRATEGY WITH PROFIT PROTECTION - SOLANA 🤖")
+    print(f"Trade Type: {config.trade_type}")
+    if config.trade_type == 'percentage':
+        print(f"Trade Percentage: {config.trade_percentage}%")
+    else:
+        print(f"Fixed SOL Amount: {config.sol_trade_amount} SOL")
+    print(f"SELL: ALWAYS 100% of SOL balance")
     print(f"Check Interval: {config.check_interval} seconds")
-    print(f"Indicator Interval: {config.indicator_interval}\n")
+    print(f"Indicator Interval: {config.indicator_interval}")
+    print(f"RSI Settings: Period={config.rsi_period}, Oversold={config.rsi_oversold}, Overbought={config.rsi_overbought}")
+    print(f"Profit Target: {config.profit_target_percent}%")
+    print(f"Require RSI Cycle: {config.require_rsi_cycle}")
+    print()
     
     while trading_state.is_running:
         try:
@@ -560,55 +640,137 @@ def trading_loop():
             print(f"\n--- Check at {signals['timestamp']} ---")
             print(f"Price: ${signals['price']:.2f}")
             print(f"SOL: {sol_balance:.4f} | USDT: ${usdt_balance:.2f}")
-            print(f"Trade Amount: {config.sol_trade_amount} SOL")
-            print(f"Supertrend: {'🟢' if signals['supertrend'] == 1 else '🔴' if signals['supertrend'] == -1 else '⚪'}")
-            print(f"MACD: {'🟢' if signals['macd'] == 1 else '🔴' if signals['macd'] == -1 else '⚪'}")
-            print(f"FantailVMA: {'🟢' if signals['fantail_vma'] == 1 else '🔴' if signals['fantail_vma'] == -1 else '⚪'}")
+            if config.trade_type == 'percentage':
+                print(f"Buy Amount: {config.trade_percentage}% of balance")
+            else:
+                print(f"Buy Amount: {config.sol_trade_amount} SOL")
+            print(f"Sell Amount: 100% of SOL balance")
+            
+            # Display profit information
+            if trading_state.last_position == 'long' and trading_state.last_buy_price:
+                profit_percent = signals.get('profit_percent', 0)
+                profit_status = f"{profit_percent:+.2f}%"
+                if profit_percent >= config.profit_target_percent:
+                    profit_status = f"🎯 {profit_status} - TARGET REACHED!"
+                print(f"Current Profit: {profit_status}")
+            
+            # Display RSI signal with more detail
+            rsi_value = signals['rsi']
+            rsi_actual = signals.get('rsi_value', 50)
+            if rsi_value == 1:
+                rsi_display = "🟢 STRONG BUY (RSI crossed below oversold)"
+            elif rsi_value == -1:
+                rsi_display = "🔴 STRONG SELL (RSI crossed above overbought)"
+            elif rsi_value == 0.5:
+                rsi_display = "🟡 WEAK BUY (RSI in oversold territory)"
+            elif rsi_value == -0.5:
+                rsi_display = "🟠 WEAK SELL (RSI in overbought territory)"
+            else:
+                rsi_display = "⚪ NEUTRAL (RSI in normal range)"
+                
+            print(f"RSI: {rsi_actual:.1f} - {rsi_display}")
+            
+            # Display RSI cycle status
+            if config.require_rsi_cycle:
+                cycle_status = "✅ READY" if trading_state.rsi_cycle_complete else "⏳ WAITING FOR CYCLE"
+                print(f"RSI Cycle: {cycle_status}")
+            
             print(f"CONSENSUS: {signals['consensus']}")
             print(f"Position: {trading_state.last_position or 'NONE'}")
             
             if not trading_state.is_running:
                 break
                 
+            # Enhanced trading logic with profit protection
             if signals['consensus'] == 'BUY' and trading_state.last_position != 'long':
-                print(f"\n🚀 BUY SIGNAL - Buying {config.sol_trade_amount} SOL...")
+                print(f"\n🚀 STRONG BUY SIGNAL - Executing trade...")
                 
-                if execute_buy_order():
+                result = execute_buy_order()
+                if result:
+                    sol_amount, usdt_amount, price = result
                     trading_state.last_position = 'long'
                     trading_state.last_trade_time = get_ny_time()
-                    trading_state.trade_history.append({
+                    trade_record = {
                         'time': get_ny_time().isoformat(),
                         'action': 'BUY',
-                        'sol_amount': config.sol_trade_amount,
-                        'usdt_amount': config.sol_trade_amount * signals['price'],
-                        'price': signals['price'],
+                        'sol_amount': sol_amount,
+                        'usdt_amount': usdt_amount,
+                        'price': price,
                         'interval': config.indicator_interval,
                         'signals': signals
-                    })
-                    print(f"✅ Position: LONG")
+                    }
+                    trading_state.trade_history.append(trade_record)
+                    # Update profit stats after trade
+                    calculate_profit_stats()
+                    print(f"✅ Position: LONG - Bought {sol_amount:.4f} SOL for ${usdt_amount:.2f}")
                 else:
                     print(f"❌ Buy failed")
                     
-            elif signals['consensus'] == 'SELL' and trading_state.last_position != 'short':
-                print(f"\n📉 SELL SIGNAL - Selling {config.sol_trade_amount} SOL...")
+            elif signals['consensus'] == 'PROFIT_SELL' and trading_state.last_position == 'long':
+                print(f"\n💰 PROFIT TARGET REACHED - Executing sell...")
                 
-                if execute_sell_order():
+                result = execute_sell_order()
+                if result:
+                    sol_amount, usdt_amount, price = result
                     trading_state.last_position = 'short'
                     trading_state.last_trade_time = get_ny_time()
-                    trading_state.trade_history.append({
+                    trade_record = {
                         'time': get_ny_time().isoformat(),
-                        'action': 'SELL',
-                        'sol_amount': config.sol_trade_amount,
-                        'usdt_amount': config.sol_trade_amount * signals['price'],
-                        'price': signals['price'],
+                        'action': 'PROFIT_SELL',
+                        'sol_amount': sol_amount,
+                        'usdt_amount': usdt_amount,
+                        'price': price,
                         'interval': config.indicator_interval,
                         'signals': signals
-                    })
-                    print(f"✅ Position: SHORT")
+                    }
+                    trading_state.trade_history.append(trade_record)
+                    # Update profit stats after trade
+                    calculate_profit_stats()
+                    profit_percent = signals.get('profit_percent', 0)
+                    print(f"✅ Position: SOLD - Sold {sol_amount:.4f} SOL for ${usdt_amount:.2f}")
+                    print(f"🎯 Profit: {profit_percent:+.2f}%")
                 else:
                     print(f"❌ Sell failed")
+                    
+            elif signals['consensus'] == 'RSI_SELL' and trading_state.last_position == 'long':
+                # Check if we would sell at a loss
+                if trading_state.last_buy_price:
+                    current_price = signals['price']
+                    profit_percent = ((current_price - trading_state.last_buy_price) / trading_state.last_buy_price) * 100
+                    
+                    if profit_percent < 0:
+                        print(f"⏸️  RSI sell signal ignored - would sell at a loss ({profit_percent:+.2f}%)")
+                    else:
+                        print(f"\n📉 RSI SELL SIGNAL - Executing sell...")
+                        
+                        result = execute_sell_order()
+                        if result:
+                            sol_amount, usdt_amount, price = result
+                            trading_state.last_position = 'short'
+                            trading_state.last_trade_time = get_ny_time()
+                            trade_record = {
+                                'time': get_ny_time().isoformat(),
+                                'action': 'RSI_SELL',
+                                'sol_amount': sol_amount,
+                                'usdt_amount': usdt_amount,
+                                'price': price,
+                                'interval': config.indicator_interval,
+                                'signals': signals
+                            }
+                            trading_state.trade_history.append(trade_record)
+                            # Update profit stats after trade
+                            calculate_profit_stats()
+                            print(f"✅ Position: SOLD - Sold {sol_amount:.4f} SOL for ${usdt_amount:.2f}")
+                            print(f"📊 Profit: {profit_percent:+.2f}%")
+                        else:
+                            print(f"❌ Sell failed")
+                else:
+                    print(f"⏸️  RSI sell signal ignored - no buy price recorded")
             else:
-                print(f"⏸️  No action")
+                if signals['consensus'] in ['WEAK_BUY', 'WEAK_SELL']:
+                    print(f"⏸️  Weak signal - no action taken")
+                else:
+                    print(f"⏸️  No action - waiting for appropriate signal")
             
             if trading_state.is_running:
                 for _ in range(config.check_interval):
@@ -664,7 +826,7 @@ def start_bot():
     trading_thread=threading.Thread(target=trading_loop,daemon=True)
     trading_thread.start()
     
-    return jsonify({'status':'success','message':f'Bot started - {config.sol_trade_amount} SOL per trade'})
+    return jsonify({'status':'success','message':f'Bot started - RSI Only Strategy with Profit Protection - SOLANA'})
 
 @app.route('/api/stop_bot',methods=['POST'])
 def stop_bot():
@@ -676,6 +838,9 @@ def stop_bot():
 
 @app.route('/api/status')
 def get_status():
+    # Update profit stats before returning status
+    calculate_profit_stats()
+    
     return jsonify({
         'status':'success',
         'is_running':trading_state.is_running,
@@ -683,9 +848,19 @@ def get_status():
         'last_trade_time':trading_state.last_trade_time.isoformat() if trading_state.last_trade_time else None,
         'signals':trading_state.last_signals,
         'trade_history':trading_state.trade_history,
+        'trade_type': config.trade_type,
+        'trade_percentage': config.trade_percentage,
         'sol_trade_amount':config.sol_trade_amount,
         'check_interval':config.check_interval,
         'indicator_interval':config.indicator_interval,
+        'rsi_period': config.rsi_period,
+        'rsi_oversold': config.rsi_oversold,
+        'rsi_overbought': config.rsi_overbought,
+        'profit_target_percent': config.profit_target_percent,
+        'require_rsi_cycle': config.require_rsi_cycle,
+        'last_buy_price': trading_state.last_buy_price,
+        'rsi_cycle_complete': trading_state.rsi_cycle_complete,
+        'profit_stats': trading_state.profit_stats,
         'sol_balance':trading_state.current_sol_balance,
         'usdt_balance':trading_state.current_usdt_balance
     })
@@ -693,40 +868,72 @@ def get_status():
 @app.route('/api/update_settings',methods=['POST'])
 def update_settings():
     try:
-        sol_trade_amount=float(request.args.get('sol_trade_amount',0.1))
-        check_interval=int(request.args.get('check_interval',900))
-        indicator_interval=request.args.get('indicator_interval','15m')
+        trade_type = request.args.get('trade_type', 'percentage')
+        trade_percentage = int(request.args.get('trade_percentage', 50))
+        sol_trade_amount = float(request.args.get('sol_trade_amount', 0.1))
+        check_interval = int(request.args.get('check_interval', 900))
+        indicator_interval = request.args.get('indicator_interval', '15m')
+        rsi_period = int(request.args.get('rsi_period', 14))
+        rsi_oversold = int(request.args.get('rsi_oversold', 30))
+        rsi_overbought = int(request.args.get('rsi_overbought', 70))
+        profit_target_percent = float(request.args.get('profit_target_percent', 1.0))
+        require_rsi_cycle = request.args.get('require_rsi_cycle', 'true').lower() == 'true'
         
-        if sol_trade_amount<0.1 or sol_trade_amount>100:
-            return jsonify({'status':'error','message':'SOL amount must be 0.1-100'})
+        if trade_type not in ['percentage', 'fixed']:
+            return jsonify({'status':'error','message':'Trade type must be percentage or fixed'})
         
-        if check_interval<60:
+        if trade_percentage < 1 or trade_percentage > 100:
+            return jsonify({'status':'error','message':'Trade percentage must be 1-100'})
+        
+        if sol_trade_amount < 0.01 or sol_trade_amount > 1000:
+            return jsonify({'status':'error','message':'SOL amount must be 0.01-1000'})
+        
+        if check_interval < 60:
             return jsonify({'status':'error','message':'Min check interval is 60 sec'})
         
-        valid_intervals=['1m','5m','15m','30m','1H','4H','1D']
+        valid_intervals = ['1m','5m','15m','30m','1H','4H','1D']
         if indicator_interval not in valid_intervals:
             return jsonify({'status':'error','message':'Invalid interval'})
         
-        config.sol_trade_amount=sol_trade_amount
-        config.check_interval=check_interval
-        config.indicator_interval=indicator_interval
+        if rsi_period < 6 or rsi_period > 30:
+            return jsonify({'status':'error','message':'RSI period must be 6-30'})
         
-        return jsonify({'status':'success','message':f'Updated: {sol_trade_amount} SOL, {check_interval}s, {indicator_interval}'})
+        if rsi_oversold < 10 or rsi_oversold > 40:
+            return jsonify({'status':'error','message':'RSI oversold must be 10-40'})
+        
+        if rsi_overbought < 60 or rsi_overbought > 90:
+            return jsonify({'status':'error','message':'RSI overbought must be 60-90'})
+        
+        if profit_target_percent < 0.1 or profit_target_percent > 50:
+            return jsonify({'status':'error','message':'Profit target must be 0.1-50%'})
+        
+        config.trade_type = trade_type
+        config.trade_percentage = trade_percentage
+        config.sol_trade_amount = sol_trade_amount
+        config.check_interval = check_interval
+        config.indicator_interval = indicator_interval
+        config.rsi_period = rsi_period
+        config.rsi_oversold = rsi_oversold
+        config.rsi_overbought = rsi_overbought
+        config.profit_target_percent = profit_target_percent
+        config.require_rsi_cycle = require_rsi_cycle
+        
+        return jsonify({'status':'success','message':f'Updated: {trade_type} mode, {sol_trade_amount} SOL, {check_interval}s, {indicator_interval}, RSI({rsi_period},{rsi_oversold},{rsi_overbought}), Profit Target: {profit_target_percent}%, RSI Cycle: {require_rsi_cycle}'})
     except Exception as e:
         return jsonify({'status':'error','message':str(e)})
 
 @app.route('/api/balance')
 def get_balance():
     try:
-        result=make_api_request('GET','/api/spot/v1/account/assets')
+        result = make_api_request('GET','/api/spot/v1/account/assets')
         
         if 'error' in result:
             return jsonify({'status':'error','message':'Failed to get balance'})
         
-        sol_balance,usdt_balance=extract_balances(result)
+        sol_balance, usdt_balance = extract_balances(result)
         
-        trading_state.current_sol_balance=float(sol_balance)
-        trading_state.current_usdt_balance=float(usdt_balance)
+        trading_state.current_sol_balance = float(sol_balance)
+        trading_state.current_usdt_balance = float(usdt_balance)
         
         return jsonify({'status':'success','sol_balance':sol_balance,'usdt_balance':usdt_balance})
     except Exception as e:
@@ -734,24 +941,19 @@ def get_balance():
 
 @app.route('/api/manual_buy',methods=['POST'])
 def manual_buy():
-    """Execute manual buy order with specified amount"""
+    """Execute manual buy order with specified amount (percentage or fixed) - SOL"""
     try:
-        amount=float(request.args.get('amount',0.1))
+        percentage = request.args.get('percentage')
+        sol_amount = request.args.get('sol_amount')
         
-        if amount<0.1 or amount>100:
-            return jsonify({'status':'error','message':'Amount must be 0.1-100 SOL'})
-        
-        sol_balance,usdt_balance=get_current_balances()
+        sol_balance, usdt_balance = get_current_balances()
         
         # Try to get price with better error handling
-        ticker_result=make_api_request('GET','/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL')
-        
-        print(f"Manual buy - Ticker response: {ticker_result}")  # Debug log
+        ticker_result = make_api_request('GET', '/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL')
         
         if 'error' in ticker_result:
             return jsonify({'status':'error','message':'Failed to get price'})
         
-        # Handle different response formats  
         current_price = None
         if isinstance(ticker_result, dict):
             if 'data' in ticker_result:
@@ -764,16 +966,39 @@ def manual_buy():
                 current_price = ticker_result.get('close') or ticker_result.get('last') or ticker_result.get('price')
         
         if not current_price:
-            print(f"Could not parse price from: {ticker_result}")
             return jsonify({'status':'error','message':'Could not get current price'})
         
-        current_price=float(current_price)
-        usdt_needed=amount*current_price
+        current_price = float(current_price)
         
-        if usdt_balance<usdt_needed:
-            return jsonify({'status':'error','message':f'Insufficient USDT: Need ${usdt_needed:.2f}, have ${usdt_balance:.2f}'})
-        
-        sol_amount_rounded=round(amount,4)
+        if percentage:
+            percentage = int(percentage)
+            if percentage < 1 or percentage > 100:
+                return jsonify({'status':'error','message':'Percentage must be 1-100'})
+            
+            usdt_to_spend = usdt_balance * (percentage / 100.0)
+            sol_amount_to_buy = usdt_to_spend / current_price
+            
+            if usdt_balance < usdt_to_spend:
+                return jsonify({'status':'error','message':f'Insufficient USDT: Need ${usdt_to_spend:.2f}, have ${usdt_balance:.2f}'})
+            
+            log_message = f'Manual BUY of {percentage}% of USDT (${usdt_to_spend:.2f})'
+            
+        elif sol_amount:
+            sol_amount_to_buy = float(sol_amount)
+            if sol_amount_to_buy < 0.01 or sol_amount_to_buy > 1000:
+                return jsonify({'status':'error','message':'SOL amount must be 0.01-1000 SOL'})
+            
+            usdt_to_spend = sol_amount_to_buy * current_price
+            
+            if usdt_balance < usdt_to_spend:
+                return jsonify({'status':'error','message':f'Insufficient USDT: Need ${usdt_to_spend:.2f}, have ${usdt_balance:.2f}'})
+            
+            log_message = f'Manual BUY of {sol_amount_to_buy} SOL'
+            
+        else:
+            return jsonify({'status':'error','message':'Missing percentage or sol_amount parameter'})
+            
+        sol_amount_rounded = round(sol_amount_to_buy, 4)
         
         order_data={
             "symbol":"SOLUSDT_SPBL",
@@ -784,9 +1009,9 @@ def manual_buy():
         }
         
         print(f"\n{'='*60}")
-        print(f"MANUAL BUY ORDER")
+        print(f"MANUAL BUY ORDER - SOLANA")
         print(f"Amount: {sol_amount_rounded:.4f} SOL")
-        print(f"Cost: ${usdt_needed:.2f} USDT")
+        print(f"Cost: ${usdt_to_spend:.2f} USDT")
         print(f"Price: ${current_price:.2f}")
         print(f"{'='*60}\n")
         
@@ -807,47 +1032,51 @@ def manual_buy():
             if 'error' in result:
                 return jsonify({'status':'error','message':f"Buy failed: {result.get('message')}"})
         
-        print(f"✅ MANUAL BUY SUCCESSFUL")
+        print(f"✅ MANUAL BUY SUCCESSFUL - SOLANA")
+        
+        # Store buy price for manual buys too
+        trading_state.last_buy_price = current_price
+        if config.require_rsi_cycle:
+            trading_state.rsi_cycle_complete = False
+        
         time.sleep(1)
         get_current_balances()
         
-        trading_state.trade_history.append({
+        trade_record = {
             'time':get_ny_time().isoformat(),
             'action':'MANUAL BUY',
             'sol_amount':sol_amount_rounded,
-            'usdt_amount':usdt_needed,
+            'usdt_amount':sol_amount_rounded * current_price,
             'price':current_price,
             'interval':'manual',
             'signals':{}
-        })
+        }
+        trading_state.trade_history.append(trade_record)
+        # Update profit stats after trade
+        calculate_profit_stats()
         
-        return jsonify({'status':'success','message':f'Manual buy successful: {sol_amount_rounded} SOL for ${usdt_needed:.2f}'})
+        return jsonify({'status':'success','message':f'{log_message} successful: {sol_amount_rounded:.4f} SOL for ${usdt_to_spend:.2f}'})
         
     except Exception as e:
         return jsonify({'status':'error','message':str(e)})
 
 @app.route('/api/manual_sell',methods=['POST'])
 def manual_sell():
-    """Execute manual sell order with specified amount"""
+    """Execute manual sell order - ALWAYS sells 100% of SOL balance"""
     try:
-        amount=float(request.args.get('amount',0.1))
+        sol_balance, usdt_balance = get_current_balances()
         
-        if amount<0.1 or amount>100:
-            return jsonify({'status':'error','message':'Amount must be 0.1-100 SOL'})
+        # --- ALWAYS sell 100% of SOL balance ---
+        sol_amount_to_sell = sol_balance
+            
+        if sol_balance < sol_amount_to_sell:
+            return jsonify({'status':'error','message':f'Insufficient SOL: Need {sol_amount_to_sell:.4f} SOL, have {sol_balance:.4f} SOL'})
+            
+        sol_amount_rounded=round(sol_amount_to_sell,4)
         
-        sol_balance,usdt_balance=get_current_balances()
+        # Try to get price with better error handling
+        ticker_result = make_api_request('GET', '/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL')
         
-        # If trying to sell close to what we have, just sell everything
-        # This accounts for small differences due to fees
-        if amount > sol_balance * 0.95 and sol_balance >= amount * 0.95:
-            print(f"Requested {amount} SOL, have {sol_balance} SOL - selling all available")
-            sol_amount_rounded = round(sol_balance, 4)
-        elif sol_balance < amount:
-            return jsonify({'status':'error','message':f'Insufficient SOL: Need {amount} SOL, have {sol_balance} SOL'})
-        else:
-            sol_amount_rounded = round(amount, 4)
-        
-        ticker_result=make_api_request('GET','/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL')
         if 'error' in ticker_result:
             return jsonify({'status':'error','message':'Failed to get price'})
         
@@ -859,6 +1088,8 @@ def manual_sell():
         current_price=float(price_field)
         expected_usdt=sol_amount_rounded*current_price
         
+        log_message = f'Manual SELL of 100% SOL ({sol_amount_rounded:.4f} SOL)'
+            
         order_data={
             "symbol":"SOLUSDT_SPBL",
             "side":"sell",
@@ -868,8 +1099,8 @@ def manual_sell():
         }
         
         print(f"\n{'='*60}")
-        print(f"MANUAL SELL ORDER")
-        print(f"Amount: {sol_amount_rounded:.4f} SOL")
+        print(f"MANUAL SELL ORDER - SOLANA")
+        print(f"Amount: {sol_amount_rounded:.4f} SOL (100% of balance)")
         print(f"Expected: ${expected_usdt:.2f} USDT")
         print(f"Price: ${current_price:.2f}")
         print(f"{'='*60}\n")
@@ -891,11 +1122,15 @@ def manual_sell():
             if 'error' in result:
                 return jsonify({'status':'error','message':f"Sell failed: {result.get('message')}"})
         
-        print(f"✅ MANUAL SELL SUCCESSFUL")
+        print(f"✅ MANUAL SELL SUCCESSFUL - SOLANA")
+        
+        # Clear buy price after manual sell
+        trading_state.last_buy_price = None
+        
         time.sleep(1)
         get_current_balances()
         
-        trading_state.trade_history.append({
+        trade_record = {
             'time':get_ny_time().isoformat(),
             'action':'MANUAL SELL',
             'sol_amount':sol_amount_rounded,
@@ -903,19 +1138,29 @@ def manual_sell():
             'price':current_price,
             'interval':'manual',
             'signals':{}
-        })
+        }
+        trading_state.trade_history.append(trade_record)
+        # Update profit stats after trade
+        calculate_profit_stats()
         
-        return jsonify({'status':'success','message':f'Manual sell successful: {sol_amount_rounded} SOL for ${expected_usdt:.2f}'})
+        return jsonify({'status':'success','message':f'{log_message} successful: {sol_amount_rounded:.4f} SOL for ${expected_usdt:.2f}'})
         
     except Exception as e:
         return jsonify({'status':'error','message':str(e)})
 
 if __name__=='__main__':
     print("\n"+"="*60)
-    print("SOLANA TRADING BOT - FIXED SOL AMOUNT MODE")
+    print("SOLANA TRADING BOT - RSI ONLY STRATEGY WITH PROFIT PROTECTION")
     print("="*60)
-    print(f"\nFixed Amount: {config.sol_trade_amount} SOL per trade")
-    print("Strategy: 2 of 3 indicators must agree")
+    if config.trade_type == 'percentage':
+        print(f"\nBuy Amount: {config.trade_percentage}% of balance per trade")
+    else:
+        print(f"\nBuy Amount: {config.sol_trade_amount} SOL per trade")
+    print("Sell Amount: 100% of SOL balance")
+    print("Strategy: RSI Only (Oversold/Overbought levels)")
+    print(f"RSI Settings: Period={config.rsi_period}, Oversold={config.rsi_oversold}, Overbought={config.rsi_overbought}")
+    print(f"Profit Protection: Never sell at loss, target {config.profit_target_percent}% profit")
+    print(f"RSI Cycle Required: {config.require_rsi_cycle}")
     print(f"Interval: {config.indicator_interval}")
     print(f"Check: {config.check_interval} seconds")
     print("\nAPI Keys from environment variables:")
@@ -925,4 +1170,6 @@ if __name__=='__main__':
     print("\nStarting server...")
     print("="*60+"\n")
     
-    app.run(debug=True,host='0.0.0.0',port=5000)
+    # Get port from environment variable (Railway uses PORT)
+port = int(os.environ.get('PORT', 5000))
+app.run(debug=False, host='0.0.0.0', port=port)
