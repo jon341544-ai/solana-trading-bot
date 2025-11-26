@@ -139,7 +139,7 @@ def calculate_profit_stats():
         print(f"Error calculating profit stats: {e}")
 
 def make_api_request(method, endpoint, data=None):
-    """Make authenticated API request"""
+    """Make authenticated API request with corrected signature"""
     if not config.is_configured:
         return {'error': 'API credentials not configured'}
     
@@ -148,9 +148,24 @@ def make_api_request(method, endpoint, data=None):
             return {'error': 'Bot stopped'}
             
         timestamp = str(int(time.time() * 1000))
-        body_string = json.dumps(data) if data else ''
-        message = f"{timestamp}{method.upper()}{endpoint}{body_string}"
         
+        # CoinCatch API signature format - CORRECTED
+        if method.upper() == 'GET':
+            if '?' in endpoint:
+                # For GET requests with query parameters
+                message = f"{timestamp}{method.upper()}{endpoint}"
+            else:
+                message = f"{timestamp}{method.upper()}{endpoint}"
+        else:
+            # For POST requests with body
+            body_string = json.dumps(data) if data else ''
+            message = f"{timestamp}{method.upper()}{endpoint}{body_string}"
+        
+        print(f"🔐 Signature debug - Timestamp: {timestamp}")
+        print(f"🔐 Signature debug - Method: {method.upper()}")
+        print(f"🔐 Signature debug - Endpoint: {endpoint}")
+        
+        # Create signature - CORRECTED
         signature = base64.b64encode(
             hmac.new(
                 config.api_secret.encode('utf-8'),
@@ -168,23 +183,38 @@ def make_api_request(method, endpoint, data=None):
         }
 
         url = config.base_url + endpoint
-        timeout = 5
+        timeout = 10  # Increased timeout
+        
+        print(f"🌐 Making {method} request to: {url}")
         
         if method.upper() == 'GET':
             response = requests.get(url, headers=headers, timeout=timeout)
         else:
             response = requests.post(url, headers=headers, json=data, timeout=timeout)
         
-        if response.headers.get('content-type', '').startswith('application/json'):
-            response_data = response.json()
-        else:
-            return {'error': f'HTTP {response.status_code}', 'message': 'Server returned non-JSON response'}
+        print(f"📡 Response status: {response.status_code}")
         
+        # Handle response
         if response.status_code == 200:
-            return response_data
+            try:
+                response_data = response.json()
+                print(f"✅ API request successful")
+                return response_data
+            except json.JSONDecodeError:
+                return {'error': 'Invalid JSON response', 'raw_response': response.text}
         else:
-            return {'error': f'HTTP {response.status_code}', 'message': response_data.get('msg', str(response_data))}
+            error_msg = f'HTTP {response.status_code}'
+            try:
+                error_detail = response.json()
+                error_msg += f" - {error_detail}"
+            except:
+                error_msg += f" - {response.text}"
+            return {'error': error_msg}
             
+    except requests.exceptions.Timeout:
+        return {'error': 'Request timeout'}
+    except requests.exceptions.ConnectionError:
+        return {'error': 'Connection error'}
     except Exception as e:
         return {'error': f'Request failed: {str(e)}'}
 
@@ -196,18 +226,38 @@ def test_api_connection():
         print("❌ API credentials not configured")
         print("Please set environment variables:")
         print("  - COINCATCH_API_KEY")
-        print("  - COINCATCH_API_SECRET")
+        print("  - COINCATCH_API_SECRET") 
         print("  - COINCATCH_PASSPHRASE")
         return False
     
     print("✅ API credentials found")
     
-    # Test balance endpoint
+    # Test with a simple endpoint first
     print("🔌 Testing API connection...")
+    
+    # Test 1: Public endpoint (no auth required)
+    try:
+        public_result = requests.get(f"{config.base_url}/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL", timeout=5)
+        if public_result.status_code == 200:
+            print("✅ Public API endpoint accessible")
+        else:
+            print(f"⚠️ Public endpoint returned: {public_result.status_code}")
+    except Exception as e:
+        print(f"⚠️ Cannot reach public API: {e}")
+    
+    # Test 2: Authenticated endpoint
     result = make_api_request('GET', '/api/spot/v1/account/assets')
     
     if 'error' in result:
-        print(f"❌ API connection failed: {result.get('message')}")
+        print(f"❌ API authentication failed: {result.get('error')}")
+        
+        # Provide more specific debugging
+        if "signature" in str(result.get('error')).lower():
+            print("🔍 Signature error detected - checking configuration:")
+            print(f"   API Key length: {len(config.api_key)}")
+            print(f"   API Secret length: {len(config.api_secret)}")
+            print(f"   Passphrase length: {len(config.passphrase)}")
+            print("   Please verify your API credentials are correct")
         return False
     
     print("✅ API connection successful")
@@ -992,7 +1042,7 @@ def health_check():
         result = make_api_request('GET', '/api/spot/v1/account/assets')
         health_status['api_connected'] = 'error' not in result
         if 'error' in result:
-            health_status['api_error'] = result.get('message')
+            health_status['api_error'] = result.get('error')
     except Exception as e:
         health_status['api_connected'] = False
         health_status['api_error'] = str(e)
