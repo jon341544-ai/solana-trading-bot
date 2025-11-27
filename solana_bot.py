@@ -12,10 +12,11 @@ from flask import Flask, jsonify, request, render_template
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import threading
-import subprocess
-import sys
 
 app = Flask(__name__)
+
+# Global variable to store time offset for Railway clock drift
+time_offset = 0
 
 # Configuration
 class Config:
@@ -56,71 +57,86 @@ def get_ny_time():
     return datetime.now(config.timezone)
 
 def sync_server_time():
-    """Force sync server time with NTP servers"""
+    """Force sync server time for Railway deployment"""
+    global time_offset
     try:
-        print("🕒 Syncing server time...")
-        current_before = datetime.now()
-        print(f"🕒 Current server time before sync: {current_before}")
+        print("🕒 Checking server time synchronization...")
+        current_time = datetime.now()
+        print(f"🕒 Current server time: {current_time}")
         
-        # For Railway/Linux servers - use multiple approaches
-        try:
-            # Method 1: Use system ntpdate if available
-            result = subprocess.run(
-                ['which', 'ntpdate'], 
-                capture_output=True, 
-                text=True
-            )
-            if result.returncode == 0:
-                # ntpdate is available
-                ntp_servers = ['time.google.com', 'pool.ntp.org', 'time.windows.com']
-                for server in ntp_servers:
-                    try:
-                        result = subprocess.run(
-                            ['sudo', 'ntpdate', '-u', server],
-                            capture_output=True, 
-                            text=True, 
-                            timeout=15
-                        )
-                        if result.returncode == 0:
-                            print(f"✅ Time synced with {server}")
-                            break
-                    except:
-                        continue
-        except:
-            pass
+        # Get actual timestamp (this is what the server thinks it is)
+        server_timestamp = int(time.time())
+        print(f"🕒 Server timestamp: {server_timestamp}")
         
-        # Method 2: Use timedatectl (common on modern Linux)
-        try:
-            result = subprocess.run(
-                ['timedatectl', 'set-ntp', 'true'],
-                capture_output=True, 
-                text=True
-            )
-            if result.returncode == 0:
-                print("✅ Enabled automatic time synchronization")
-        except:
-            pass
+        # Get real time from reliable external sources
+        time_sources = [
+            'http://worldtimeapi.org/api/ip',
+            'https://timeapi.io/api/Time/current/zone?timeZone=UTC',
+            'http://api.timezonedb.com/v2.1/get-time-zone?key=EXAMPLE&format=json&by=zone&zone=UTC'
+        ]
         
-        # Method 3: Manual sync using HTTP time APIs as fallback
-        try:
-            time_response = requests.get('http://worldtimeapi.org/api/ip', timeout=5)
-            if time_response.status_code == 200:
-                time_data = time_response.json()
-                server_time = datetime.fromisoformat(time_data['datetime'].replace('Z', '+00:00'))
-                print(f"🌍 WorldTimeAPI time: {server_time}")
-        except Exception as e:
-            print(f"⚠️ HTTP time sync failed: {e}")
+        real_timestamp = None
+        for source in time_sources:
+            try:
+                print(f"🕒 Checking time from: {source}")
+                time_response = requests.get(source, timeout=10)
+                if time_response.status_code == 200:
+                    time_data = time_response.json()
+                    
+                    # Parse different response formats
+                    if 'unixtime' in time_data:
+                        real_timestamp = time_data['unixtime']
+                    elif 'currentUnixTime' in time_data:
+                        real_timestamp = time_data['currentUnixTime']
+                    elif 'timestamp' in time_data:
+                        real_timestamp = time_data['timestamp']
+                    elif 'datetime' in time_data:
+                        real_datetime = datetime.fromisoformat(time_data['datetime'].replace('Z', '+00:00'))
+                        real_timestamp = int(real_datetime.timestamp())
+                    
+                    if real_timestamp:
+                        real_datetime = datetime.fromtimestamp(real_timestamp)
+                        print(f"🌍 Real world time: {real_datetime}")
+                        print(f"🌍 Real timestamp: {real_timestamp}")
+                        
+                        time_diff = server_timestamp - real_timestamp
+                        print(f"⏰ Time difference: {time_diff} seconds ({abs(time_diff)/86400:.1f} days)")
+                        
+                        if abs(time_diff) > 300:  # More than 5 minutes difference
+                            print("🚨 CRITICAL: Server clock is significantly out of sync!")
+                            print("💡 Railway servers sometimes have clock drift issues")
+                            print("🔄 Applying timestamp compensation...")
+                            
+                            # Store the offset for compensation
+                            time_offset = time_diff
+                            print(f"📏 Compensation offset set to: {time_offset} seconds")
+                        else:
+                            print("✅ Server time is reasonably synchronized")
+                            time_offset = 0
+                        
+                        break
+                        
+            except Exception as e:
+                print(f"⚠️ Could not get time from {source}: {e}")
+                continue
         
-        current_after = datetime.now()
-        print(f"🕒 Current server time after sync: {current_after}")
-        print(f"⏱️  Time difference: {(current_after - current_before).total_seconds():.2f} seconds")
+        if real_timestamp is None:
+            print("⚠️ Could not verify real time from any source")
+            print("💡 Using server time without verification")
+            time_offset = 0
         
         return True
         
     except Exception as e:
-        print(f"⚠️ Time sync failed: {e}")
-        # Continue anyway - we'll use the best available time
+        print(f"⚠️ Time sync check failed: {e}")
         return True
+
+def get_corrected_timestamp():
+    """Get timestamp adjusted for server clock drift"""
+    global time_offset
+    corrected = int(time.time()) - time_offset
+    print(f"🕒 Raw timestamp: {int(time.time())}, Corrected: {corrected}, Offset: {time_offset}")
+    return str(corrected)
 
 # Trading state
 class TradingState:
@@ -208,7 +224,7 @@ def calculate_profit_stats():
         print(f"Error calculating profit stats: {e}")
 
 def make_api_request(method, endpoint, data=None):
-    """Make authenticated API request with CORRECT CoinCatch signature format"""
+    """Make authenticated API request with clock drift compensation"""
     if not config.is_configured:
         return {'error': 'API credentials not configured'}
     
@@ -216,24 +232,23 @@ def make_api_request(method, endpoint, data=None):
         if not trading_state.is_running and endpoint not in ['/api/spot/v1/account/assets']:
             return {'error': 'Bot stopped'}
         
-        # FIX: Generate timestamp RIGHT before creating the request
-        timestamp = str(int(time.time()))
+        # FIX: Use compensated timestamp for Railway clock drift
+        timestamp = get_corrected_timestamp()
         
-        # FIX: Correct endpoint typo (sport -> spot)
+        # Fix endpoint typo
         if endpoint.startswith('/api/sport/'):
             endpoint = endpoint.replace('/api/sport/', '/api/spot/')
             
-        # CoinCatch signature format: timestamp + method + requestPath + body
+        # CoinCatch signature format
         if method.upper() == 'GET':
             message = timestamp + method.upper() + endpoint
         else:
             body_string = json.dumps(data) if data else ''
             message = timestamp + method.upper() + endpoint + body_string
         
-        print(f"🔐 Signature debug - Timestamp: {timestamp}")
-        print(f"🔐 Signature debug - Method: {method.upper()}")
-        print(f"🔐 Signature debug - Endpoint: {endpoint}")
-        print(f"🔐 Signature debug - Message length: {len(message)}")
+        print(f"🔐 Using COMPENSATED timestamp: {timestamp}")
+        print(f"🔐 Method: {method.upper()}")
+        print(f"🔐 Endpoint: {endpoint}")
         
         # Create signature
         signature = base64.b64encode(
@@ -254,19 +269,14 @@ def make_api_request(method, endpoint, data=None):
 
         url = config.base_url + endpoint
         
-        # Add timing info for debugging
-        request_time = datetime.now()
-        print(f"🌐 Making {method} request at: {request_time}")
+        print(f"🌐 Making {method} request...")
         
         if method.upper() == 'GET':
             response = requests.get(url, headers=headers, timeout=10)
         else:
             response = requests.post(url, headers=headers, json=data, timeout=10)
         
-        response_time = datetime.now()
         print(f"📡 Response status: {response.status_code}")
-        print(f"📡 Response received at: {response_time}")
-        print(f"⏱️  Request duration: {(response_time - request_time).total_seconds():.2f}s")
         
         if response.status_code == 200:
             try:
@@ -308,7 +318,7 @@ def test_api_connection():
     print(f"🔒 API Secret: {'*' * min(20, len(config.api_secret))}...")
     print(f"🗝️ Passphrase: {'*' * len(config.passphrase)}")
     
-    # Sync server time first - CRITICAL FIX
+    # Sync server time first - CRITICAL FIX for Railway
     print("\n🕒 Synchronizing server time...")
     sync_server_time()
     
@@ -346,10 +356,21 @@ def test_api_connection():
         error_str = str(result.get('error')).lower()
         if "timestamp" in error_str:
             print("🔍 TIMESTAMP ERROR DETECTED")
-            print("   Server clock may be out of sync")
-            print("   Trying alternative approach...")
+            print("   Railway server clock drift detected")
+            print("   Trying manual timestamp adjustment...")
             
-            # Try one more time with fresh timestamp
+            # Try with manual adjustment
+            global time_offset
+            if "expired" in error_str:
+                print("   Timestamp is too far in the future, adjusting backward...")
+                time_offset += 31536000  # Add 1 year compensation
+            else:
+                print("   Timestamp issue detected, adjusting...")
+                time_offset += 3600  # Add 1 hour compensation
+                
+            print(f"   New offset: {time_offset} seconds")
+            
+            # Try one more time with adjusted timestamp
             time.sleep(1)
             result = make_api_request('GET', '/api/spot/v1/account/assets')
             if 'error' in result:
@@ -559,7 +580,7 @@ def get_trading_signals():
         signals['profit_target_reached'] = profit_percent >= config.profit_target_percent
     else:
         signals['profit_percent'] = 0
-        signals['profit_target_reached'] = False
+        signals['profit_target_recent'] = False
     
     # Determine consensus based on RSI signal strength and profit conditions
     if rsi_signal == 1 and (trading_state.rsi_cycle_complete or not config.require_rsi_cycle):
