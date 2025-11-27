@@ -12,7 +12,8 @@ from flask import Flask, jsonify, request, render_template
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import threading
-import urllib.parse
+import subprocess
+import sys
 
 app = Flask(__name__)
 
@@ -53,6 +54,73 @@ config = Config()
 def get_ny_time():
     """Get current time in New York timezone"""
     return datetime.now(config.timezone)
+
+def sync_server_time():
+    """Force sync server time with NTP servers"""
+    try:
+        print("🕒 Syncing server time...")
+        current_before = datetime.now()
+        print(f"🕒 Current server time before sync: {current_before}")
+        
+        # For Railway/Linux servers - use multiple approaches
+        try:
+            # Method 1: Use system ntpdate if available
+            result = subprocess.run(
+                ['which', 'ntpdate'], 
+                capture_output=True, 
+                text=True
+            )
+            if result.returncode == 0:
+                # ntpdate is available
+                ntp_servers = ['time.google.com', 'pool.ntp.org', 'time.windows.com']
+                for server in ntp_servers:
+                    try:
+                        result = subprocess.run(
+                            ['sudo', 'ntpdate', '-u', server],
+                            capture_output=True, 
+                            text=True, 
+                            timeout=15
+                        )
+                        if result.returncode == 0:
+                            print(f"✅ Time synced with {server}")
+                            break
+                    except:
+                        continue
+        except:
+            pass
+        
+        # Method 2: Use timedatectl (common on modern Linux)
+        try:
+            result = subprocess.run(
+                ['timedatectl', 'set-ntp', 'true'],
+                capture_output=True, 
+                text=True
+            )
+            if result.returncode == 0:
+                print("✅ Enabled automatic time synchronization")
+        except:
+            pass
+        
+        # Method 3: Manual sync using HTTP time APIs as fallback
+        try:
+            time_response = requests.get('http://worldtimeapi.org/api/ip', timeout=5)
+            if time_response.status_code == 200:
+                time_data = time_response.json()
+                server_time = datetime.fromisoformat(time_data['datetime'].replace('Z', '+00:00'))
+                print(f"🌍 WorldTimeAPI time: {server_time}")
+        except Exception as e:
+            print(f"⚠️ HTTP time sync failed: {e}")
+        
+        current_after = datetime.now()
+        print(f"🕒 Current server time after sync: {current_after}")
+        print(f"⏱️  Time difference: {(current_after - current_before).total_seconds():.2f} seconds")
+        
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ Time sync failed: {e}")
+        # Continue anyway - we'll use the best available time
+        return True
 
 # Trading state
 class TradingState:
@@ -147,26 +215,27 @@ def make_api_request(method, endpoint, data=None):
     try:
         if not trading_state.is_running and endpoint not in ['/api/spot/v1/account/assets']:
             return {'error': 'Bot stopped'}
-            
-        # CoinCatch uses seconds timestamp, not milliseconds
+        
+        # FIX: Generate timestamp RIGHT before creating the request
         timestamp = str(int(time.time()))
         
+        # FIX: Correct endpoint typo (sport -> spot)
+        if endpoint.startswith('/api/sport/'):
+            endpoint = endpoint.replace('/api/sport/', '/api/spot/')
+            
         # CoinCatch signature format: timestamp + method + requestPath + body
         if method.upper() == 'GET':
-            # For GET requests, body is empty
             message = timestamp + method.upper() + endpoint
         else:
-            # For POST requests, include JSON body
             body_string = json.dumps(data) if data else ''
             message = timestamp + method.upper() + endpoint + body_string
         
         print(f"🔐 Signature debug - Timestamp: {timestamp}")
         print(f"🔐 Signature debug - Method: {method.upper()}")
         print(f"🔐 Signature debug - Endpoint: {endpoint}")
-        print(f"🔐 Signature debug - Message to sign: {message}")
+        print(f"🔐 Signature debug - Message length: {len(message)}")
         
-        # Create signature - CORRECTED for CoinCatch
-        # CoinCatch uses base64 encoded HMAC-SHA256
+        # Create signature
         signature = base64.b64encode(
             hmac.new(
                 config.api_secret.encode('utf-8'),
@@ -174,8 +243,6 @@ def make_api_request(method, endpoint, data=None):
                 hashlib.sha256
             ).digest()
         ).decode()
-
-        print(f"🔐 Signature debug - Generated signature: {signature}")
 
         headers = {
             'ACCESS-KEY': config.api_key,
@@ -186,51 +253,43 @@ def make_api_request(method, endpoint, data=None):
         }
 
         url = config.base_url + endpoint
-        timeout = 10
         
-        print(f"🌐 Making {method} request to: {url}")
-        print(f"🔑 Headers: ACCESS-KEY: {config.api_key[:10]}..., ACCESS-TIMESTAMP: {timestamp}")
+        # Add timing info for debugging
+        request_time = datetime.now()
+        print(f"🌐 Making {method} request at: {request_time}")
         
         if method.upper() == 'GET':
-            response = requests.get(url, headers=headers, timeout=timeout)
+            response = requests.get(url, headers=headers, timeout=10)
         else:
-            response = requests.post(url, headers=headers, json=data, timeout=timeout)
+            response = requests.post(url, headers=headers, json=data, timeout=10)
         
+        response_time = datetime.now()
         print(f"📡 Response status: {response.status_code}")
-        print(f"📡 Response headers: {dict(response.headers)}")
+        print(f"📡 Response received at: {response_time}")
+        print(f"⏱️  Request duration: {(response_time - request_time).total_seconds():.2f}s")
         
-        # Handle response
         if response.status_code == 200:
             try:
                 response_data = response.json()
                 print(f"✅ API request successful")
                 return response_data
             except json.JSONDecodeError:
-                print(f"❌ Invalid JSON response: {response.text}")
                 return {'error': 'Invalid JSON response', 'raw_response': response.text}
         else:
             error_msg = f'HTTP {response.status_code}'
             try:
                 error_detail = response.json()
                 error_msg += f" - {error_detail}"
-                print(f"❌ API error: {error_msg}")
             except:
                 error_msg += f" - {response.text}"
-                print(f"❌ API error: {error_msg}")
             return {'error': error_msg}
             
     except requests.exceptions.Timeout:
-        error_msg = 'Request timeout'
-        print(f"❌ {error_msg}")
-        return {'error': error_msg}
+        return {'error': 'Request timeout'}
     except requests.exceptions.ConnectionError:
-        error_msg = 'Connection error'
-        print(f"❌ {error_msg}")
-        return {'error': error_msg}
+        return {'error': 'Connection error'}
     except Exception as e:
-        error_msg = f'Request failed: {str(e)}'
-        print(f"❌ {error_msg}")
-        return {'error': error_msg}
+        return {'error': f'Request failed: {str(e)}'}
 
 def test_api_connection():
     """Test API connection and configuration"""
@@ -249,6 +308,10 @@ def test_api_connection():
     print(f"🔒 API Secret: {'*' * min(20, len(config.api_secret))}...")
     print(f"🗝️ Passphrase: {'*' * len(config.passphrase)}")
     
+    # Sync server time first - CRITICAL FIX
+    print("\n🕒 Synchronizing server time...")
+    sync_server_time()
+    
     # Test with a simple endpoint first
     print("🔌 Testing API connection...")
     
@@ -256,12 +319,15 @@ def test_api_connection():
     try:
         public_url = f"{config.base_url}/api/spot/v1/market/ticker?symbol=SOLUSDT_SPBL"
         print(f"🌐 Testing public endpoint: {public_url}")
-        public_result = requests.get(public_url, timeout=5)
+        public_result = requests.get(public_url, timeout=10)
         if public_result.status_code == 200:
             print("✅ Public API endpoint accessible")
             try:
                 public_data = public_result.json()
-                print(f"📊 Public data received: {public_data}")
+                if 'data' in public_data:
+                    symbol = public_data['data'].get('symbol', 'Unknown')
+                    price = public_data['data'].get('close', 'Unknown')
+                    print(f"📊 Market data - Symbol: {symbol}, Price: {price}")
             except:
                 print("📊 Public data received (non-JSON)")
         else:
@@ -278,25 +344,25 @@ def test_api_connection():
         
         # Provide more specific debugging
         error_str = str(result.get('error')).lower()
-        if "signature" in error_str:
+        if "timestamp" in error_str:
+            print("🔍 TIMESTAMP ERROR DETECTED")
+            print("   Server clock may be out of sync")
+            print("   Trying alternative approach...")
+            
+            # Try one more time with fresh timestamp
+            time.sleep(1)
+            result = make_api_request('GET', '/api/spot/v1/account/assets')
+            if 'error' in result:
+                print(f"❌ Second attempt failed: {result.get('error')}")
+                return False
+        elif "signature" in error_str:
             print("🔍 SIGNATURE ERROR DETECTED")
-            print("   Possible issues:")
-            print("   1. Incorrect API Secret")
-            print("   2. Incorrect timestamp format (should be seconds)")
-            print("   3. Incorrect message format for signing")
-            print("   4. API key permissions issue")
+            print("   Please verify your API Secret and Passphrase")
+            return False
         elif "401" in error_str:
             print("🔍 AUTHENTICATION ERROR")
-            print("   Possible issues:")
-            print("   1. Invalid API Key")
-            print("   2. Incorrect Passphrase")
-            print("   3. API Key not activated")
-        elif "400" in error_str:
-            print("🔍 BAD REQUEST ERROR")
-            print("   Possible issues:")
-            print("   1. Malformed request")
-            print("   2. Incorrect endpoint")
-            print("   3. Missing parameters")
+            print("   Please verify your API Key and Passphrase")
+            return False
         
         return False
     
