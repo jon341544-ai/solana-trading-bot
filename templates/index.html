@@ -1,10 +1,9 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOL Trading Bot</title>
+    <title>SOLANA Trading Bot</title>
     <style>
         * {
             margin: 0;
@@ -14,7 +13,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #00ffbd 0%, #00a8ff 100%);
+            background: linear-gradient(135deg, #f7931a 0%, #ff8c00 100%);
             min-height: 100vh;
             padding: 20px;
         }
@@ -34,7 +33,7 @@
         }
         
         .header h1 {
-            color: #00a8ff;
+            color: #f7931a;
             font-size: 2.5em;
             margin-bottom: 10px;
         }
@@ -45,15 +44,15 @@
         }
         
         .mode-info {
-            background: #e6f7ff;
-            border-left: 4px solid #00a8ff;
+            background: #fff9e6;
+            border-left: 4px solid #ffc107;
             padding: 15px;
             margin: 20px 0;
             border-radius: 8px;
         }
         
         .mode-info h3 {
-            color: #0077cc;
+            color: #f57c00;
             margin-bottom: 10px;
         }
         
@@ -153,7 +152,7 @@
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #00a8ff;
+            border-color: #f7931a;
         }
         
         .form-group small {
@@ -202,14 +201,14 @@
         }
         
         .update-button {
-            background: #00a8ff;
+            background: #f7931a;
             color: white;
         }
         
         .update-button:hover {
-            background: #0088cc;
+            background: #e07d00;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 168, 255, 0.3);
+            box-shadow: 0 5px 15px rgba(247, 147, 26, 0.3);
         }
         
         .buy-button {
@@ -291,7 +290,7 @@
             margin-bottom: 10px;
             background: #f8f9fa;
             border-radius: 8px;
-            border-left: 4px solid #00a8ff;
+            border-left: 4px solid #f7931a;
         }
         
         .trade-item .trade-time {
@@ -380,7 +379,7 @@
             background: #f8f9fa;
             border-radius: 10px;
             text-align: center;
-            border-left: 4px solid #00a8ff;
+            border-left: 4px solid #f7931a;
         }
         
         .profit-card h3 {
@@ -443,13 +442,13 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🪙 SOL Trading Bot</h1>
+            <h1>₿ SOLANA Trading Bot</h1>
             <p>RSI Only Strategy with Profit Protection</p>
         </div>
         
         <div class="mode-info">
             <h3>💡 STRATEGY: RSI Only with Profit Protection</h3>
-            <p>• Never sells at a loss • Sells at profit target • Waits for RSI cycle before buying back • SELLS: 100% of SOL balance</p>
+            <p>• Never sells at a loss • Sells at profit target • Waits for RSI cycle before buying back • SELLS: 100% of BTC balance</p>
         </div>
         
         <div class="card">
@@ -631,19 +630,19 @@
                     <option value="percentage" selected>Percentage of Balance</option>
                     <option value="fixed">Fixed SOL Amount</option>
                 </select>
-                <small>Choose between a percentage of your balance or a fixed SOL amount for BUY orders only. SELL orders always use 100% of SOL balance.</small>
+                <small>Choose between a percentage of your balance or a fixed BTC amount for BUY orders only. SELL orders always use 100% of BTC balance.</small>
             </div>
             
             <div class="form-group" id="percentageTradeGroup">
                 <label>Trade Percentage:</label>
                 <input type="number" id="tradePercentage" value="50" min="1" max="100" step="1">
-                <small>Percentage of available USDT to use for BUY orders (1-100%). SELL orders always use 100% of SOL balance.</small>
+                <small>Percentage of available USDT to use for BUY orders (1-100%). SELL orders always use 100% of BTC balance.</small>
             </div>
             
             <div class="form-group" id="fixedTradeGroup" style="display:none;">
                 <label>Fixed SOL Amount:</label>
-                <input type="number" id="solTradeAmount" value="1.0" min="0.01" max="1000" step="0.1">
-                <small>SOL to buy each trade (min: 0.01). SELL orders always use 100% of SOL balance.</small>
+                <input type="number" id="solTradeAmount" value="0.001" min="0.0001" max="10" step="0.0001">
+                <small>SOL to buy each trade (min: 0.0001). SELL orders always use 100% of BTC balance.</small>
             </div>
             
             <div class="profit-settings">
@@ -666,8 +665,8 @@
             
             <div class="form-group" id="manualFixedTradeGroup" style="display:none;">
                 <label>Manual Buy Amount (SOL):</label>
-                <input type="number" id="manualFixedTradeAmount" value="1.0" min="0.01" max="1000" step="0.1">
-                <small>SOL amount for manual buy (min: 0.01). Manual sell always uses 100% of SOL balance.</small>
+                <input type="number" id="manualFixedTradeAmount" value="0.001" min="0.0001" max="10" step="0.0001">
+                <small>SOL amount for manual buy (min: 0.0001). Manual sell always uses 100% of SOL balance.</small>
             </div>
             
             <div class="form-group">
@@ -931,7 +930,7 @@
         async function updateSettings() {
             const tradeType = document.getElementById('tradeAmountType').value;
             const tradePercentage = document.getElementById('tradePercentage').value;
-            const solAmount = document.getElementById('solTradeAmount').value;
+            const btcAmount = document.getElementById('btcTradeAmount').value;
             const interval = document.getElementById('checkInterval').value;
             const timeframe = document.getElementById('indicatorInterval').value;
             const rsiPeriod = document.getElementById('rsiPeriod').value;
@@ -941,7 +940,7 @@
             const requireRsiCycle = document.getElementById('requireRsiCycle').checked;
             
             const data = await apiCall(
-                `/api/update_settings?trade_type=${tradeType}&trade_percentage=${tradePercentage}&sol_trade_amount=${solAmount}&check_interval=${interval}&indicator_interval=${timeframe}&rsi_period=${rsiPeriod}&rsi_oversold=${rsiOversold}&rsi_overbought=${rsiOverbought}&profit_target_percent=${profitTarget}&require_rsi_cycle=${requireRsiCycle}`,
+                `/api/update_settings?trade_type=${tradeType}&trade_percentage=${tradePercentage}&btc_trade_amount=${btcAmount}&check_interval=${interval}&indicator_interval=${timeframe}&rsi_period=${rsiPeriod}&rsi_oversold=${rsiOversold}&rsi_overbought=${rsiOverbought}&profit_target_percent=${profitTarget}&require_rsi_cycle=${requireRsiCycle}`,
                 'POST'
             );
             
@@ -969,12 +968,12 @@
                 confirmMessage = `Are you sure you want to manually BUY ${amount}% of your available USDT?`;
             } else {
                 amount = parseFloat(document.getElementById('manualFixedTradeAmount').value);
-                if (amount < 0.01 || amount > 1000) {
-                    alert('Fixed SOL amount must be between 0.01 and 1000 SOL.');
+                if (amount < 0.0001 || amount > 10) {
+                    alert('Fixed BTC amount must be between 0.0001 and 10 BTC.');
                     return;
                 }
-                queryParam = `sol_amount=${amount}`;
-                confirmMessage = `Are you sure you want to manually BUY ${amount} SOL?`;
+                queryParam = `btc_amount=${amount}`;
+                confirmMessage = `Are you sure you want to manually BUY ${amount} BTC?`;
             }
             
             if (!confirm(confirmMessage)) {
@@ -998,14 +997,14 @@
         }
 
         async function manualSell() {
-            const confirmMessage = `Are you sure you want to manually SELL 100% of your available SOL?`;
+            const confirmMessage = `Are you sure you want to manually SELL 100% of your available BTC?`;
             
             if (!confirm(confirmMessage)) {
                 return;
             }
             
             const result = document.getElementById('result');
-            result.innerHTML = '<div style="color: blue">⏳ Executing manual SELL (100% of SOL)...</div>';
+            result.innerHTML = '<div style="color: blue">⏳ Executing manual SELL (100% of BTC)...</div>';
             
             const data = await apiCall('/api/manual_sell', 'POST');
             
@@ -1049,7 +1048,7 @@
                 // Update trade type settings
                 document.getElementById('tradeAmountType').value = data.trade_type || 'percentage';
                 document.getElementById('tradePercentage').value = data.trade_percentage || 50;
-                document.getElementById('solTradeAmount').value = data.sol_trade_amount || 1.0;
+                document.getElementById('btcTradeAmount').value = data.btc_trade_amount || 0.001;
                 
                 // Update profit protection settings
                 document.getElementById('profitTargetPercent').value = data.profit_target_percent || 1.0;
@@ -1064,7 +1063,7 @@
                 if (data.trade_type === 'percentage') {
                     document.getElementById('tradeAmountDisplay').textContent = (data.trade_percentage || 50) + '%';
                 } else {
-                    document.getElementById('tradeAmountDisplay').textContent = (data.sol_trade_amount || 1.0) + ' SOL';
+                    document.getElementById('tradeAmountDisplay').textContent = (data.btc_trade_amount || 0.001) + ' BTC';
                 }
                 
                 // Update profit protection status
@@ -1109,11 +1108,11 @@
                     document.getElementById('consensusSignal').innerHTML = consensusHTML;
                 }
                 
-                document.getElementById('solBalance').textContent = data.sol_balance ? data.sol_balance.toFixed(4) + ' SOL' : '-- SOL';
+                document.getElementById('solBalance').textContent = data.current_base_asset_balance ? data.current_base_asset_balance.toFixed(6) + ' SOL' : '-- SOL';
                 document.getElementById('usdtBalance').textContent = data.usdt_balance ? '$' + data.usdt_balance.toFixed(2) : '$--';
                 
                 if (data.signals && data.signals.price) {
-                    document.getElementById('solPrice').textContent = '$' + data.signals.price.toFixed(2);
+                    document.getElementById('btcPrice').textContent = '$' + data.last_signals['Last Price'];
                 }
                 
                 if (data.is_running) {
@@ -1145,7 +1144,7 @@
                             <div class="trade-item">
                                 <div class="trade-time">${formattedTime}</div>
                                 <div class="trade-action ${actionClass}">${trade.action}</div>
-                                <div>${trade.sol_amount.toFixed(4)} SOL @ $${trade.price.toFixed(2)} = $${trade.usdt_amount.toFixed(2)}</div>
+                                <div>${trade.btc_amount.toFixed(6)} BTC @ $${trade.price.toFixed(2)} = $${trade.usdt_amount.toFixed(2)}</div>
                             </div>
                         `;
                     }).join('');
@@ -1163,7 +1162,7 @@
             const data = await apiCall('/api/balance');
             
             if (data.status === 'success') {
-                document.getElementById('solBalance').textContent = parseFloat(data.sol_balance).toFixed(4) + ' SOL';
+                document.getElementById('btcBalance').textContent = parseFloat(data.btc_balance).toFixed(6) + ' BTC';
                 document.getElementById('usdtBalance').textContent = '$' + parseFloat(data.usdt_balance).toFixed(2);
                 result.innerHTML = '<div style="color: green">✅ Balance updated</div>';
             } else {
